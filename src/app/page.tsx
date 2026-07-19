@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function Home(){return <main className="shell"><header><b>ArtPraxis</b><Link href="/studio">Open studio</Link></header><section className="hero"><div><p className="eyebrow">Personalized art instruction</p><h1>Learn to make what inspires you.</h1><p>Upload a reference image, choose your medium, and receive a practical lesson for composition, color, materials, and technique.</p><Link className="primary" href="/studio">Create a lesson</Link></div><div className="art"/></section></main>}
