@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import { NextRequest, NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
+import sharp from "sharp";
 import { z } from "zod";
 import { mediumSchema, tutorialSchema } from "@/lib/tutorial-schema";
 import { STAGE_ORDER, buildStageImagePrompt, buildMasterPrompt } from "@/lib/stage-image-prompts";
@@ -72,15 +73,50 @@ export interface StageImageResult {
   validation?: CompositionValidation;
 }
 
-async function urlToParts(url: string, name: string): Promise<{ file: FileLike; dataUrl: string }> {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error("Could not fetch an input image.");
-  const buf = Buffer.from(await resp.arrayBuffer());
-  const ct = resp.headers.get("content-type") || "image/png";
-  const ext = ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
+async function urlToParts(
+  url: string,
+  name: string,
+): Promise<{
+  file: FileLike;
+  dataUrl: string;
+}> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(
+      `Could not fetch input image "${name}": ${response.status}`,
+    );
+  }
+
+  const originalBuffer = Buffer.from(
+    await response.arrayBuffer(),
+  );
+
+  /*
+   * Normalize every uploaded image before sending it to OpenAI.
+   *
+   * Phone photos can contain CMYK color, unusual JPEG modes,
+   * orientation metadata, or encodings that browsers display but
+   * the image-edit endpoint rejects.
+   */
+  const normalizedBuffer = await sharp(originalBuffer)
+    .rotate()
+    .toColourspace("srgb")
+    .flatten({ background: "#ffffff" })
+    .png()
+    .toBuffer();
+
+  const contentType = "image/png";
+  const filename = `${name}.png`;
+
   return {
-    file: await toFile(buf, `${name}.${ext}`, { type: ct }),
-    dataUrl: `data:${ct};base64,${buf.toString("base64")}`,
+    file: await toFile(normalizedBuffer, filename, {
+      type: contentType,
+    }),
+
+    dataUrl: `data:${contentType};base64,${normalizedBuffer.toString(
+      "base64",
+    )}`,
   };
 }
 

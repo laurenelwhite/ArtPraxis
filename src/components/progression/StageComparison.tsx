@@ -4,6 +4,7 @@ import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProgressionStage } from "@/lib/progression";
 import { AnnotatedImage } from "@/components/progression/AnnotatedImage";
 import { CompareMenu } from "@/components/progression/CompareMenu";
+import { ComparisonFrame } from "@/components/progression/ComparisonFrame";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 
 // Which panels are visible in the two-image comparison. Add "overlay" here (and
@@ -50,7 +51,7 @@ function TargetPanel({
         : `${stage.title} — target for this stage`;
     return (
       <div className={`cmp-target-live${statusLabel ? " is-refining" : ""}${preparingFinished ? " is-preparing-finished" : ""}`}>
-        <img className="cmp-img" src={visual.url} alt={alt} loading="lazy" />
+        <img className="cmp-frame-img" src={visual.url} alt={alt} loading="lazy" />
         {statusLabel && (
           <div className="cmp-refining" role="status" aria-live="polite">
             <span className="spinner cmp-refining-spinner" aria-hidden="true" />
@@ -132,12 +133,22 @@ export function StageComparison({
         tutorial={tutorial}
         imageUrl={referenceUrl}
         defaultMode={isSketch ? "composition" : "values"}
+        inComparison
       />
     ) : (
-      <img className="cmp-img" src={referenceUrl} alt="Reference" loading="lazy" />
+      <ComparisonFrame>
+        <img
+          className="cmp-frame-img"
+          src={referenceUrl}
+          alt="Reference"
+          loading="lazy"
+        />
+      </ComparisonFrame>
     )
   ) : (
-    <div className="cmp-empty">No reference image</div>
+    <ComparisonFrame>
+      <div className="cmp-empty">No reference image</div>
+    </ComparisonFrame>
   );
 
   const targetTag = isSketch ? "Pencil sketch target" : "Target for this stage";
@@ -162,7 +173,7 @@ export function StageComparison({
           <span className="cmp-tag observe">Reference</span>
           <span className="cmp-sub">{referenceSub}</span>
         </figcaption>
-        <div className="cmp-media">{referenceMedia}</div>
+        {referenceMedia}
       </figure>
 
       <figure className="cmp-panel cmp-target">
@@ -170,9 +181,16 @@ export function StageComparison({
           <span className="cmp-tag action">{targetTag}</span>
           <span className="cmp-sub">{targetSub}</span>
         </figcaption>
-        <div className="cmp-media">
-          <TargetPanel stage={stage} onRetry={onRetry ? () => onRetry(stage.id) : undefined} retrying={retrying} />
-        </div>
+        {analytic && compare === "both" && (
+          <div className="cmp-overlay-tools-spacer" aria-hidden="true" />
+        )}
+        <ComparisonFrame>
+          <TargetPanel
+            stage={stage}
+            onRetry={onRetry ? () => onRetry(stage.id) : undefined}
+            retrying={retrying}
+          />
+        </ComparisonFrame>
       </figure>
     </div>
   );

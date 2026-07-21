@@ -123,12 +123,15 @@ function posterizeGray(d: Uint8ClampedArray, levels: number): void {
   }
 }
 
-// Sobel edge extraction → pale graphite lines on white (construction drawing).
+// Sobel edge extraction → sparse, pale graphite contours on white paper.
 function pencilLines(d: Uint8ClampedArray, w: number, h: number): void {
   const gray = new Float32Array(w * h);
   for (let i = 0, p = 0; i < d.length; i += 4, p++) gray[p] = lum(d[i], d[i + 1], d[i + 2]);
   const at = (x: number, y: number) => gray[y * w + x];
   const out = new Uint8ClampedArray(d.length);
+  const edgeThreshold = 52;
+  const maxLineDarkness = 28;
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
@@ -140,9 +143,11 @@ function pencilLines(d: Uint8ClampedArray, w: number, h: number): void {
         const gy =
           -at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1) +
           at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1);
-        const mag = Math.min(255, Math.sqrt(gx * gx + gy * gy));
-        const line = 255 - mag; // dark lines on white
-        val = 255 - (255 - line) * 0.55; // keep graphite pale
+        const mag = Math.sqrt(gx * gx + gy * gy);
+        if (mag > edgeThreshold) {
+          const strength = Math.min(1, (mag - edgeThreshold) / 110);
+          val = 255 - strength * maxLineDarkness;
+        }
       }
       out[i] = out[i + 1] = out[i + 2] = val;
       out[i + 3] = 255;

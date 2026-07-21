@@ -61,22 +61,34 @@ export function StageChapter({
   const handleReviewPrevious = onReviewPrevious ?? (() => {});
   const handleCompareFinished = onCompareFinished ?? (() => {});
 
-  return (
-    <article className="stage-chapter stage-guided">
-      <header className="stage-guided-head">
-        <p className="chapter-index">{stage.kicker}</p>
+  const primaryGoal =
+    stage.goals.find((goal) => goal.trim()) ??
+    stage.explanation;
 
-        <h3 className="stage-title">{stage.title}</h3>
+  return (
+    <article className="stage-chapter stage-guided stage-guided-v2">
+      <header className="stage-guided-head stage-guided-head-v2">
+        <div>
+          <p className="chapter-index">{stage.kicker}</p>
+          <h3 className="stage-title">{stage.title}</h3>
+        </div>
 
         <p className="stage-concept">
-          Key concept: <Term id={STAGE_CONCEPT[stage.id]} />
+          <span className="term-inline-label">Key concept</span>
+          <Term id={STAGE_CONCEPT[stage.id]} />
         </p>
       </header>
 
-      <StageFocusPanel stage={stage} />
+      <section className="stage-goal">
+        <p className="stage-goal-label">Your goal</p>
+
+        <p className="stage-goal-text">
+          <AutoTerms text={primaryGoal} />
+        </p>
+      </section>
 
       <div
-        className="stage-guided-compare"
+        className="stage-guided-compare stage-guided-compare-v2"
         id={`${stage.id}-compare`}
       >
         <StageComparison
@@ -91,28 +103,37 @@ export function StageChapter({
         />
       </div>
 
-      <StageSetupStrip
-        stage={stage}
-        medium={medium}
-      />
+      <div className="stage-essentials-grid">
+        <StageSetupStrip
+          stage={stage}
+          medium={medium}
+        />
 
-      <StagePalette
-        stage={stage}
-        tutorial={tutorial}
-        medium={medium}
-      />
-
-      <div className="stage-guided-body">
-        <p className="stage-explanation">
-          <AutoTerms text={stage.explanation} />
-        </p>
+        <StagePalette
+          stage={stage}
+          tutorial={tutorial}
+          medium={medium}
+        />
       </div>
 
-      <StageCheckpoint stage={stage} />
-
-      <StageMistake stage={stage} />
+      <div className="stage-guidance-grid">
+        <StageCheckpoint stage={stage} />
+        <StageMistake stage={stage} />
+      </div>
 
       <StageInstructorNote stage={stage} />
+
+      <details className="stage-technique-notes">
+        <summary>Technique notes</summary>
+
+        <div className="stage-technique-notes-body">
+          <StageFocusPanel stage={stage} />
+
+          <p className="stage-explanation">
+            <AutoTerms text={stage.explanation} />
+          </p>
+        </div>
+      </details>
 
       <StageNavControls
         stage={stage}

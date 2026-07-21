@@ -12,6 +12,7 @@ import type { CompareMode } from "@/components/progression/StageComparison";
 
 import { StageChapter } from "@/components/progression/StageChapter";
 import { StudyIndex } from "@/components/progression/StudyIndex";
+import { StudyPalette } from "@/components/progression/StudyPalette";
 import { TutorialView } from "@/components/TutorialView";
 
 export function StudyMode({
@@ -86,10 +87,9 @@ export function StudyMode({
     }
   };
 
-  const compareWithFinished = () => {
-    onCompareChange?.("finished");
-  };
-
+const compareWithFinished = () => {
+  onCompareChange?.("target");
+};
   return (
     <div className="study-mode">
       <header className="atelier-cover">
@@ -122,11 +122,14 @@ export function StudyMode({
 
         {finishedTargetUrl ? (
           <figure className="atelier-target-figure">
-            <img
-              src={finishedTargetUrl}
-              alt={`Finished ${medium} painting target for ${tutorial.title}`}
-              className="atelier-target-image"
-            />
+            <div className="atelier-target-frame">
+              <img
+                src={finishedTargetUrl}
+                alt={`Finished ${medium} painting target for ${tutorial.title}`}
+                className="atelier-target-image"
+                decoding="async"
+              />
+            </div>
 
             <figcaption className="atelier-target-caption">
               Your validated finished painting target
@@ -143,6 +146,8 @@ export function StudyMode({
           </div>
         )}
       </section>
+
+      <StudyPalette tutorial={tutorial} />
 
       <StudyIndex
         stages={stages}

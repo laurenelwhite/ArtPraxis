@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Tutorial } from "@/lib/tutorial-schema";
+import { ComparisonFrame } from "@/components/progression/ComparisonFrame";
 
 export type OverlayMode = "composition" | "values" | "temperature" | "none";
 
@@ -31,48 +32,67 @@ export function AnnotatedImage({
   tutorial,
   imageUrl,
   defaultMode = "composition",
+  inComparison = false,
 }: {
   tutorial: Tutorial;
   imageUrl: string;
   defaultMode?: OverlayMode;
+  inComparison?: boolean;
 }) {
   const [overlayMode, setOverlayMode] = useState<OverlayMode>(defaultMode);
   const { visualGuides } = tutorial;
 
+  const overlayTabs = (
+    <div className="overlay-tabs" role="group" aria-label="Image overlays">
+      {ALL_MODES.map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={overlayMode === value}
+          className={overlayMode === value ? "overlay-tab active" : "overlay-tab"}
+          onClick={() => setOverlayMode(value)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const imageBlock = (
+    <div className="annotated-image">
+      <img src={imageUrl} alt="Reference" />
+      {overlayMode !== "none" && (
+        <svg className="analysis-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {visualGuides.regions.filter((r) => showRegion(r.type, overlayMode)).map((r, i) => (
+            <g key={i}>
+              <rect x={r.x} y={r.y} width={r.width} height={r.height} rx="1.5" fill={regionColors[r.type]} stroke="white" strokeWidth=".45" vectorEffect="non-scaling-stroke" />
+              <text x={r.x + 1.5} y={r.y + 4} className="overlay-label">{r.label}</text>
+            </g>
+          ))}
+          {overlayMode === "composition" && (
+            <>
+              <circle cx={visualGuides.focalPoint.x} cy={visualGuides.focalPoint.y} r="3.2" fill="none" stroke="white" strokeWidth=".75" vectorEffect="non-scaling-stroke" />
+              <text x={visualGuides.focalPoint.x + 4} y={visualGuides.focalPoint.y} className="overlay-label">{visualGuides.focalPoint.label}</text>
+            </>
+          )}
+        </svg>
+      )}
+    </div>
+  );
+
+  if (inComparison) {
+    return (
+      <div className="annotated annotated-compare">
+        {overlayTabs}
+        <ComparisonFrame>{imageBlock}</ComparisonFrame>
+      </div>
+    );
+  }
+
   return (
     <div className="annotated">
-      <div className="overlay-tabs" role="group" aria-label="Image overlays">
-        {ALL_MODES.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={overlayMode === value}
-            className={overlayMode === value ? "overlay-tab active" : "overlay-tab"}
-            onClick={() => setOverlayMode(value)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="annotated-image">
-        <img src={imageUrl} alt="Reference" />
-        {overlayMode !== "none" && (
-          <svg className="analysis-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {visualGuides.regions.filter((r) => showRegion(r.type, overlayMode)).map((r, i) => (
-              <g key={i}>
-                <rect x={r.x} y={r.y} width={r.width} height={r.height} rx="1.5" fill={regionColors[r.type]} stroke="white" strokeWidth=".45" vectorEffect="non-scaling-stroke" />
-                <text x={r.x + 1.5} y={r.y + 4} className="overlay-label">{r.label}</text>
-              </g>
-            ))}
-            {overlayMode === "composition" && (
-              <>
-                <circle cx={visualGuides.focalPoint.x} cy={visualGuides.focalPoint.y} r="3.2" fill="none" stroke="white" strokeWidth=".75" vectorEffect="non-scaling-stroke" />
-                <text x={visualGuides.focalPoint.x + 4} y={visualGuides.focalPoint.y} className="overlay-label">{visualGuides.focalPoint.label}</text>
-              </>
-            )}
-          </svg>
-        )}
-      </div>
+      {overlayTabs}
+      {imageBlock}
     </div>
   );
 }

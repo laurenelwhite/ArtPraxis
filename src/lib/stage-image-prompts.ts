@@ -39,12 +39,12 @@ export const STAGE_IMAGE_SPECS: Record<StageId, StageImageSpec> = {
   "pencil-sketch": {
     label: "Pencil sketch",
     intent:
-      "A faithful light-graphite transfer of the reference — identical crop, proportions, and contours, ready to trace. No color, no finished shading.",
+      "A very light graphite contour drawing — major shapes and construction lines only, with correct proportions and composition, ready for a beginner to transfer.",
     // Note: the pencil sketch uses its own base prompt (buildSketchPrompt),
     // not the generic demonstration-plate framing; this directive is retained
     // for type completeness / fallback only.
     directive:
-      "Show only a very light, clean pencil construction drawing: major contours, proportions, perspective landmarks, and focal placement. No color and no finished shading.",
+      "Show only a very light, sparse pencil construction drawing: major contours, primary architectural forms, figure silhouettes, and broad foliage masses. Almost no shading, no crosshatching, no grayscale rendering, and no photo-filter appearance.",
   },
   "value-study": {
     label: "Value study",
@@ -139,16 +139,16 @@ function mediumLanguage(medium: Medium): string {
   }
 }
 
-// Graphite-handling note per medium. Intentionally free of any "simplify"
-// language — the pencil sketch is a faithful transfer, not a simplification.
+// Graphite-handling note per medium. Stage 1 is a sparse construction drawing,
+// not a detailed transfer or shaded rendering.
 function sketchMediumGuidance(medium: Medium): string {
   switch (medium) {
     case "watercolor":
-      return "Keep the graphite pale and delicate so the lines will not show through transparent washes — but keep every contour and proportion exactly as in the reference.";
+      return "Keep graphite extremely pale so lines disappear under transparent washes. Use fewer, longer contour strokes — never dense hatching or midtone shading.";
     case "charcoal":
-      return "Marks may be slightly broader, but keep them light, preparatory, and geometrically faithful to the reference.";
+      return "Marks may be slightly broader, but stay light, sparse, and preparatory — major shapes only, with almost no tonal filling.";
     default:
-      return "Keep the graphite light and clean while preserving every contour and proportion from the reference.";
+      return "Keep graphite light, airy, and sparse while preserving the major proportions and composition from the reference.";
   }
 }
 
@@ -163,13 +163,15 @@ function sketchMediumGuidance(medium: Medium): string {
 export function buildSketchPrompt(medium: Medium): string {
   const surface = medium === "watercolor" ? "cold-press watercolor paper" : "bright white paper";
   return [
-    "Convert the provided reference image into a professional pencil transfer drawing for a traditional watercolor instruction book.",
-    "This is a transfer drawing, not an artistic reinterpretation.",
-    "Reproduce the exact composition of the source with extremely high geometric fidelity: identical crop, identical perspective, identical subject proportions, identical facial landmarks, identical hat geometry, identical negative spaces, identical background placement, identical architectural shapes, and identical major contours.",
-    "Trace the real edges of the source. Do not stylize, do not redesign, do not simplify anatomy, and do not invent new lines.",
+    "Convert the provided reference image into a beginner-friendly pencil construction drawing for a traditional watercolor instruction book.",
+    "This is a light transfer drawing for tracing — not a finished illustration, not a photo edge filter, and not a shaded grayscale rendering.",
+    "Preserve the exact composition, crop, perspective, and major proportions of the source: same placement of architecture, figures, primary bushes, broad foliage masses, and focal structure.",
+    "Draw only with very light graphite contour lines on " + surface + ". Use clean, sparse construction lines for major shapes only.",
+    "Include primary architectural forms, figure silhouettes, large bush and tree masses, and broad foliage shapes. Omit fine texture, interior detail, facial micro-features, crosshatching, dense shading, and photorealistic edge-detection effects.",
+    "Keep almost no shading — at most one whisper-light indication of a major shadow mass. No hatching, no midtone filling, and no dense mark-making.",
+    "The drawing should look like a master instructor's preparatory sketch: airy, readable, and easy for a beginner to transfer onto watercolor paper before painting.",
+    "Do not stylize, redesign, or invent new subject matter. Do not produce a dark or heavily rendered sketch.",
     NO_TEXT,
-    `Render only delicate, extremely light graphite construction lines on ${surface}. No color, no shading beyond the faintest construction indication, and no finished texture.`,
-    "The result should look hand-drawn by a master watercolor instructor while remaining an almost exact translation of the reference — accurate enough that a student could trace it onto watercolor paper and produce a painting that matches the original reference.",
     sketchMediumGuidance(medium),
   ].join(" ");
 }
