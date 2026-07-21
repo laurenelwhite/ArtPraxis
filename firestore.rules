@@ -1,14 +1,51 @@
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
-  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
-  match /users/{uid} {
-   allow create, read, update: if owner(uid);
-   allow delete: if false;
-   match /projects/{projectId} {
-    allow create: if owner(uid) && request.resource.data.userId == request.auth.uid;
-    allow read, update, delete: if owner(uid) && resource.data.userId == request.auth.uid;
-   }
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // A user may only ever touch documents nested under their own uid path.
+    function owner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, create, update: if owner(uid);
+      allow delete: if false;
+
+      // A project lives at users/{uid}/projects/{projectId}. The path itself is
+      // already scoped to the owner, so read/list are gated purely on owner(uid)
+      // (never public). Writes additionally enforce that the userId field can
+      // only ever equal the owning uid, so ownership can't be spoofed or moved.
+      match /projects/{projectId} {
+        allow read: if owner(uid);
+        allow create: if owner(uid) && request.resource.data.userId == uid;
+        allow update: if owner(uid) && request.resource.data.userId == uid;
+        allow delete: if owner(uid);
+
+        // Full generated lesson (detail/tutorial) and any future per-project
+        // subdocuments. Still owner-only.
+        match /{document=**} {
+          allow read, write: if owner(uid);
+        }
+      }
+
+      // Reserved for upcoming milestones — owner-only, defined now so the
+      // data model and access are stable.
+      match /collections/{collectionId} {
+        allow read, write: if owner(uid);
+      }
+      match /practice/{dayId} {
+        allow read, write: if owner(uid);
+      }
+      match /coachThreads/{threadId} {
+        allow read, write: if owner(uid);
+        match /messages/{messageId} {
+          allow read, write: if owner(uid);
+        }
+      }
+    }
   }
- }
 }
