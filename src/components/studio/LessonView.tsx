@@ -119,11 +119,51 @@ export function LessonView({ id }: { id: string }) {
     };
   }, [user, authLoading, id, revokePreview]);
 
-  // Resume generation from the first unfinished item on load. Safe to call once
-  // per mount: resumedRef + lease prevent duplicate jobs; completed work is never re-run.
+  // Resume generation as soon as tutorial + medium + reference URL exist.
+  // Do not wait on UI image loads; the API fetches the Firebase URL itself.
   useEffect(() => {
-    if (authLoading || !user || !state || !state.tutorial || resumedRef.current) return;
+    if (authLoading || !user || !state) {
+      console.warn(JSON.stringify({
+        scope: "LessonView",
+        event: "trigger_evaluated",
+        skipped: true,
+        reason: authLoading ? "auth_loading" : !user ? "no_user" : "no_lesson_state",
+      }));
+      return;
+    }
+    if (!state.tutorial) {
+      console.warn(JSON.stringify({
+        scope: "LessonView",
+        event: "generation_skipped",
+        reason: "no_tutorial",
+        projectId: id,
+      }));
+      return;
+    }
+    if (!state.summary.medium || !state.summary.imageUrl) {
+      console.warn(JSON.stringify({
+        scope: "LessonView",
+        event: "generation_skipped",
+        reason: "missing_medium_or_imageUrl",
+        projectId: id,
+      }));
+      return;
+    }
+    if (resumedRef.current) {
+      console.warn(JSON.stringify({
+        scope: "LessonView",
+        event: "generation_skipped",
+        reason: "already_resumed_this_mount",
+        projectId: id,
+      }));
+      return;
+    }
     resumedRef.current = true;
+    console.warn(JSON.stringify({
+      scope: "LessonView",
+      event: "generation_request_started",
+      projectId: id,
+    }));
     orchestrateProgression({
       uid: user.uid,
       projectId: id,
@@ -131,7 +171,9 @@ export function LessonView({ id }: { id: string }) {
       medium: state.summary.medium,
       referenceImageUrl: state.summary.imageUrl,
       onMasterCandidate,
-    }).catch(() => {});
+    }).catch((e) => {
+      console.error("[LessonView] orchestrateProgression failed", e);
+    });
   }, [user, authLoading, state, id, onMasterCandidate]);
 
   async function onRegenerate() {

@@ -8,12 +8,27 @@ import { STAGE_ORDER, buildStageImagePrompt, buildMasterPrompt } from "@/lib/sta
 import type { StageId } from "@/lib/progression";
 import {
   COMPOSITION_VALIDATOR_PROMPT,
+  compositionValidatorPromptForStage,
   isAcceptable,
   normalizeValidation,
   scoreValidation,
   validationOnError,
   type CompositionValidation,
 } from "@/lib/composition-validation";
+import {
+  applyMeasuredStructure,
+  combineCategoryDecision,
+  mergeCompositionIntoCategories,
+  normalizeStageProgressValidation,
+  stageCategoryValidatorPrompt,
+  stageProgressOnError,
+  type StageProgressValidation,
+} from "@/lib/stage-progression-validation";
+import {
+  isStructureAcceptable,
+  structureSimilarity,
+  type StructureSimilarityResult,
+} from "@/lib/stage-structure-similarity";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -23,12 +38,12 @@ export const maxDuration = 300;
 //
 // 1. Generate ONE finished master painting by editing the uploaded reference,
 //    preserving exact composition and subject placement.
-// 2. Derive every stage from that master (plus the preceding stage for
-//    continuity) via image-to-image edits, so the whole sequence shares one
-//    locked composition and identical crop/dimensions.
-// 3. Validate with structured severity (pass / warning / hard_fail). Retry only
-//    on hard_fail. Warnings persist and continue. Final master hard_fail saves
-//    the candidate as needsReview (no terminal 502 that discards progress).
+// 2. Derive Sketch from the master/reference. Every later stage edits the
+//    PRIOR STAGE as the primary input, with the master only guiding appearance.
+// 3. Validate with FOUR independent categories (structural fidelity, stage
+//    progress, premature detail, prior-mark retention), combined without
+//    global softening. Early stages are judged vs the prior stage — never by
+//    finish-level similarity to the master.
 // ============================================================================
 
 const sizeSchema = z.enum(["1024x1024", "1024x1536", "1536x1024"]);
@@ -57,9 +72,9 @@ type FileLike = Awaited<ReturnType<typeof toFile>>;
 
 const GEN_ENABLED = process.env.ENABLE_STAGE_IMAGE_GEN === "true";
 // Master retries unchanged (validation still retries). Stage AI retries default
-// to 0 for MVP testing — override with STAGE_GEN_MAX_RETRIES if needed.
+// to 1 so progression / sketch failures can recover once.
 const MASTER_MAX_RETRIES = Math.max(0, Number(process.env.MASTER_GEN_MAX_RETRIES ?? 1));
-const STAGE_MAX_RETRIES = Math.max(0, Number(process.env.STAGE_GEN_MAX_RETRIES ?? 0));
+const STAGE_MAX_RETRIES = Math.max(0, Number(process.env.STAGE_GEN_MAX_RETRIES ?? 2));
 
 export interface StageImageResult {
   stageId: StageId;
@@ -71,53 +86,79 @@ export interface StageImageResult {
   validated: boolean;
   fallback: boolean;
   validation?: CompositionValidation;
+  stageProgress?: StageProgressValidation;
+  structureSimilarity?: StructureSimilarityResult | null;
+  degraded?: boolean;
 }
 
-async function urlToParts(
-  url: string,
-  name: string,
-): Promise<{
+interface PreparedImage {
   file: FileLike;
   dataUrl: string;
-}> {
-  const response = await fetch(url);
+  meta: {
+    role: string;
+    filename: string;
+    mime: string;
+    width: number;
+    height: number;
+    bytes: number;
+  };
+}
 
-  if (!response.ok) {
-    throw new Error(
-      `Could not fetch input image "${name}": ${response.status}`,
-    );
-  }
-
-  const originalBuffer = Buffer.from(
-    await response.arrayBuffer(),
-  );
-
-  /*
-   * Normalize every uploaded image before sending it to OpenAI.
-   *
-   * Phone photos can contain CMYK color, unusual JPEG modes,
-   * orientation metadata, or encodings that browsers display but
-   * the image-edit endpoint rejects.
-   */
-  const normalizedBuffer = await sharp(originalBuffer)
+async function bufferToPrepared(
+  buffer: Buffer,
+  role: string,
+  filename: string,
+): Promise<PreparedImage> {
+  const normalizedBuffer = await sharp(buffer)
     .rotate()
     .toColourspace("srgb")
     .flatten({ background: "#ffffff" })
     .png()
     .toBuffer();
-
+  const metaInfo = await sharp(normalizedBuffer).metadata();
   const contentType = "image/png";
-  const filename = `${name}.png`;
-
   return {
-    file: await toFile(normalizedBuffer, filename, {
-      type: contentType,
-    }),
-
-    dataUrl: `data:${contentType};base64,${normalizedBuffer.toString(
-      "base64",
-    )}`,
+    file: await toFile(normalizedBuffer, filename, { type: contentType }),
+    dataUrl: `data:${contentType};base64,${normalizedBuffer.toString("base64")}`,
+    meta: {
+      role,
+      filename,
+      mime: contentType,
+      width: metaInfo.width ?? 0,
+      height: metaInfo.height ?? 0,
+      bytes: normalizedBuffer.length,
+    },
   };
+}
+
+async function urlToParts(url: string, name: string): Promise<PreparedImage> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Could not fetch input image "${name}": ${response.status}`);
+  }
+  const originalBuffer = Buffer.from(await response.arrayBuffer());
+  return bufferToPrepared(originalBuffer, name, `${name}.png`);
+}
+
+/**
+ * Shrink + weaken the master so IMAGE 2 can guide color without dominating
+ * the multi-image edit (full-size finished masters overwhelm pale priors).
+ */
+async function masterAsSecondaryGuide(masterDataUrl: string): Promise<PreparedImage> {
+  const m = /^data:image\/\w+;base64,(.+)$/.exec(masterDataUrl);
+  if (!m) throw new Error("masterAsSecondaryGuide expects a data URL");
+  const weakened = await sharp(Buffer.from(m[1], "base64"))
+    .resize(384, 384, { fit: "inside" })
+    .modulate({ brightness: 1.25, saturation: 0.4 })
+    .blur(2.5)
+    .linear(0.4, 110)
+    .png()
+    .toBuffer();
+  return bufferToPrepared(
+    weakened,
+    "secondary_master_guide_only",
+    "02-master-guide-only-do-not-copy-finish.png",
+  );
 }
 
 /**
@@ -133,7 +174,44 @@ function supportsInputFidelity(model: string): boolean {
   return false;
 }
 
-async function edit(client: OpenAI, model: string, images: FileLike[], prompt: string, size: Size): Promise<string | null> {
+async function edit(
+  client: OpenAI,
+  model: string,
+  images: FileLike[],
+  prompt: string,
+  size: Size,
+  inputLog?: PreparedImage["meta"][],
+  fidelityMode: "auto" | "high" | "low" | "omit" = "auto",
+): Promise<string | null> {
+  // Multi-image progressive edits: omit high fidelity so the finished master
+  // guide cannot become the locked geometry source. Single-image master/sketch
+  // edits keep high fidelity for composition lock.
+  let fidelity: "high" | "low" | undefined;
+  if (fidelityMode === "omit") {
+    fidelity = undefined;
+  } else if (fidelityMode === "low") {
+    fidelity = "low";
+  } else if (fidelityMode === "high") {
+    fidelity = supportsInputFidelity(model) ? "high" : undefined;
+  } else if (images.length > 1) {
+    fidelity = undefined;
+  } else {
+    fidelity = supportsInputFidelity(model) ? "high" : undefined;
+  }
+
+  console.warn(
+    JSON.stringify({
+      event: "stage_edit_request",
+      inputCount: images.length,
+      inputOrder: inputLog ?? images.map((_, i) => ({ index: i + 1 })),
+      input_fidelity: fidelity ?? "omitted",
+      fidelityMode,
+      size,
+      promptAssignedTo: "shared across all image inputs (OpenAI images.edit)",
+      promptHead: prompt.slice(0, 500),
+      promptLen: prompt.length,
+    }),
+  );
   const params: {
     model: string;
     image: FileLike | FileLike[];
@@ -148,10 +226,7 @@ async function edit(client: OpenAI, model: string, images: FileLike[], prompt: s
     size,
     n: 1,
   };
-  if (supportsInputFidelity(model)) {
-    params.input_fidelity = "high";
-  }
-  // Cast: older openai typings may omit input_fidelity; runtime API accepts it on gpt-image-1 / 1.5.
+  if (fidelity) params.input_fidelity = fidelity;
   const result = await client.images.edit(params as Parameters<OpenAI["images"]["edit"]>[0]);
   if (!("data" in result)) {
     throw new Error("Unexpected streaming response from images.edit");
@@ -177,6 +252,10 @@ function logValidation(
     severity: validation.severity,
     reasons: validation.reasons,
     checks: validation.checks,
+    horizon: validation.horizonApplicability,
+    horizon_evaluated: validation.horizonApplicability === "evaluated",
+    horizon_not_applicable: validation.horizonApplicability === "not_applicable",
+    horizon_advisory_only: validation.horizonApplicability === "advisory_only",
     rawModelResponse: rawModelResponse ?? null,
   };
   console.warn("[composition_validation]", JSON.stringify(payload));
@@ -193,9 +272,14 @@ async function validateComposition(
   candidateDataUrl: string,
   label: string,
   attempt: number,
+  stageId: StageId | "master" = "master",
 ): Promise<CompositionValidation> {
   let validation: CompositionValidation;
   let rawModelResponse: unknown = null;
+  const promptText =
+    stageId === "master"
+      ? COMPOSITION_VALIDATOR_PROMPT
+      : compositionValidatorPromptForStage(stageId);
   try {
     const res = await client.chat.completions.create({
       model,
@@ -204,7 +288,7 @@ async function validateComposition(
         {
           role: "user",
           content: [
-            { type: "text", text: COMPOSITION_VALIDATOR_PROMPT },
+            { type: "text", text: promptText },
             { type: "image_url", image_url: { url: anchorDataUrl } },
             { type: "image_url", image_url: { url: candidateDataUrl } },
           ],
@@ -227,10 +311,85 @@ async function validateComposition(
 }
 
 /**
- * Generate → validate → retry only on hard_fail.
- * Warnings and passes accept the candidate.
- * Final hard_fail (stages): return fallback flag so the client can apply a
- * deterministic transform. Master mode handles needsReview separately.
+ * Independent category validation (structure / progress / premature / prior marks).
+ * Progressive stages compare against the PRIOR image, not the finished master.
+ */
+async function validateStageCategories(
+  client: OpenAI,
+  model: string,
+  stageId: StageId,
+  candidateDataUrl: string,
+  precedingDataUrl: string | null,
+  attempt: number,
+  compositionAnchorDataUrl?: string | null,
+): Promise<StageProgressValidation> {
+  if (stageId === "finished") {
+    const pass = normalizeStageProgressValidation({
+      categories: {
+        structuralFidelity: { severity: "pass", reasons: [] },
+        stageProgress: { severity: "pass", reasons: [] },
+        prematureDetail: { severity: "pass", reasons: [] },
+        priorMarkRetention: { severity: "pass", reasons: [] },
+      },
+    });
+    return pass;
+  }
+
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  > = [{ type: "text", text: stageCategoryValidatorPrompt(stageId) }];
+
+  if (stageId === "pencil-sketch") {
+    if (compositionAnchorDataUrl) {
+      content.push({ type: "image_url", image_url: { url: compositionAnchorDataUrl } });
+    }
+    content.push({ type: "image_url", image_url: { url: candidateDataUrl } });
+  } else if (precedingDataUrl) {
+    content.push({ type: "image_url", image_url: { url: precedingDataUrl } });
+    content.push({ type: "image_url", image_url: { url: candidateDataUrl } });
+  } else {
+    content.push({ type: "image_url", image_url: { url: candidateDataUrl } });
+  }
+
+  try {
+    const res = await client.chat.completions.create({
+      model,
+      response_format: { type: "json_object" },
+      messages: [{ role: "user", content }],
+    });
+    const txt = res.choices[0]?.message?.content ?? "{}";
+    let raw: unknown = {};
+    try {
+      raw = JSON.parse(txt);
+    } catch {
+      raw = { parseError: true, text: txt.slice(0, 500) };
+    }
+    const progress = normalizeStageProgressValidation(raw);
+    console.warn(
+      JSON.stringify({
+        event: "stage_category_validation",
+        stageId,
+        attempt,
+        severity: progress.severity,
+        acceptable: progress.acceptable,
+        categories: Object.fromEntries(
+          Object.entries(progress.categories).map(([k, v]) => [k, v.severity]),
+        ),
+        reasons: progress.reasons,
+      }),
+    );
+    return progress;
+  } catch (err) {
+    return stageProgressOnError(err);
+  }
+}
+
+/**
+ * Generate → independent category validation → retry on hard_fail.
+ *
+ * Categories: structural fidelity, stage progress, premature detail,
+ * prior-mark retention. Combined without global softening.
  */
 async function generateValidated(
   client: OpenAI,
@@ -239,51 +398,156 @@ async function generateValidated(
   inputs: FileLike[],
   prompt: string,
   size: Size,
-  anchorDataUrl: string,
+  compositionAnchorDataUrl: string,
+  _masterDataUrl: string,
   label: string,
-): Promise<{ dataUrl: string | null; validated: boolean; fallback: boolean; validation: CompositionValidation | null }> {
+  stageId: StageId,
+  precedingDataUrl: string | null = null,
+  inputMeta: PreparedImage["meta"][] = [],
+  fidelityMode: "auto" | "high" | "low" | "omit" = "auto",
+): Promise<{
+  dataUrl: string | null;
+  validated: boolean;
+  fallback: boolean;
+  validation: CompositionValidation | null;
+  stageProgress: StageProgressValidation | null;
+  structureSimilarity: StructureSimilarityResult | null;
+}> {
   let lastValidation: CompositionValidation | null = null;
+  let lastProgress: StageProgressValidation | null = null;
+  let lastSimilarity: StructureSimilarityResult | null = null;
 
   for (let attempt = 0; attempt <= STAGE_MAX_RETRIES; attempt++) {
     let candidate: string | null = null;
     try {
-      candidate = await edit(client, imageModel, inputs, prompt, size);
+      candidate = await edit(
+        client,
+        imageModel,
+        inputs,
+        prompt,
+        size,
+        inputMeta,
+        fidelityMode,
+      );
     } catch (err) {
       console.error(`Stage edit failed for "${label}" (attempt ${attempt})`, err);
       continue;
     }
     if (!candidate) continue;
 
-    const validation = await validateComposition(client, visionModel, anchorDataUrl, candidate, label, attempt);
+    const validation = await validateComposition(
+      client,
+      visionModel,
+      compositionAnchorDataUrl,
+      candidate,
+      label,
+      attempt,
+      stageId,
+    );
     lastValidation = validation;
 
-    if (isAcceptable(validation)) {
+    if (precedingDataUrl && stageId !== "pencil-sketch") {
+      try {
+        lastSimilarity = await structureSimilarity(precedingDataUrl, candidate);
+        console.warn(
+          JSON.stringify({
+            event: "stage_structure_similarity",
+            stageId,
+            attempt,
+            score: lastSimilarity.score,
+            mae: lastSimilarity.mae,
+            acceptable: isStructureAcceptable(stageId, lastSimilarity),
+          }),
+        );
+      } catch (err) {
+        console.warn("[stage_structure_similarity] failed", err);
+      }
+    }
+
+    let progress = await validateStageCategories(
+      client,
+      visionModel,
+      stageId,
+      candidate,
+      precedingDataUrl,
+      attempt,
+      compositionAnchorDataUrl,
+    );
+
+    progress = mergeCompositionIntoCategories(progress, validation);
+    progress = {
+      ...progress,
+      categories: applyMeasuredStructure(progress.categories, stageId, lastSimilarity),
+    };
+    const decision = combineCategoryDecision(progress.categories);
+    progress = {
+      ...progress,
+      severity: decision.severity,
+      reasons: decision.reasons,
+      acceptable: decision.acceptable,
+      checks: {
+        ...progress.checks,
+        structuralFidelity: progress.categories.structuralFidelity.severity,
+        stageCompletion: progress.categories.stageProgress.severity,
+        monotonicProgress: progress.categories.stageProgress.severity,
+        prematureDetail: progress.categories.prematureDetail.severity,
+        priorMarksRetained: progress.categories.priorMarkRetention.severity,
+      },
+    };
+    lastProgress = progress;
+
+    console.warn(
+      JSON.stringify({
+        event: "stage_category_decision",
+        stageId,
+        attempt,
+        acceptable: progress.acceptable,
+        severity: progress.severity,
+        categories: {
+          structuralFidelity: progress.categories.structuralFidelity.severity,
+          stageProgress: progress.categories.stageProgress.severity,
+          prematureDetail: progress.categories.prematureDetail.severity,
+          priorMarkRetention: progress.categories.priorMarkRetention.severity,
+        },
+      }),
+    );
+
+    if (progress.acceptable) {
       return {
         dataUrl: candidate,
-        validated: validation.severity === "pass",
+        validated: progress.severity === "pass",
         fallback: false,
         validation,
+        stageProgress: progress,
+        structureSimilarity: lastSimilarity,
       };
     }
-    // hard_fail → retry (if attempts remain)
   }
 
   console.warn(
     JSON.stringify({
-      event: "composition_validation_exhausted",
+      event: "stage_validation_exhausted",
       label,
       attempts: STAGE_MAX_RETRIES + 1,
-      lastSeverity: lastValidation?.severity ?? null,
-      lastReasons: lastValidation?.reasons ?? [],
+      lastSeverity: lastProgress?.severity ?? lastValidation?.severity ?? null,
+      lastCategories: lastProgress
+        ? Object.fromEntries(
+            Object.entries(lastProgress.categories).map(([k, v]) => [k, v.severity]),
+          )
+        : null,
+      lastStructureScore: lastSimilarity?.score ?? null,
+      lastReasons: lastProgress?.reasons ?? lastValidation?.reasons ?? [],
+      degraded: true,
     }),
   );
 
-  // Stage path: do not return a hard-failed AI image; client uses deterministic fallback.
   return {
     dataUrl: null,
     validated: false,
     fallback: true,
     validation: lastValidation,
+    stageProgress: lastProgress,
+    structureSimilarity: lastSimilarity,
   };
 }
 
@@ -293,6 +557,19 @@ export async function POST(request: NextRequest) {
     const { medium, tutorial, size, referenceImageUrl, stageId, masterImageUrl, precedingImageUrl } = body;
     const mode = body.mode ?? (stageId ? "stage" : "master");
     const imageSize: Size = size ?? "1024x1024";
+    console.warn(
+      JSON.stringify({
+        scope: "generate-stage-images",
+        event: "api_route_received",
+        mode,
+        stageId: stageId ?? null,
+        hasReference: Boolean(referenceImageUrl),
+        hasMaster: Boolean(masterImageUrl),
+        hasPreceding: Boolean(precedingImageUrl),
+        genEnabled: GEN_ENABLED,
+        t: Date.now(),
+      }),
+    );
     const total = STAGE_ORDER.length;
     const promptFor = (sid: StageId) =>
       buildStageImagePrompt({ tutorial, medium, stageId: sid, index: STAGE_ORDER.indexOf(sid) + 1, total });
@@ -351,7 +628,15 @@ export async function POST(request: NextRequest) {
       const index = STAGE_ORDER.indexOf(stageId) + 1;
       const prompt = promptFor(stageId);
 
-      let result: { dataUrl: string | null; validated: boolean; fallback: boolean; validation: CompositionValidation | null };
+      let result: {
+        dataUrl: string | null;
+        validated: boolean;
+        fallback: boolean;
+        validation: CompositionValidation | null;
+        stageProgress: StageProgressValidation | null;
+        structureSimilarity: StructureSimilarityResult | null;
+      };
+
       if (stageId === "finished" && masterImageUrl) {
         result = {
           dataUrl: anchor.dataUrl,
@@ -370,17 +655,100 @@ export async function POST(request: NextRequest) {
               horizon: "pass",
               embeddedText: "pass",
             },
+            horizonApplicability: "not_applicable",
           },
+          stageProgress: null,
+          structureSimilarity: null,
         };
       } else if (stageId === "pencil-sketch") {
-        result = await generateValidated(client, imageModel, visionModel, [anchor.file], prompt, imageSize, anchor.dataUrl, stageId);
+        const sketchInput = await bufferToPrepared(
+          Buffer.from(anchor.dataUrl.split(",")[1]!, "base64"),
+          "primary_editable_anchor",
+          "01-composition-anchor.png",
+        );
+        result = await generateValidated(
+          client,
+          imageModel,
+          visionModel,
+          [sketchInput.file],
+          prompt,
+          imageSize,
+          anchor.dataUrl,
+          anchor.dataUrl,
+          stageId,
+          stageId,
+          null,
+          [sketchInput.meta],
+          "high",
+        );
       } else {
-        const preceding = precedingImageUrl ? await urlToParts(precedingImageUrl, "preceding") : null;
-        const inputs = preceding ? [anchor.file, preceding.file] : [anchor.file];
-        result = await generateValidated(client, imageModel, visionModel, inputs, prompt, imageSize, anchor.dataUrl, stageId);
+        // IMAGE 1 = full prior (editable, high fidelity). IMAGE 2 = tiny weakened master guide.
+        if (!precedingImageUrl) {
+          return NextResponse.json(
+            { error: "precedingImageUrl is required for stages after the pencil sketch." },
+            { status: 400 },
+          );
+        }
+        const preceding = await urlToParts(precedingImageUrl, "primary_prior_in_progress");
+        const prior = await bufferToPrepared(
+          Buffer.from(preceding.dataUrl.split(",")[1]!, "base64"),
+          "primary_editable_prior",
+          "01-prior-in-progress.png",
+        );
+
+        // Early wash stages: edit PRIOR ONLY with high fidelity. A second finished
+        // master file still tends to move/resize subjects. Build/Refine may include
+        // a tiny weakened master guide for color temperature.
+        // IMAGE 1 = full prior (high fidelity). IMAGE 2 = tiny weakened master
+        // guide for color only (cannot dominate pixel geometry).
+        const useMasterGuide = true;
+        let inputs: FileLike[] = [prior.file];
+        let inputMeta: PreparedImage["meta"][] = [prior.meta];
+        if (useMasterGuide) {
+          const guide = await masterAsSecondaryGuide(anchor.dataUrl);
+          inputs = [prior.file, guide.file];
+          inputMeta = [prior.meta, guide.meta];
+        }
+
+        console.warn(
+          JSON.stringify({
+            event: "stage_edit_inputs_prepared",
+            stageId,
+            inputs: inputMeta,
+            compositionAnchor: "prior_stage",
+            masterGuideAttached: useMasterGuide,
+            note: useMasterGuide
+              ? "Prior is full-size editable canvas; master is a small weakened guide only."
+              : "Prior-only edit (high fidelity) — master guide omitted to prevent subject drift.",
+          }),
+        );
+
+        const stagePrompt = useMasterGuide
+          ? prompt
+          : [
+              prompt,
+              "NOTE: Only IMAGE 1 (the in-progress painting) is attached to this edit request.",
+              "There is no finished master file in the request. Do not invent a finished painting.",
+              "Advance the attached in-progress image with a minimal layer only.",
+            ].join(" ");
+
+        result = await generateValidated(
+          client,
+          imageModel,
+          visionModel,
+          inputs,
+          stagePrompt,
+          imageSize,
+          prior.dataUrl,
+          anchor.dataUrl,
+          stageId,
+          stageId,
+          prior.dataUrl,
+          inputMeta,
+          "high",
+        );
       }
 
-      // Prefer returning the last candidate on warning/pass; on hard_fail dataUrl is null.
       const images: StageImageResult[] = [{
         stageId,
         index,
@@ -390,7 +758,10 @@ export async function POST(request: NextRequest) {
         status: result.dataUrl ? "generated" : "not_generated",
         validated: result.validated,
         fallback: result.fallback,
+        degraded: result.fallback,
         validation: result.validation ?? undefined,
+        stageProgress: result.stageProgress ?? undefined,
+        structureSimilarity: result.structureSimilarity ?? undefined,
       }];
       return NextResponse.json({
         generated: true,

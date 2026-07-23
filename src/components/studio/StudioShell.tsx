@@ -14,7 +14,7 @@ type NavItem = { href: string; label: string; icon: IconName };
 // practice, coach) still exist but are intentionally not surfaced as clutter.
 const navItems: NavItem[] = [
   { href: "/studio", label: "Studio", icon: "dashboard" },
-  { href: "/studio/new", label: "Create a painting", icon: "plus" },
+  { href: "/studio/new", label: "Start a painting", icon: "plus" },
 ];
 
 export function StudioShell({ children }: { children: React.ReactNode }) {

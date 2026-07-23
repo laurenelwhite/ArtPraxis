@@ -6,3 +6,18 @@ out
 .env.*.local
 firebase-debug.log
 .DS_Store
+
+# Private ArtPraxis research library
+docs/references/
+docs/academy.zip
+docs/academy/**/*.pdf
+docs/academy/**/*.epub
+docs/academy/**/*.webpub
+docs/academy/**/*.lcpl
+
+# Generated QA artifacts
+tmp-stage-qa/
+public/tmp-stage-qa/
+
+# TypeScript build cache
+*.tsbuildinfo

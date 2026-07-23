@@ -31,6 +31,8 @@ export type GenerationStatus = "pending" | "generating" | "ready" | "failed" | "
 export function normalizeGenerationStatus(raw: unknown): GenerationStatus {
   if (raw === "idle") return "pending";
   if (raw === "error") return "failed";
+  // Legacy / mismatched aliases → canonical ready
+  if (raw === "complete" || raw === "validated" || raw === "accepted") return "ready";
   if (raw === "pending" || raw === "generating" || raw === "ready" || raw === "failed" || raw === "needsReview") {
     return raw;
   }

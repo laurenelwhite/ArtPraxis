@@ -4,17 +4,23 @@ import type { StageId } from "@/lib/progression";
 // ============================================================================
 // Stage-image generation architecture.
 //
-// The six lesson stages must each look like a genuinely different watercolor
-// instructional demonstration plate — not the same photo under a filter. This
-// module owns the *prompt contract* used to produce those plates: one distinct,
-// pedagogically-specific prompt per stage, sharing composition/subject across
-// the set so they read as one authored progression.
+// The six lesson stages form one coherent painting progression: each target
+// after Sketch is the prior stage plus one realistic layer of work. The
+// validated master locks composition and guides final appearance, but must not
+// erase the visible construction history.
 //
-// The API route (/api/generate-stage-images) turns these prompts into image
-// URLs and the result is persisted on the project doc as `progressionImages`
-// (index 0..5 maps 1:1 to the stages below). Until real images exist, the UI
-// renders clearly-labelled development placeholders.
+// This module is browser-safe: no sharp, no server-only validation imports.
 // ============================================================================
+
+/** Approximate visual completion each stage should communicate (prompt + UI). */
+export const STAGE_COMPLETION_TARGET: Record<StageId, string> = {
+  "pencil-sketch": "~5% — light transfer contour only",
+  "value-study": "~15% — light drawing plus 3–5 broad value masses",
+  "first-wash": "~25–30% — pale transparent color washes over the foundation",
+  "second-wash": "~50–60% — midtones and clearer forms; still unfinished",
+  refinement: "~75–85% — selective focal detail; secondary areas stay loose",
+  finished: "100% — validated finished master painting",
+};
 
 export interface StageImageSpec {
   /** Human stage name used in the prompt and UI. */
@@ -25,7 +31,6 @@ export interface StageImageSpec {
   directive: string;
 }
 
-// Canonical stage order — shared with progression.ts (which maps index → stage).
 export const STAGE_ORDER: StageId[] = [
   "pencil-sketch",
   "value-study",
@@ -39,47 +44,44 @@ export const STAGE_IMAGE_SPECS: Record<StageId, StageImageSpec> = {
   "pencil-sketch": {
     label: "Pencil sketch",
     intent:
-      "A very light graphite contour drawing — major shapes and construction lines only, with correct proportions and composition, ready for a beginner to transfer.",
-    // Note: the pencil sketch uses its own base prompt (buildSketchPrompt),
-    // not the generic demonstration-plate framing; this directive is retained
-    // for type completeness / fallback only.
+      "Very light graphite contour drawing (~5%) — major shapes and proportions only on white paper.",
     directive:
-      "Show only a very light, sparse pencil construction drawing: major contours, primary architectural forms, figure silhouettes, and broad foliage masses. Almost no shading, no crosshatching, no grayscale rendering, and no photo-filter appearance.",
+      "Very light graphite contours only: clean sparse construction lines for major shapes. No tonal shading, no crosshatching, no dense edge detection, no grayscale photo rendering, no filled dark masses. Paper remains dominant.",
   },
   "value-study": {
     label: "Value study",
     intent:
-      "Monochrome/neutral wash — 3–5 large value masses, simplified dark/light design. No local color, no small detail.",
+      "Sketch plus 3–5 broad light-neutral value groups (~15%). Most paper still visible.",
     directive:
-      "Show a monochrome or neutral wash: 3–5 large value masses forming a simplified dark/light design. No local color and no small detail — communicate the value structure only.",
+      "MINIMAL EDIT of Image 1 only: add 3–5 broad pale neutral-gray value masses under/around the existing sketch lines. Do not redraw. Do not invent new shapes. Do not darken the whole image.",
   },
   "first-wash": {
     label: "First wash",
     intent:
-      "Pale transparent watercolor over large connected washes with visible pencil drawing and lots of untouched white paper.",
+      "Pale transparent color washes over the foundation (~25–30%). Sketch faintly visible; lots of white paper.",
     directive:
-      "Show only an early transparent wash and light construction drawing. Preserve abundant white paper. Establish atmosphere and large color masses, but omit final detail, strongest shadows, hard accents, and finished edges. Keep edges soft; the visible pencil drawing may still show. The painting should look ready for the next layer, not complete.",
+      "MINIMAL EDIT of Image 1 only: lay transparent, watery color washes over existing marks for large masses (sky/ground/foliage groups/major subjects). Keep prior lines faintly visible. Preserve white paper. No opaque coverage.",
   },
   "second-wash": {
-    label: "Second wash",
+    label: "Build",
     intent:
-      "Local color and midtones introduced; large forms readable, first shadow structure, darkest values reserved.",
+      "Second layer (~50–60%) — deepen selected values and midtones while preserving first-wash lights.",
     directive:
-      "Introduce local color and midtones so large forms become readable. Add some negative painting and the first meaningful shadow structure. The painting is still clearly incomplete and the darkest values are reserved for later.",
+      "MINIMAL EDIT of Image 1 only: deepen SELECTED existing areas (shadow families / midtones). Leave lighter first-wash passages untouched. Do not repaint the whole surface. Avoid finished edges and fine texture.",
   },
   refinement: {
-    label: "Refinement",
+    label: "Refine",
     intent:
-      "Selective edge control and focal-area development with secondary forms, restrained texture, and lost-and-found edges.",
+      "Selective accents and focal detail (~75–85%). Secondary areas stay loose.",
     directive:
-      "Add selective edge control and develop the focal area with secondary forms and restrained texture. Use lost-and-found edges and place detail only where it is useful; keep the rest quiet.",
+      "MINIMAL EDIT of Image 1 only: adjust focal details and selective darker accents. Keep secondary areas loose. Do not re-render the entire painting from Image 2.",
   },
   finished: {
     label: "Finished painting",
     intent:
-      "Resolved interpretation — preserved whites, final dark accents, confident brushwork, coherent focal hierarchy.",
+      "Validated master — full value range and final focal detail with painterly character.",
     directive:
-      "A resolved interpretation: preserved whites, final dark accents, confident brushwork, and selective detail that supports a coherent focal hierarchy.",
+      "Use the validated master painting. Full value range and final focal detail. Preserve painterly character. Exact composition, crop, subject placement, and perspective.",
   },
 };
 
@@ -87,7 +89,6 @@ export function stageIntent(stageId: StageId): string {
   return STAGE_IMAGE_SPECS[stageId].intent;
 }
 
-// Applied to every prompt in the composition-locked pipeline.
 const NO_TEXT =
   "Do not include any text, letters, numbers, labels, watermarks, captions, or signatures anywhere in the image.";
 
@@ -97,10 +98,19 @@ const NO_SUBJECT_CHANGE =
 const MASTER_FIDELITY =
   "The ONLY permitted change is medium and paint style. Preserve every flower, petal cluster, leaf, stem, bud, edge, silhouette, position, scale, overlap, negative space, background shape, crop, and perspective exactly as in the reference. Do not simplify, consolidate, merge, remove, add, resize, crop differently, or rearrange any botanical or structural element. Count every major flower and foliage mass and keep each one. Keep the same overlaps and the same empty spaces between forms.";
 
+/** Shared progressive-painting constraints for every stage after the sketch. */
+const PROGRESSION_RULES = [
+  "This is an in-progress painting, not a finished artwork.",
+  "Preserve all existing marks from the prior stage unless naturally softened by the new layer.",
+  "Add only the work appropriate to this stage.",
+  "Do not render details belonging to later stages.",
+  "Do not apply a photographic filter or posterization effect.",
+  "A later stage must never look less complete than the prior stage and must never reset to a new interpretation.",
+].join(" ");
+
 /**
  * Prompt for the single finished MASTER painting, generated by editing the
- * uploaded reference. Everything else in the lesson is derived from this master
- * so the whole sequence shares one locked composition.
+ * uploaded reference. Unchanged contract for master generation.
  */
 export function buildMasterPrompt(tutorial: Tutorial, medium: Medium): string {
   const surface = medium === "watercolor" ? "cold-press watercolor paper" : "the appropriate surface";
@@ -117,7 +127,6 @@ export function buildMasterPrompt(tutorial: Tutorial, medium: Medium): string {
   ].join(" ");
 }
 
-// Medium-specific material language so plates read in the correct medium.
 function mediumLanguage(medium: Medium): string {
   switch (medium) {
     case "watercolor":
@@ -139,8 +148,6 @@ function mediumLanguage(medium: Medium): string {
   }
 }
 
-// Graphite-handling note per medium. Stage 1 is a sparse construction drawing,
-// not a detailed transfer or shaded rendering.
 function sketchMediumGuidance(medium: Medium): string {
   switch (medium) {
     case "watercolor":
@@ -153,24 +160,23 @@ function sketchMediumGuidance(medium: Medium): string {
 }
 
 /**
- * Dedicated pencil-sketch prompt.
- *
- * This is an IMAGE EDIT instruction (the route passes the uploaded reference to
- * images.edit). The sketch is a transfer drawing, NOT an artistic
- * reinterpretation: it must reproduce the upload's geometry exactly so a student
- * could trace it onto watercolor paper and paint the original reference.
+ * Dedicated pencil-sketch prompt (~5% completion).
+ * Input: reference or master (composition anchor). Output: light transfer drawing.
  */
 export function buildSketchPrompt(medium: Medium): string {
   const surface = medium === "watercolor" ? "cold-press watercolor paper" : "bright white paper";
   return [
     "Convert the provided reference image into a beginner-friendly pencil construction drawing for a traditional watercolor instruction book.",
-    "This is a light transfer drawing for tracing — not a finished illustration, not a photo edge filter, and not a shaded grayscale rendering.",
-    "Preserve the exact composition, crop, perspective, and major proportions of the source: same placement of architecture, figures, primary bushes, broad foliage masses, and focal structure.",
-    "Draw only with very light graphite contour lines on " + surface + ". Use clean, sparse construction lines for major shapes only.",
-    "Include primary architectural forms, figure silhouettes, large bush and tree masses, and broad foliage shapes. Omit fine texture, interior detail, facial micro-features, crosshatching, dense shading, and photorealistic edge-detection effects.",
-    "Keep almost no shading — at most one whisper-light indication of a major shadow mass. No hatching, no midtone filling, and no dense mark-making.",
-    "The drawing should look like a master instructor's preparatory sketch: airy, readable, and easy for a beginner to transfer onto watercolor paper before painting.",
-    "Do not stylize, redesign, or invent new subject matter. Do not produce a dark or heavily rendered sketch.",
+    "This is an in-progress painting stage at about 5% completion — a light transfer drawing for tracing, not a finished artwork.",
+    "This is NOT a photo edge filter, Sobel/threshold effect, shaded grayscale rendering, or tonal study.",
+    "Preserve the exact composition, crop, perspective, and major proportions of the source.",
+    `Draw only with very light graphite contour lines on ${surface}. Use clean, sparse construction lines for major shapes only.`,
+    "Include primary architectural forms, figure silhouettes, large bush and tree masses, and broad foliage shapes.",
+    "Omit fine texture, interior detail, facial micro-features, crosshatching, dense shading, filled black or dark-gray masses, and photorealistic edge-detection effects.",
+    "White or natural paper must remain dominant. Almost no shading.",
+    "Add only the work appropriate to this stage. Do not render details belonging to later stages.",
+    "Do not apply a photographic filter or posterization effect.",
+    "Do not stylize, redesign, or invent new subject matter.",
     NO_TEXT,
     sketchMediumGuidance(medium),
   ].join(" ");
@@ -179,47 +185,73 @@ export function buildSketchPrompt(medium: Medium): string {
 function simplificationFor(skill: Tutorial["difficulty"]): string {
   switch (skill) {
     case "beginner":
-      return "Simplify aggressively for a beginner: fewer, larger shapes and a very clear, readable stage.";
+      return "Keep shapes large and readable for a beginner; avoid crowding the stage with secondary marks.";
     case "intermediate":
-      return "Moderate complexity suitable for an intermediate painter.";
+      return "Moderate complexity suitable for an intermediate painter, still clearly incomplete for this stage.";
     case "advanced":
-      return "Fuller complexity suitable for an advanced painter, while still reading clearly as this stage.";
+      return "Allow fuller complexity for an advanced painter while remaining clearly at this stage’s completion level.";
   }
 }
 
 /**
- * Build the image-generation prompt for one stage. Uses the shared textbook
- * framing requested by the product spec and injects the lesson's own subject,
- * composition, medium, and skill level so all six plates stay consistent.
+ * Build the image-generation prompt for one stage.
+ *
+ * After Sketch, the PRIOR STAGE image is the primary edit input (the painting
+ * being advanced). The master is a secondary appearance/composition guide only.
  */
 export function buildStageImagePrompt(params: {
   tutorial: Tutorial;
   medium: Medium;
   stageId: StageId;
-  index: number; // 1-based
+  index: number;
   total: number;
 }): string {
   const { tutorial, medium, stageId, index, total } = params;
 
-  // The pencil sketch is a construction drawing, not a painted plate — it has
-  // its own base prompt so it never reads as a filtered/finished image.
   if (stageId === "pencil-sketch") return buildSketchPrompt(medium);
+  if (stageId === "finished") {
+    return [
+      "Return the finished master painting unchanged as the final stage target.",
+      NO_TEXT,
+      NO_SUBJECT_CHANGE,
+    ].join(" ");
+  }
 
   const spec = STAGE_IMAGE_SPECS[stageId];
+  const completion = STAGE_COMPLETION_TARGET[stageId];
 
   return [
-    // Composition-locked derivation: the finished master painting is provided as
-    // the primary input image, with the previous stage for continuity.
-    `You are given the finished master ${medium} painting as the primary reference image, along with the previous stage image.`,
-    `Repaint the SAME scene at the earlier "${spec.label}" stage of the ${medium} process — intentionally less complete than the master and pedagogically distinct from the other stages (plate ${index} of ${total}).`,
+    "INPUT IMAGE ROLES (strict):",
+    "IMAGE 1 = the current in-progress painting. This is the editable canvas. You MUST preserve its visible marks, subject placement, proportions, and construction history.",
+    "IMAGE 2 = the finished master painting used ONLY as secondary visual guidance for color temperature, paint quality, and intended final direction. Do NOT copy Image 2’s finish level. Do NOT regenerate the scene from Image 2.",
+    `Advance IMAGE 1 into the "${spec.label}" stage (plate ${index} of ${total}) for a ${medium} lesson.`,
+    `Target visual completion: ${completion}.`,
+    "Perform a MINIMAL edit: add only one thin layer of work on top of IMAGE 1. Most pixels of IMAGE 1 should remain recognizable.",
+    "If IMAGE 1 and IMAGE 2 conflict, IMAGE 1 wins for structure; IMAGE 2 may only hint color/value direction.",
+    PROGRESSION_RULES,
     NO_SUBJECT_CHANGE,
     NO_TEXT,
     `Material language: ${mediumLanguage(medium)}.`,
-    // Stage-specific constraints.
     spec.directive,
+    stageExtraGuard(stageId),
     simplificationFor(tutorial.difficulty),
     "Present one clean demonstration image — not a photograph of a desk, not a collage, and no text or labels.",
   ].join(" ");
+}
+
+function stageExtraGuard(stageId: StageId): string {
+  switch (stageId) {
+    case "value-study":
+      return "SCOPE LIMIT: add broad pale value masses ONLY. Keep nearly all of IMAGE 1’s line work unchanged. No noisy grayscale photo, no stipple field, no full tonal rendering.";
+    case "first-wash":
+      return "SCOPE LIMIT: add transparent color OVER existing marks ONLY. Do not erase or replace the foundation. Sketch/value marks must remain faintly readable.";
+    case "second-wash":
+      return "SCOPE LIMIT: deepen SELECTED existing areas ONLY. Do not globally repaint. Preserve lighter passages from IMAGE 1.";
+    case "refinement":
+      return "SCOPE LIMIT: adjust focal details ONLY. Leave secondary areas as they appear in IMAGE 1.";
+    default:
+      return "";
+  }
 }
 
 export interface StageImagePrompt {

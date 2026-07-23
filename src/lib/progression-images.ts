@@ -23,7 +23,8 @@ import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 //   2. One request generates + validates the MASTER painting. Pass and warning
 //      both persist as ready and continue. Hard-fail after retries persists the
 //      candidate as needsReview (Accept / Regenerate) — never a terminal 502
-//      that discards progress. The client uploads and persists it.
+//      that discards progress. The client uploads and persists it. Stage
+//      derivation still runs when a masterImageUrl exists (ready OR needsReview).
 //   3. Replace reference previews with master-derived previews
 //      (previewSource: "master"). Finished uses the master — never the photo.
 //   4. Then one request PER stage derives that stage from the master (+ the
@@ -308,6 +309,25 @@ const ERR_MASTER_SAVE = "Couldn’t save the master painting. Please try again."
 const ERR_STAGE_GENERATE = "This demonstration couldn’t be generated. Please retry.";
 const ERR_STAGE_SAVE = "Couldn’t save this demonstration. Please retry.";
 
+/** Dedup concurrent orchestrateProgression calls for the same project. */
+const orchestrationInflight = new Map<string, Promise<void>>();
+
+function progressionKey(uid: string, projectId: string): string {
+  return `${uid}/${projectId}`;
+}
+
+function logProgression(event: string, detail: Record<string, unknown> = {}): void {
+  console.warn(JSON.stringify({ scope: "progression", event, ...detail, t: Date.now() }));
+}
+
+/** Master is usable for stage derivation when an image is saved (ready or needsReview). */
+function masterUsableForStages(doc: Pick<ProgressionDoc, "masterStatus" | "masterImageUrl">): boolean {
+  return Boolean(
+    doc.masterImageUrl &&
+      (doc.masterStatus === "ready" || doc.masterStatus === "needsReview"),
+  );
+}
+
 async function callApi(body: {
   mode: "master" | "stage";
   medium: Medium;
@@ -318,6 +338,10 @@ async function callApi(body: {
   masterImageUrl?: string;
   precedingImageUrl?: string;
 }): Promise<ApiResponse> {
+  logProgression("generation_request_started", {
+    mode: body.mode,
+    stageId: body.stageId ?? null,
+  });
   const res = await fetch("/api/generate-stage-images", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -330,7 +354,6 @@ async function callApi(body: {
     /* ignore parse errors */
   }
   if (!res.ok) {
-    // Log server message internally; never throw it to the UI.
     console.error("[progression] API error", { status: res.status, error: data?.error });
     throw new Error(body.mode === "master" ? ERR_MASTER_GENERATE : ERR_STAGE_GENERATE);
   }
@@ -391,6 +414,7 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
   }
 
   try {
+    logProgression("stage_refinement_started", { projectId: ctx.projectId, stageId });
     const response = await callApi({
       mode: "stage",
       medium: ctx.medium,
@@ -404,9 +428,16 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
 
     if (!response.generated) {
       // Generation gated off — keep preview if present.
-      return existing.targetImageUrl
-        ? { ...existing, generationStatus: "ready", fallback: true, error: null }
-        : { ...existing, generationStatus: "pending", error: null };
+      const kept = existing.targetImageUrl
+        ? { ...existing, generationStatus: "ready" as const, fallback: true, error: null }
+        : { ...existing, generationStatus: "pending" as const, error: null };
+      logProgression("stage_refinement_completed", {
+        projectId: ctx.projectId,
+        stageId,
+        status: kept.generationStatus,
+        gatedOff: true,
+      });
+      return kept;
     }
 
     const img = response.images.find((i) => i.stageId === stageId);
@@ -421,24 +452,44 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
     } else if (img?.fallback && (response.master?.dataUrl || ctx.masterImageUrl)) {
       console.warn(`[progression] deterministic fallback for "${stageId}" (AI validation failed).`);
       const source = response.master?.dataUrl || ctx.masterImageUrl!;
-      const fb = await buildStageFallback(source, stageId);
+      const fb = await buildStageFallback(source, stageId, ctx.precedingUrl);
       url = await uploadDataUrl(ctx.uid, ctx.projectId, stageId, fb);
       opts = { validated: false, fallback: true, previewSource: "master" };
     } else if (img?.url) {
       url = img.url;
     }
 
-    if (url) return applyImage(existing, url, opts);
+    if (url) {
+      const applied = applyImage(existing, url, opts);
+      logProgression("stage_refinement_completed", {
+        projectId: ctx.projectId,
+        stageId,
+        status: applied.generationStatus,
+        fallback: applied.fallback,
+      });
+      return applied;
+    }
 
     // Keep the deterministic preview if AI returned nothing.
     if (existing.targetImageUrl) {
+      logProgression("stage_refinement_failed", {
+        projectId: ctx.projectId,
+        stageId,
+        reason: "no_image_in_response_kept_provisional",
+      });
       return {
         ...existing,
-        generationStatus: "failed",
-        error: ERR_STAGE_GENERATE,
+        generationStatus: "ready",
+        error: null,
+        fallback: true,
         retryCount: existing.retryCount + 1,
       };
     }
+    logProgression("stage_refinement_failed", {
+      projectId: ctx.projectId,
+      stageId,
+      reason: "no_image_in_response",
+    });
     return {
       ...existing,
       generationStatus: "failed",
@@ -446,14 +497,30 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
       retryCount: existing.retryCount + 1,
     };
   } catch (e) {
+    const reason = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     console.error(`[progression] stage "${stageId}" failed`, e);
+    logProgression("stage_refinement_failed", {
+      projectId: ctx.projectId,
+      stageId,
+      reason,
+      stack: e instanceof Error ? e.stack ?? null : null,
+    });
     const uploadFail = e instanceof Error && /save|upload|storage/i.test(e.message);
+    // Preserve provisional image so later stages can continue from it.
+    if (existing.targetImageUrl) {
+      return {
+        ...existing,
+        generationStatus: "ready",
+        error: null,
+        fallback: true,
+        retryCount: existing.retryCount + 1,
+      };
+    }
     return {
       ...existing,
       generationStatus: "failed",
       error: uploadFail ? ERR_STAGE_SAVE : ERR_STAGE_GENERATE,
       retryCount: existing.retryCount + 1,
-      // Preserve preview URL so the stage remains usable.
     };
   }
 }
@@ -473,36 +540,87 @@ async function seedStagePreviews(
   source: "reference" | "master",
 ): Promise<StageImageRecord[]> {
   const stages = [...docData.stages];
+  if (source === "master") {
+    logProgression("master_preview_derivation_started", {
+      projectId,
+      stageCount: stages.length,
+    });
+  }
   let sourceDataUrl: string | null = null;
   try {
     sourceDataUrl = await toDataUrl(sourceImageUrl);
   } catch (e) {
     console.error(`[progression] could not load ${source} for stage previews`, e);
+    if (source === "master") {
+      logProgression("master_preview_derivation_complete", {
+        projectId,
+        ok: false,
+        reason: "source_load_failed",
+      });
+    }
     return stages;
   }
 
   // MVP: master-derived transforms are the final targets (no AI refine loop).
   const masterTargetsAreFinal = source === "master" && !ENABLE_AI_STAGE_REFINEMENT;
 
+  // Chain deterministic previews so each stage builds from the previous plate.
+  let chainDataUrl: string | null = null;
+  let derivedCount = 0;
+
   for (let i = 0; i < stages.length; i++) {
     const s = stages[i];
 
-    // Final AI image — leave it.
-    if (s.generationStatus === "ready" && s.targetImageUrl && !s.fallback) continue;
+    // Final AI image — leave it, but keep chain for later stages.
+    if (s.generationStatus === "ready" && s.targetImageUrl && !s.fallback) {
+      if (s.stageId !== "finished") {
+        try {
+          chainDataUrl = await toDataUrl(s.targetImageUrl);
+        } catch {
+          /* keep prior chain */
+        }
+      }
+      continue;
+    }
     // Failed with a preview — leave for manual retry (don't overwrite).
     if (s.generationStatus === "failed") continue;
 
     if (source === "reference") {
       // Already has any preview (reference or master) — don't downgrade.
-      if (s.targetImageUrl && (s.previewSource === "reference" || s.previewSource === "master")) continue;
+      if (s.targetImageUrl && (s.previewSource === "reference" || s.previewSource === "master")) {
+        if (s.stageId !== "finished" && s.targetImageUrl) {
+          try {
+            chainDataUrl = await toDataUrl(s.targetImageUrl);
+          } catch {
+            /* keep prior chain */
+          }
+        }
+        continue;
+      }
       // Already ready with a deterministic master target — leave it.
       if (s.generationStatus === "ready" && s.targetImageUrl) continue;
     } else if (masterTargetsAreFinal) {
       // Already ready with a master-derived (or AI) target.
-      if (s.generationStatus === "ready" && s.targetImageUrl) continue;
+      if (s.generationStatus === "ready" && s.targetImageUrl) {
+        if (s.stageId !== "finished") {
+          try {
+            chainDataUrl = await toDataUrl(s.targetImageUrl);
+          } catch {
+            /* keep prior chain */
+          }
+        }
+        continue;
+      }
     } else {
       // AI refinement on: skip if already on master-derived preview (still refining).
-      if (s.previewSource === "master" && s.targetImageUrl && s.generationStatus === "generating") continue;
+      if (s.previewSource === "master" && s.targetImageUrl && s.generationStatus === "generating") {
+        try {
+          chainDataUrl = await toDataUrl(s.targetImageUrl);
+        } catch {
+          /* keep prior chain */
+        }
+        continue;
+      }
       if (s.generationStatus === "ready" && s.targetImageUrl && s.fallback) continue;
     }
 
@@ -525,6 +643,7 @@ async function seedStagePreviews(
           fallback: false,
           previewSource: null,
         });
+        derivedCount++;
       }
       await persist(uid, projectId, { stages: [...stages] }, true);
       continue;
@@ -546,12 +665,25 @@ async function seedStagePreviews(
         previewSource: null,
       };
       await persist(uid, projectId, { stages: [...stages] }, true);
+      derivedCount++;
+      try {
+        chainDataUrl = await toDataUrl(s.targetImageUrl);
+      } catch {
+        /* keep prior chain */
+      }
       continue;
     }
 
     try {
-      const fb = await buildStageFallback(sourceDataUrl, s.stageId);
+      const precedingForFallback =
+        s.stageId === "pencil-sketch" ? null : chainDataUrl;
+      const fb = await buildStageFallback(
+        sourceDataUrl,
+        s.stageId,
+        precedingForFallback,
+      );
       const url = await uploadDataUrl(uid, projectId, s.stageId, fb);
+      chainDataUrl = fb;
       stages[i] = {
         ...s,
         targetImageUrl: url,
@@ -563,10 +695,20 @@ async function seedStagePreviews(
         createdAt: Date.now(),
       };
       await persist(uid, projectId, { stages: [...stages] }, true);
+      derivedCount++;
     } catch (e) {
       console.error(`[progression] ${source} preview seed failed for "${s.stageId}"`, e);
       if (!s.targetImageUrl) stages[i] = { ...s, generationStatus: "pending", error: null };
     }
+  }
+
+  if (source === "master") {
+    logProgression("master_preview_derivation_complete", {
+      projectId,
+      ok: true,
+      derivedCount,
+      masterTargetsAreFinal,
+    });
   }
 
   return stages;
@@ -604,6 +746,7 @@ async function runMaster(
   onMasterCandidate?: MasterCandidateHandler,
   forceReview = false,
 ): Promise<ProgressionDoc> {
+  logProgression("master_generation_started", { projectId, size: docData.size });
   await persist(uid, projectId, {
     masterStatus: "generating",
     masterError: null,
@@ -621,12 +764,26 @@ async function runMaster(
   }
 
   if (!response.generated || !response.master?.dataUrl) {
+    logProgression("master_response_received", {
+      projectId,
+      generated: false,
+      reason: "missing_master_dataUrl",
+    });
     await persist(uid, projectId, { masterStatus: "pending" }, true);
     return { ...docData, masterStatus: "pending" };
   }
 
+  logProgression("master_response_received", {
+    projectId,
+    generated: true,
+    masterNeedsReview: Boolean(response.masterNeedsReview),
+    masterValidated: response.masterValidated ?? null,
+  });
+
   const validation = (response.masterValidation as CompositionValidation | null) ?? null;
   const reasons = userFacingReasons(validation);
+  // Canonical master statuses: pending | generating | ready | needsReview | failed
+  // ready = continue stage chain; needsReview = candidate saved, review UI, still usable for stages
   const validationNeedsReview = Boolean(
     response.masterNeedsReview ||
     response.masterValidated === false,
@@ -706,6 +863,12 @@ async function runMaster(
     true,
   );
 
+  logProgression("master_persisted", {
+    projectId,
+    masterStatus: status,
+    hasMasterImageUrl: true,
+  });
+
   return {
     ...docData,
     masterImageUrl,
@@ -719,14 +882,55 @@ async function runMaster(
 
 /**
  * Resumable client runner:
- *  1. Seed provisional reference-derived previews immediately (lesson usable).
- *  2. Master request → validate → upload → persist.
- *  3. Replace reference previews with master-derived previews.
- *  4. One AI request per unfinished stage; persist each result immediately.
- *  5. "finished" reuses the master (never the photograph). Failed stages wait
- *     for manual retry. Lease prevents duplicate jobs across reloads/tabs.
+ *  1. Start master generation immediately (API fetches the Firebase image URL).
+ *  2. Seed provisional reference-derived previews in parallel (may use image-proxy;
+ *     must not block the master POST).
+ *  3. After master is ready OR needsReview (image saved), replace with master-derived previews.
+ *  4. Optional AI refine per unfinished stage when the flag is on.
+ *  5. Lease + in-flight map prevent duplicate jobs across reloads/tabs.
+ *     In-flight wraps the FULL orchestration (master + stages), not master alone.
  */
 export async function orchestrateProgression(params: {
+  uid: string;
+  projectId: string;
+  tutorial: Tutorial;
+  medium: Medium;
+  referenceImageUrl: string;
+  size?: ImageSize;
+  onMasterCandidate?: MasterCandidateHandler;
+}): Promise<void> {
+  const { uid, projectId, tutorial, medium, referenceImageUrl, onMasterCandidate } = params;
+  const key = progressionKey(uid, projectId);
+
+  logProgression("trigger_evaluated", {
+    projectId,
+    hasTutorial: Boolean(tutorial),
+    hasMedium: Boolean(medium),
+    hasReferenceUrl: Boolean(referenceImageUrl),
+  });
+
+  if (!tutorial || !medium || !referenceImageUrl) {
+    logProgression("generation_skipped", {
+      projectId,
+      reason: "missing_tutorial_medium_or_referenceUrl",
+    });
+    return;
+  }
+
+  const existing = orchestrationInflight.get(key);
+  if (existing) {
+    logProgression("generation_skipped", { projectId, reason: "already_in_flight" });
+    return existing;
+  }
+
+  const run = orchestrateProgressionInner(params).finally(() => {
+    if (orchestrationInflight.get(key) === run) orchestrationInflight.delete(key);
+  });
+  orchestrationInflight.set(key, run);
+  return run;
+}
+
+async function orchestrateProgressionInner(params: {
   uid: string;
   projectId: string;
   tutorial: Tutorial;
@@ -745,34 +949,105 @@ export async function orchestrateProgression(params: {
     params.size ?? "1024x1024",
   );
 
-  if (base.masterStatus === "failed" || base.masterStatus === "needsReview") return;
+  if (base.masterStatus === "failed") {
+    logProgression("generation_skipped", { projectId, reason: "master_status_failed" });
+    return;
+  }
 
-  const masterReady = base.masterStatus === "ready" && !!base.masterImageUrl;
   const needsDeterministic = stagesNeedDeterministicWork(base.stages);
   const needsAi = ENABLE_AI_STAGE_REFINEMENT && base.stages.some(needsAiRefine);
-  if (masterReady && !needsDeterministic && !needsAi) return;
+  const masterUsable = masterUsableForStages(base);
 
-  if (!(await acquireLease(uid, projectId))) return;
+  // needsReview with a saved master still runs stage derivation when stages are incomplete.
+  if (base.masterStatus === "needsReview" && masterUsable && !needsDeterministic && !needsAi) {
+    logProgression("generation_skipped", {
+      projectId,
+      reason: "master_needs_review_stages_already_complete",
+    });
+    return;
+  }
+  if (base.masterStatus === "needsReview" && !base.masterImageUrl) {
+    logProgression("generation_skipped", { projectId, reason: "master_needs_review_without_image" });
+    return;
+  }
+
+  if (masterUsable && !needsDeterministic && !needsAi) {
+    logProgression("generation_skipped", {
+      projectId,
+      reason: "master_and_stages_already_complete",
+    });
+    return;
+  }
+
+  if (!(await acquireLease(uid, projectId))) {
+    logProgression("generation_skipped", { projectId, reason: "lease_held_by_another_client" });
+    return;
+  }
 
   try {
     let docData = (await getProgressionDoc(uid, projectId)) ?? base;
+    // Do not re-run master when status is ready/needsReview and image exists.
+    const needsMaster =
+      !docData.masterImageUrl ||
+      docData.masterStatus === "pending" ||
+      docData.masterStatus === "generating";
 
-    // 1) Provisional previews from the reference — before waiting on the master.
-    let stages = await seedStagePreviews(uid, projectId, docData, referenceImageUrl, "reference");
-    docData = { ...docData, stages };
+    // Master first / in parallel: the API fetches the Firebase Storage URL itself.
+    // Do NOT await reference seed (image-proxy + canvas) before POSTing master.
+    const masterWork: Promise<ProgressionDoc> = needsMaster
+      ? runMaster(uid, projectId, docData, tutorial, medium, referenceImageUrl, onMasterCandidate)
+      : Promise.resolve(docData);
 
-    // 2) Master — its own short request.
-    if (docData.masterStatus !== "ready" || !docData.masterImageUrl) {
-      docData = await runMaster(uid, projectId, docData, tutorial, medium, referenceImageUrl, onMasterCandidate);
-      if (docData.masterStatus !== "ready" || !docData.masterImageUrl) return;
+    const seedWork: Promise<StageImageRecord[]> = seedStagePreviews(
+      uid,
+      projectId,
+      docData,
+      referenceImageUrl,
+      "reference",
+    ).catch((e) => {
+      console.error("[progression] reference seed failed (non-blocking for master)", e);
+      return docData.stages;
+    });
+
+    docData = await masterWork;
+
+    if (!masterUsableForStages(docData)) {
+      logProgression("generation_skipped", {
+        projectId,
+        reason: `master_not_usable_after_run:${docData.masterStatus}`,
+        hasMasterImageUrl: Boolean(docData.masterImageUrl),
+      });
+      // Still await seed so provisional reference previews can land.
+      await seedWork;
+      logProgression("orchestration_complete", {
+        projectId,
+        outcome: "stopped_after_master",
+        masterStatus: docData.masterStatus,
+      });
+      return;
     }
 
-    // 3) Master-derived targets. When AI refinement is off, these are marked ready.
-    stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl, "master");
+    // Let reference seed finish (or no-op) before replacing with master-derived targets.
+    await seedWork;
+
+    let stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl!, "master");
     docData = { ...docData, stages };
 
-    // 4) Optional AI refine (disabled for MVP by default).
-    if (!ENABLE_AI_STAGE_REFINEMENT) return;
+    if (!ENABLE_AI_STAGE_REFINEMENT) {
+      logProgression("orchestration_complete", {
+        projectId,
+        outcome: "master_derived_targets_final",
+        masterStatus: docData.masterStatus,
+        aiRefinement: false,
+      });
+      return;
+    }
+
+    logProgression("refinement_chain_started", {
+      projectId,
+      masterStatus: docData.masterStatus,
+      stageCount: stages.length,
+    });
 
     let precedingUrl: string | null = null;
     for (let i = 0; i < stages.length; i++) {
@@ -783,33 +1058,56 @@ export async function orchestrateProgression(params: {
         continue;
       }
       if (s.stageId === "finished") continue;
-      if (s.generationStatus === "failed") continue;
+      // Preserve provisional URL for the chain; do not abort later stages.
+      if (s.generationStatus === "failed") {
+        if (s.targetImageUrl) precedingUrl = s.targetImageUrl;
+        continue;
+      }
 
       if (!needsAiRefine(s)) {
         if (s.targetImageUrl) precedingUrl = s.targetImageUrl;
         continue;
       }
 
-      stages[i] = { ...s, generationStatus: "generating", error: null };
-      await persist(uid, projectId, { stages: [...stages] }, true);
+      try {
+        stages[i] = { ...s, generationStatus: "generating", error: null };
+        await persist(uid, projectId, { stages: [...stages] }, true);
 
-      const updated = await processStage(stages[i], {
-        uid,
-        projectId,
-        tutorial,
-        medium,
-        referenceImageUrl,
-        masterImageUrl: docData.masterImageUrl,
-        precedingUrl,
-        size: docData.size,
-      });
-      stages[i] = updated;
-      await persist(uid, projectId, { stages: [...stages] }, true);
+        const updated = await processStage(stages[i], {
+          uid,
+          projectId,
+          tutorial,
+          medium,
+          referenceImageUrl,
+          masterImageUrl: docData.masterImageUrl,
+          precedingUrl,
+          size: docData.size,
+        });
+        stages[i] = updated;
+        await persist(uid, projectId, { stages: [...stages] }, true);
 
-      if (updated.targetImageUrl && updated.stageId !== "finished") {
-        precedingUrl = updated.targetImageUrl;
+        if (updated.targetImageUrl && updated.stageId !== "finished") {
+          precedingUrl = updated.targetImageUrl;
+        }
+      } catch (e) {
+        const reason = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        logProgression("stage_refinement_failed", {
+          projectId,
+          stageId: s.stageId,
+          reason,
+          stack: e instanceof Error ? e.stack ?? null : null,
+        });
+        // Keep provisional; continue the chain.
+        if (s.targetImageUrl) precedingUrl = s.targetImageUrl;
       }
     }
+
+    logProgression("orchestration_complete", {
+      projectId,
+      outcome: "refinement_chain_finished",
+      masterStatus: docData.masterStatus,
+      aiRefinement: true,
+    });
   } finally {
     await releaseLease(uid, projectId);
   }

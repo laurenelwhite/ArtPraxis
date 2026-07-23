@@ -12,7 +12,8 @@ import type { CompareMode } from "@/components/progression/StageComparison";
 
 import { StageChapter } from "@/components/progression/StageChapter";
 import { StudyIndex } from "@/components/progression/StudyIndex";
-import { StudyPalette } from "@/components/progression/StudyPalette";
+import { LessonMeta } from "@/components/progression/LessonMeta";
+import { PaletteSuppliesPreview } from "@/components/progression/PaletteSuppliesPreview";
 import { TutorialView } from "@/components/TutorialView";
 
 export function StudyMode({
@@ -87,19 +88,14 @@ export function StudyMode({
     }
   };
 
-const compareWithFinished = () => {
-  onCompareChange?.("target");
-};
+  const compareWithFinished = () => {
+    onCompareChange?.("target");
+  };
+
   return (
     <div className="study-mode">
       <header className="atelier-cover">
-        <p className="atelier-kicker">
-          {tutorial.difficulty} · about {tutorial.estimatedMinutes} minutes ·{" "}
-          {stages.length} stages
-        </p>
-
         <h2 className="atelier-title">{tutorial.title}</h2>
-
         <p className="atelier-lead">{tutorial.overview}</p>
       </header>
 
@@ -109,11 +105,9 @@ const compareWithFinished = () => {
       >
         <div className="atelier-target-heading">
           <p className="reference-eyebrow">Finished target</p>
-
           <h3 id="atelier-target-title">
             What you’re working toward
           </h3>
-
           <p className="atelier-target-description">
             Study the overall composition, value pattern, and focal point before
             beginning the first stage.
@@ -130,7 +124,6 @@ const compareWithFinished = () => {
                 decoding="async"
               />
             </div>
-
             <figcaption className="atelier-target-caption">
               Your validated finished painting target
             </figcaption>
@@ -145,9 +138,15 @@ const compareWithFinished = () => {
             <p>The finished target is not available yet.</p>
           </div>
         )}
+
+        <LessonMeta
+          difficulty={tutorial.difficulty}
+          estimatedMinutes={tutorial.estimatedMinutes}
+          stageCount={stages.length}
+        />
       </section>
 
-      <StudyPalette tutorial={tutorial} />
+      <PaletteSuppliesPreview tutorial={tutorial} />
 
       <StudyIndex
         stages={stages}

@@ -235,9 +235,9 @@ export function LessonExperience({
             </p>
 
             <p className="master-review-body">
-              Composition checks flagged this master. Accept it to
-              continue stage demonstrations from this candidate, or
-              regenerate only the master.
+              Composition checks flagged this master. Stage demonstrations
+              continue from this candidate. Accept to keep it, or regenerate
+              only the master.
             </p>
 
             {masterReviewReasons.length > 0 && (

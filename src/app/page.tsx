@@ -26,7 +26,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#inspiration">Inspiration</a>
           <Link href="/studio" className="masthead-signin">Sign in</Link>
-          <Link href="/studio" className="btn-solid">Create a painting</Link>
+          <Link href="/studio" className="btn-solid">Start a painting</Link>
         </nav>
       </header>
 
@@ -39,7 +39,7 @@ export default function Home() {
           the way a good instruction book would. Tap any term to learn the language of painting as you go.
         </p>
         <div className="home-cta">
-          <Link className="btn-solid btn-lg" href="/studio"><Icon name="sparkles" size={18} />Create a painting</Link>
+          <Link className="btn-solid btn-lg" href="/studio"><Icon name="sparkles" size={18} />Start a painting</Link>
           <span className="home-cta-note">Free to start · no credit card</span>
         </div>
       </section>
@@ -88,7 +88,7 @@ export default function Home() {
 
       <section className="home-close">
         <h2 className="display-sm">Start with the reference on your desk right now.</h2>
-        <Link className="btn-solid btn-lg" href="/studio"><Icon name="plus" size={18} />Create a painting</Link>
+        <Link className="btn-solid btn-lg" href="/studio"><Icon name="plus" size={18} />Start a painting</Link>
       </section>
 
       <footer className="home-footer">

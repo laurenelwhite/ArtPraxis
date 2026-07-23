@@ -45,7 +45,13 @@ export const tutorialSchema = z.object({
   materials: z.array(z.object({
     item: z.string(),
     purpose: z.string(),
-    required: z.boolean()
+    required: z.boolean(),
+    /** Lesson-provided image (local path or absolute URL), or null when none. */
+    imageUrl: z.string().nullable(),
+    /** Size/weight/etc. when not embedded in `item`, or null when none. */
+    specification: z.string().nullable(),
+    quantity: z.string().nullable(),
+    substitution: z.string().nullable(),
   })),
   palette: z.array(z.object({
     name: z.string(),

@@ -6,19 +6,13 @@ import type {
 
 import { STAGE_CONCEPT } from "@/lib/vocabulary";
 import { Term } from "@/components/vocabulary/Term";
-import { AutoTerms } from "@/components/vocabulary/AutoTerms";
 
 import {
   StageComparison,
   type CompareMode,
 } from "@/components/progression/StageComparison";
 
-import { StageFocusPanel } from "@/components/progression/StageFocusPanel";
-import { StageSetupStrip } from "@/components/progression/StageSetupStrip";
-import { StagePalette } from "@/components/progression/StagePalette";
-import { StageCheckpoint } from "@/components/progression/StageCheckpoint";
-import { StageMistake } from "@/components/progression/StageMistake";
-import { StageInstructorNote } from "@/components/progression/StageInstructorNote";
+import { LessonSummaryGrid } from "@/components/progression/LessonSummaryGrid";
 import { StageNavControls } from "@/components/progression/StageNavControls";
 
 export function StageChapter({
@@ -61,10 +55,6 @@ export function StageChapter({
   const handleReviewPrevious = onReviewPrevious ?? (() => {});
   const handleCompareFinished = onCompareFinished ?? (() => {});
 
-  const primaryGoal =
-    stage.goals.find((goal) => goal.trim()) ??
-    stage.explanation;
-
   return (
     <article className="stage-chapter stage-guided stage-guided-v2">
       <header className="stage-guided-head stage-guided-head-v2">
@@ -78,14 +68,6 @@ export function StageChapter({
           <Term id={STAGE_CONCEPT[stage.id]} />
         </p>
       </header>
-
-      <section className="stage-goal">
-        <p className="stage-goal-label">Your goal</p>
-
-        <p className="stage-goal-text">
-          <AutoTerms text={primaryGoal} />
-        </p>
-      </section>
 
       <div
         className="stage-guided-compare stage-guided-compare-v2"
@@ -103,37 +85,11 @@ export function StageChapter({
         />
       </div>
 
-      <div className="stage-essentials-grid">
-        <StageSetupStrip
-          stage={stage}
-          medium={medium}
-        />
-
-        <StagePalette
-          stage={stage}
-          tutorial={tutorial}
-          medium={medium}
-        />
-      </div>
-
-      <div className="stage-guidance-grid">
-        <StageCheckpoint stage={stage} />
-        <StageMistake stage={stage} />
-      </div>
-
-      <StageInstructorNote stage={stage} />
-
-      <details className="stage-technique-notes">
-        <summary>Technique notes</summary>
-
-        <div className="stage-technique-notes-body">
-          <StageFocusPanel stage={stage} />
-
-          <p className="stage-explanation">
-            <AutoTerms text={stage.explanation} />
-          </p>
-        </div>
-      </details>
+      <LessonSummaryGrid
+        stage={stage}
+        tutorial={tutorial}
+        medium={medium}
+      />
 
       <StageNavControls
         stage={stage}

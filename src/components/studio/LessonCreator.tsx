@@ -8,7 +8,7 @@ import { storage } from "@/lib/firebase";
 import { useAuth } from "@/providers/AuthProvider";
 import { Icon } from "@/components/Icon";
 import { attachLessonImage, createLesson } from "@/lib/lessons";
-import { ensureProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
+import { ensureProgression, orchestrateProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
 import { MEDIA, MEDIUM_HEADING, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
@@ -89,6 +89,21 @@ export function LessonCreator() {
         setStatus("Preparing stage demonstrations…");
         const size = pickSizeForRatio(await ratioForFile(file));
         await ensureProgression(user.uid, lessonId, tutorial, medium, referenceUrl, size);
+        // Kick off master/target generation immediately — do not wait for navigation
+        // or image-proxy. In-flight guard dedupes with LessonView on arrival.
+        console.warn(JSON.stringify({
+          scope: "LessonCreator",
+          event: "generation_request_started",
+          projectId: lessonId,
+        }));
+        void orchestrateProgression({
+          uid: user.uid,
+          projectId: lessonId,
+          tutorial,
+          medium,
+          referenceImageUrl: referenceUrl,
+          size,
+        }).catch((e) => console.error("[LessonCreator] orchestrateProgression failed", e));
       } catch (genError) {
         console.error("Could not initialize the stage progression", genError);
       }

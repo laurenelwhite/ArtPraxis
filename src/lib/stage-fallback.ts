@@ -5,20 +5,12 @@ import type { StageId } from "@/lib/progression";
 // ============================================================================
 // Deterministic, composition-safe stage fallbacks.
 //
-// When a stage's AI generation cannot be validated, we do NOT reuse another
-// image (no duplicate of the preceding stage, and a failed pencil sketch never
-// shows the finished master). Instead we derive a stage-appropriate image from
-// the already-validated master via canvas pixel operations — no extra AI call.
-// Because these are pure pixel transforms of the master, the composition, crop
-// and subject placement are preserved exactly; only the amount of value, color,
-// completeness and mark-making changes to match the lesson stage.
+// When AI generation cannot be validated, derive a stage-appropriate image via
+// canvas transforms. Stages after Sketch prefer building from the PRECEDING
+// stage (visible construction history) while borrowing pale color/value from
+// the master — never a photographic edge filter or a mere lighten of the finish.
 // ============================================================================
 
-/**
- * Load any http(s) or data URL into a PNG/JPEG data URL suitable for canvas
- * transforms. Prefer fetch→FileReader so Firebase Storage URLs work without
- * tainting the canvas when CORS is configured.
- */
 export async function toDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:")) return src;
 
@@ -84,7 +76,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("Could not load the master image for a fallback."));
-    // Data URLs are same-origin; http(s) needs CORS for canvas readback.
     if (!src.startsWith("data:")) img.crossOrigin = "anonymous";
     img.src = src;
   });
@@ -101,7 +92,6 @@ function makeContext(w: number, h: number): { canvas: HTMLCanvasElement; ctx: Ca
 
 const lum = (r: number, g: number, b: number): number => 0.299 * r + 0.587 * g + 0.114 * b;
 
-// Pull each pixel toward gray (satKeep < 1) then toward white (lighten > 0).
 function desaturateLighten(d: Uint8ClampedArray, satKeep: number, lighten: number): void {
   for (let i = 0; i < d.length; i += 4) {
     const g = lum(d[i], d[i + 1], d[i + 2]);
@@ -113,85 +103,248 @@ function desaturateLighten(d: Uint8ClampedArray, satKeep: number, lighten: numbe
   }
 }
 
-// Grayscale + posterize to a small number of value masses (value study).
-function posterizeGray(d: Uint8ClampedArray, levels: number): void {
-  const step = 255 / (levels - 1);
-  for (let i = 0; i < d.length; i += 4) {
-    const g = lum(d[i], d[i + 1], d[i + 2]);
-    const q = Math.round(g / step) * step;
-    d[i] = d[i + 1] = d[i + 2] = q;
-  }
-}
-
-// Sobel edge extraction → sparse, pale graphite contours on white paper.
+/**
+ * Contour-oriented sketch fallback — NOT a dense Sobel edge photo filter.
+ * Keeps only strong structural edges as thin pale graphite on white paper.
+ */
 function pencilLines(d: Uint8ClampedArray, w: number, h: number): void {
   const gray = new Float32Array(w * h);
   for (let i = 0, p = 0; i < d.length; i += 4, p++) gray[p] = lum(d[i], d[i + 1], d[i + 2]);
-  const at = (x: number, y: number) => gray[y * w + x];
+  const at = (x: number, y: number) => gray[Math.max(0, Math.min(h - 1, y)) * w + Math.max(0, Math.min(w - 1, x))];
+
+  // Box-blur gray to suppress bark/leaf/micro texture before edges.
+  const blur = new Float32Array(w * h);
+  const r = 1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      let n = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          sum += at(x + dx, y + dy);
+          n++;
+        }
+      }
+      blur[y * w + x] = sum / n;
+    }
+  }
+  const bAt = (x: number, y: number) => blur[y * w + x];
+
+  const magMap = new Float32Array(w * h);
+  let magMax = 1;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const gx =
+        -bAt(x - 1, y - 1) - 2 * bAt(x - 1, y) - bAt(x - 1, y + 1) +
+        bAt(x + 1, y - 1) + 2 * bAt(x + 1, y) + bAt(x + 1, y + 1);
+      const gy =
+        -bAt(x - 1, y - 1) - 2 * bAt(x, y - 1) - bAt(x + 1, y - 1) +
+        bAt(x - 1, y + 1) + 2 * bAt(x, y + 1) + bAt(x + 1, y + 1);
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      magMap[y * w + x] = mag;
+      if (mag > magMax) magMax = mag;
+    }
+  }
+
+  // Keep only the strongest structural edges.
+  const edgeThreshold = magMax * 0.38;
+  // Legible graphite on paper — dark enough to read, not near-white.
+  const maxLineDarkness = 95;
+  const paper = 248; // lightly warm off-white (R=G=B here; warm tint applied below)
   const out = new Uint8ClampedArray(d.length);
-  const edgeThreshold = 52;
-  const maxLineDarkness = 28;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      let val = 255;
-      if (x > 0 && y > 0 && x < w - 1 && y < h - 1) {
-        const gx =
-          -at(x - 1, y - 1) - 2 * at(x - 1, y) - at(x - 1, y + 1) +
-          at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1);
-        const gy =
-          -at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1) +
-          at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1);
-        const mag = Math.sqrt(gx * gx + gy * gy);
-        if (mag > edgeThreshold) {
-          const strength = Math.min(1, (mag - edgeThreshold) / 110);
-          val = 255 - strength * maxLineDarkness;
+      let val = paper;
+      const mag = magMap[y * w + x];
+      if (mag > edgeThreshold) {
+        // Thin: require local maximum along gradient-ish neighborhood.
+        const nMag = magMap[y * w + Math.min(w - 1, x + 1)];
+        const sMag = magMap[Math.min(h - 1, y + 1) * w + x];
+        if (mag >= nMag * 0.92 && mag >= sMag * 0.92) {
+          const strength = Math.min(1, (mag - edgeThreshold) / (magMax * 0.35));
+          val = paper - strength * maxLineDarkness;
         }
       }
-      out[i] = out[i + 1] = out[i + 2] = val;
+      // Slightly warm paper; cool-gray graphite lines.
+      out[i] = Math.min(255, val + (val >= paper - 2 ? 4 : 0));
+      out[i + 1] = Math.min(255, val + (val >= paper - 2 ? 2 : 0));
+      out[i + 2] = val >= paper - 2 ? val - 2 : val;
       out[i + 3] = 255;
     }
   }
   d.set(out);
 }
 
+/** Posterize to a few light-neutral value masses (value study). */
+function posterizeGrayLight(d: Uint8ClampedArray, levels: number): void {
+  const step = 255 / (levels - 1);
+  for (let i = 0; i < d.length; i += 4) {
+    const g = lum(d[i], d[i + 1], d[i + 2]);
+    // Bias toward lighter paper — never go darker than ~mid gray.
+    const lifted = g + (255 - g) * 0.35;
+    const q = Math.round(lifted / step) * step;
+    const soft = Math.max(q, 160);
+    d[i] = d[i + 1] = d[i + 2] = soft;
+  }
+}
+
 /**
- * Render a deterministic, stage-appropriate fallback from the master data URL.
- * Returns a PNG data URL the caller uploads to Storage. `finished` never falls
- * back (it is the master itself), so it is returned unchanged.
+ * Overlay pale transparent color groups from the master onto a sketch/value
+ * foundation, retaining dark-enough construction lines and white paper.
  */
-export async function buildStageFallback(masterDataUrl: string, stageId: StageId): Promise<string> {
-  const dataUrl = await toDataUrl(masterDataUrl);
+function paleWashOverFoundation(
+  foundation: Uint8ClampedArray,
+  master: Uint8ClampedArray,
+  washStrength: number,
+): void {
+  for (let i = 0; i < foundation.length; i += 4) {
+    const fr = foundation[i];
+    const fg = foundation[i + 1];
+    const fb = foundation[i + 2];
+    const line = lum(fr, fg, fb);
+
+    // Preserve graphite-ish dark lines from the foundation.
+    if (line < 210) {
+      foundation[i] = fr;
+      foundation[i + 1] = fg;
+      foundation[i + 2] = fb;
+      continue;
+    }
+
+    const mr = master[i];
+    const mg = master[i + 1];
+    const mb = master[i + 2];
+    // Dilute master color toward white (transparent wash).
+    const washR = mr + (255 - mr) * (1 - washStrength);
+    const washG = mg + (255 - mg) * (1 - washStrength);
+    const washB = mb + (255 - mb) * (1 - washStrength);
+
+    // Only tint paper-ish pixels; leave pure whites mostly alone.
+    const paper = line > 245 ? 0.35 : 1;
+    const t = washStrength * paper;
+    foundation[i] = fr + (washR - fr) * t;
+    foundation[i + 1] = fg + (washG - fg) * t;
+    foundation[i + 2] = fb + (washB - fb) * t;
+  }
+}
+
+function blendTowardMaster(
+  foundation: Uint8ClampedArray,
+  master: Uint8ClampedArray,
+  amount: number,
+): void {
+  for (let i = 0; i < foundation.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      foundation[i + c] = foundation[i + c] + (master[i + c] - foundation[i + c]) * amount;
+    }
+  }
+}
+
+async function imageDataFromUrl(src: string): Promise<{
+  data: ImageData;
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  w: number;
+  h: number;
+}> {
+  const dataUrl = await toDataUrl(src);
   const img = await loadImage(dataUrl);
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
   const { canvas, ctx } = makeContext(w, h);
   ctx.drawImage(img, 0, 0, w, h);
-  const image = ctx.getImageData(0, 0, w, h);
-  const d = image.data;
+  return { data: ctx.getImageData(0, 0, w, h), canvas, ctx, w, h };
+}
 
-  switch (stageId) {
-    case "pencil-sketch":
-      pencilLines(d, w, h);
-      break;
-    case "value-study":
-      posterizeGray(d, 4);
-      break;
-    case "first-wash":
-      desaturateLighten(d, 0.3, 0.55); // pale, mostly-white transparent wash
-      break;
-    case "second-wash":
-      desaturateLighten(d, 0.65, 0.25); // midtones, local color emerging
-      break;
-    case "refinement":
-      desaturateLighten(d, 0.88, 0.08); // close to master, slightly restrained
-      break;
-    case "finished":
-    default:
-      break; // finished is the master; no transform
+/**
+ * Render a deterministic, stage-appropriate fallback.
+ * `precedingDataUrl` (when provided) is the prior stage in the chain.
+ */
+export async function buildStageFallback(
+  masterDataUrl: string,
+  stageId: StageId,
+  precedingDataUrl?: string | null,
+): Promise<string> {
+  const master = await imageDataFromUrl(masterDataUrl);
+  const { canvas, ctx, w, h } = master;
+  const d = master.data.data;
+
+  if (stageId === "finished") {
+    ctx.putImageData(master.data, 0, 0);
+    return canvas.toDataURL("image/png");
   }
 
-  ctx.putImageData(image, 0, 0);
+  if (stageId === "pencil-sketch") {
+    pencilLines(d, w, h);
+    ctx.putImageData(master.data, 0, 0);
+    return canvas.toDataURL("image/png");
+  }
+
+  // Prefer building from the preceding stage when available.
+  let foundation = master.data;
+  if (precedingDataUrl) {
+    const prev = await imageDataFromUrl(precedingDataUrl);
+    // Match dimensions to master canvas.
+    if (prev.w === w && prev.h === h) {
+      foundation = prev.data;
+    } else {
+      const { ctx: x2 } = makeContext(w, h);
+      const img = await loadImage(await toDataUrl(precedingDataUrl));
+      x2.drawImage(img, 0, 0, w, h);
+      foundation = x2.getImageData(0, 0, w, h);
+    }
+  }
+
+  const fd = foundation.data;
+  const md = new Uint8ClampedArray(d); // master pixels snapshot
+
+  switch (stageId) {
+    case "value-study": {
+      // Start from sketch-like foundation when present; else from master.
+      if (!precedingDataUrl) {
+        pencilLines(fd, w, h);
+      }
+      // Soft value masses from master luminances, kept light.
+      const tmp = new Uint8ClampedArray(md);
+      posterizeGrayLight(tmp, 4);
+      for (let i = 0; i < fd.length; i += 4) {
+        const line = lum(fd[i], fd[i + 1], fd[i + 2]);
+        if (line < 210) continue; // keep sketch lines
+        const g = tmp[i];
+        fd[i] = fd[i + 1] = fd[i + 2] = Math.max(line * 0.15 + g * 0.85, 170);
+      }
+      break;
+    }
+    case "first-wash": {
+      if (!precedingDataUrl) {
+        pencilLines(fd, w, h);
+      }
+      paleWashOverFoundation(fd, md, 0.28);
+      break;
+    }
+    case "second-wash": {
+      if (precedingDataUrl) {
+        paleWashOverFoundation(fd, md, 0.22);
+        blendTowardMaster(fd, md, 0.22);
+      } else {
+        desaturateLighten(fd, 0.65, 0.25);
+      }
+      break;
+    }
+    case "refinement": {
+      if (precedingDataUrl) {
+        blendTowardMaster(fd, md, 0.45);
+      } else {
+        desaturateLighten(fd, 0.88, 0.08);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  ctx.putImageData(foundation, 0, 0);
   return canvas.toDataURL("image/png");
 }

@@ -8,7 +8,7 @@ export function DashboardHeader({ displayName }: { displayName: string }) {
         <p className="eyebrow">The Studio</p>
         <h1 className="display">Good to see you, {displayName}.</h1>
       </div>
-      <Link href="/studio/new" className="btn-solid btn-lg"><Icon name="plus" size={18} />Create a painting</Link>
+      <Link href="/studio/new" className="btn-solid btn-lg"><Icon name="plus" size={18} />Start a painting</Link>
     </header>
   );
 }
