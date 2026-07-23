@@ -1516,3 +1516,219 @@ input:focus,select:focus{outline:none;border-color:var(--ultramarine);box-shadow
   .palette-supplies-swatches{justify-content:flex-start}
   .lesson-summary-grid{grid-template-columns:1fr}
 }
+
+/* —— Visual stage progress stepper —— */
+.stage-progress-stepper.desk-nav,
+.stage-progress-stepper.study-index{
+  padding:0;
+}
+.stage-progress-track{
+  list-style:none;
+  margin:0;
+  padding:10px 4px 12px;
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:6px;
+  overflow-x:auto;
+  scrollbar-width:thin;
+}
+.stage-progress-li{
+  flex:1 1 0;
+  min-width:56px;
+  max-width:88px;
+  display:flex;
+  justify-content:center;
+}
+.stage-progress-item{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  width:100%;
+}
+.stage-progress-icon{
+  --spi-size:54px;
+  width:var(--spi-size);
+  height:var(--spi-size);
+  padding:0;
+  margin:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border:1px solid rgba(15,23,42,0.12);
+  border-radius:9999px;
+  box-shadow:0 2px 8px rgba(15,23,42,0.08);
+  cursor:pointer;
+  overflow:hidden;
+  flex-shrink:0;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+.stage-progress-icon:hover{
+  transform:translateY(-1px);
+}
+.stage-progress-icon:focus-visible{
+  outline:2px solid #2563eb;
+  outline-offset:3px;
+}
+.stage-progress-icon.is-active{
+  border-color:#2563eb;
+  box-shadow:
+    0 0 0 4px rgba(37,99,235,0.10),
+    0 4px 14px rgba(37,99,235,0.16);
+}
+.stage-progress-artwork{
+  width:34px;
+  height:34px;
+  display:block;
+  pointer-events:none;
+}
+.stage-progress-artwork-under{
+  position:absolute;
+  inset:0;
+  margin:auto;
+}
+.stage-progress-photo-wrap{
+  position:relative;
+  width:100%;
+  height:100%;
+  border-radius:9999px;
+  overflow:hidden;
+}
+.stage-progress-photo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:9999px;
+  display:block;
+  opacity:0;
+  transition:opacity 260ms ease;
+}
+.stage-progress-photo.is-loaded{
+  opacity:1;
+}
+.stage-progress-refine-overlay{
+  position:absolute;
+  right:3px;
+  bottom:3px;
+  width:16px;
+  height:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  filter:drop-shadow(0 1px 1px rgba(15,23,42,0.35));
+}
+.stage-progress-caption{
+  font-size:0.68rem;
+  font-weight:600;
+  color:var(--ink-2);
+  line-height:1.15;
+  text-align:center;
+  white-space:nowrap;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.stage-progress-icon.is-active + .stage-progress-caption,
+.stage-progress-item:has(.stage-progress-icon.is-active) .stage-progress-caption{
+  color:var(--ink);
+}
+
+.stage-preview-popover{
+  position:fixed;
+  transform:translate(-50%, -100%);
+  z-index:80;
+  width:min(180px,70vw);
+  padding:8px;
+  background:#fff;
+  border:1px solid rgba(15,23,42,0.12);
+  border-radius:12px;
+  box-shadow:0 10px 28px rgba(15,23,42,0.16);
+  pointer-events:auto;
+}
+.stage-preview-popover-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  margin-bottom:6px;
+}
+.stage-preview-popover-title{
+  margin:0;
+  font-size:0.75rem;
+  font-weight:650;
+  color:var(--ink);
+}
+.stage-preview-popover-close{
+  width:24px;
+  height:24px;
+  padding:0;
+  border:none;
+  border-radius:9999px;
+  background:transparent;
+  color:var(--ink-2);
+  font-size:1.1rem;
+  line-height:1;
+  cursor:pointer;
+}
+.stage-preview-popover-close:hover,
+.stage-preview-popover-close:focus-visible{
+  background:rgba(15,23,42,0.06);
+  color:var(--ink);
+}
+.stage-preview-popover-body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:120px;
+  border-radius:8px;
+  overflow:hidden;
+  background:#f8fafc;
+}
+.stage-preview-popover-img{
+  width:100%;
+  max-height:168px;
+  height:auto;
+  object-fit:contain;
+  display:block;
+  border-radius:8px;
+}
+.stage-preview-popover-fallback{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:16px 10px;
+  font-size:0.72rem;
+  font-weight:600;
+  color:var(--ink-2);
+  text-align:center;
+}
+
+@media(max-width:560px){
+  .stage-progress-icon{
+    --spi-size:52px;
+  }
+  .stage-progress-artwork{
+    width:30px;
+    height:30px;
+  }
+  .stage-progress-track{
+    gap:4px;
+    padding:8px 2px 10px;
+  }
+  .stage-progress-li{
+    min-width:48px;
+  }
+  .stage-progress-caption{
+    font-size:0.62rem;
+  }
+}

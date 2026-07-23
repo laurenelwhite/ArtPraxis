@@ -153,6 +153,7 @@ export function StudyMode({
         active={active}
         visitedMax={visitedMax}
         onSelect={selectStage}
+        masterImageUrl={masterImageUrl}
       />
 
       <div className="study-chapters">

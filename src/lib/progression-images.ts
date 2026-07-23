@@ -1030,7 +1030,7 @@ async function orchestrateProgressionInner(params: {
     // Let reference seed finish (or no-op) before replacing with master-derived targets.
     await seedWork;
 
-    let stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl!, "master");
+    const stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl!, "master");
     docData = { ...docData, stages };
 
     if (!ENABLE_AI_STAGE_REFINEMENT) {

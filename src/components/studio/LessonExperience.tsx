@@ -368,6 +368,7 @@ export function LessonExperience({
             stages={stages}
             tutorial={tutorial}
             medium={medium}
+            masterImageUrl={masterImageUrl}
             {...shared}
           />
         </TermBudgetProvider>

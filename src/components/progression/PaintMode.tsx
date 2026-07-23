@@ -15,6 +15,7 @@ export function PaintMode({
   compare,
   onCompareChange,
   referenceUrl,
+  masterImageUrl,
   onRetryStage,
   retryingStage,
 }: {
@@ -24,6 +25,7 @@ export function PaintMode({
   compare: CompareMode;
   onCompareChange?: (mode: CompareMode) => void;
   referenceUrl: string;
+  masterImageUrl?: string | null;
   onRetryStage?: (stageId: StageId) => void;
   retryingStage?: StageId | null;
 }) {
@@ -49,6 +51,7 @@ export function PaintMode({
         active={active}
         visitedMax={visitedMax}
         onSelect={scrollTo}
+        masterImageUrl={masterImageUrl}
       />
 
       <div className="desk-stages">
