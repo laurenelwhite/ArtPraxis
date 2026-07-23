@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Tutorial } from "@/lib/tutorial-schema";
 import { ComparisonFrame } from "@/components/progression/ComparisonFrame";
+import { AppImage } from "@/components/ui/AppImage";
 
 export type OverlayMode = "composition" | "values" | "temperature" | "none";
 
@@ -60,7 +61,15 @@ export function AnnotatedImage({
 
   const imageBlock = (
     <div className="annotated-image">
-      <img src={imageUrl} alt="Reference" />
+      <AppImage
+        src={imageUrl}
+        alt="Reference"
+        width={1600}
+        height={1200}
+        sizes="(max-width: 1100px) 100vw, 560px"
+        className="annotated-image-photo"
+        style={{ width: "100%", height: "auto" }}
+      />
       {overlayMode !== "none" && (
         <svg className="analysis-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
           {visualGuides.regions.filter((r) => showRegion(r.type, overlayMode)).map((r, i) => (
@@ -81,10 +90,11 @@ export function AnnotatedImage({
   );
 
   if (inComparison) {
+    // Analysis chips sit under the reference image — never between panels.
     return (
       <div className="annotated annotated-compare">
-        {overlayTabs}
         <ComparisonFrame>{imageBlock}</ComparisonFrame>
+        {overlayTabs}
       </div>
     );
   }

@@ -1,9 +1,13 @@
+"use client";
+
 import type { ProgressionStage } from "@/lib/progression";
+import { STAGE_PROCESS_LABEL } from "@/lib/stage-icons";
 import { StageCompletion } from "@/components/progression/StageCompletion";
 
+/**
+ * Quiet end-of-section links — keyboard-friendly, never a prominent bar.
+ */
 export function StageNavControls({
-  stage,
-  total,
   isFirst,
   isLast,
   nextStage,
@@ -24,30 +28,36 @@ export function StageNavControls({
 }) {
   if (isLast) {
     return (
-      <StageCompletion
-        onReviewPrevious={onReviewPrevious}
-        onCompareFinished={onCompareFinished}
-      />
+      <div className="lesson-stage-footer">
+        <StageCompletion
+          onReviewPrevious={onReviewPrevious}
+          onCompareFinished={onCompareFinished}
+        />
+      </div>
     );
   }
 
-  const nextLabel = nextStage ? `Next: ${nextStage.title}` : "Next step";
+  const nextLabel = nextStage ? STAGE_PROCESS_LABEL[nextStage.id] : null;
 
   return (
-    <nav className="stage-nav-controls" aria-label="Stage navigation">
+    <nav className="lesson-stage-footer" aria-label="Stage section navigation">
       {!isFirst ? (
-        <button type="button" className="secondary stage-nav-prev" onClick={onPrev}>
-          Previous
+        <button type="button" className="lesson-stage-link" onClick={onPrev}>
+          Previous stage
         </button>
       ) : (
-        <span className="stage-nav-spacer" aria-hidden="true" />
+        <span />
       )}
-      <span className="stage-nav-progress">
-        Stage {stage.index} of {total}
-      </span>
-      <button type="button" className="primary stage-nav-next" onClick={onNext}>
-        {nextLabel}
-      </button>
+      {nextStage && nextLabel ? (
+        <button
+          type="button"
+          className="lesson-stage-link lesson-stage-link--next"
+          onClick={onNext}
+          aria-label={`Next stage: ${nextLabel}`}
+        >
+          Next: {nextLabel}
+        </button>
+      ) : null}
     </nav>
   );
 }

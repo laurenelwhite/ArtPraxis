@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProgressionStage, StageId } from "@/lib/progression";
-import { useActiveStage } from "@/components/progression/useActiveStage";
 import { StageNav } from "@/components/progression/StageNav";
 import { DeskStage } from "@/components/progression/DeskStage";
 import type { CompareMode } from "@/components/progression/StageComparison";
@@ -18,6 +17,7 @@ export function PaintMode({
   masterImageUrl,
   onRetryStage,
   retryingStage,
+  onOpenMaterials,
 }: {
   stages: ProgressionStage[];
   tutorial: Tutorial;
@@ -28,61 +28,69 @@ export function PaintMode({
   masterImageUrl?: string | null;
   onRetryStage?: (stageId: StageId) => void;
   retryingStage?: StageId | null;
+  onOpenMaterials?: (materialId?: string) => void;
 }) {
-  const domIds = stages.map((s) => `stage-${s.id}`);
-  const { active, scrollTo, setRef } = useActiveStage(domIds);
+  const [active, setActive] = useState(0);
   const [visitedMax, setVisitedMax] = useState(0);
 
-  useEffect(() => {
-    setVisitedMax((m) => Math.max(m, active));
-  }, [active]);
+  const safeActive = Math.max(0, Math.min(active, Math.max(stages.length - 1, 0)));
+  const activeStage = stages[safeActive];
 
-  function scrollToCompare(stageId: StageId) {
-    const el = document.getElementById(`${stageId}-compare`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
+  const selectStage = (index: number) => {
+    if (stages.length === 0) return;
+    const next = Math.max(0, Math.min(index, stages.length - 1));
+    setActive(next);
+    setVisitedMax((current) => Math.max(current, next));
+  };
 
-  return (
-    <div className="paint-mode desk">
+  const workspaceChrome = (
+    <div className="atelier-chrome atelier-workspace-chrome">
       <StageNav
         stages={stages}
-        active={active}
+        active={safeActive}
         visitedMax={visitedMax}
-        onSelect={scrollTo}
+        onSelect={selectStage}
         masterImageUrl={masterImageUrl}
       />
+    </div>
+  );
 
-      <div className="desk-stages">
-        {stages.map((stage, i) => (
+  return (
+    <div className="paint-mode desk studio-mode studio-mode--atelier">
+      <div className="desk-stages studio-stage-host atelier-stage-host">
+        {activeStage ? (
           <section
-            key={stage.id}
-            id={domIds[i]}
-            ref={setRef(i)}
-            className="desk-stage"
-            aria-label={`${stage.title} — stage ${stage.index} of ${stages.length}`}
+            key={activeStage.id}
+            id={`stage-${activeStage.id}`}
+            className="desk-stage studio-chapter-active"
+            aria-label={`${activeStage.title} — stage ${activeStage.index} of ${stages.length}`}
           >
             <DeskStage
-              stage={stage}
+              stage={activeStage}
               tutorial={tutorial}
               medium={medium}
               total={stages.length}
-              isFirst={i === 0}
-              isLast={i === stages.length - 1}
-              nextStage={stages[i + 1]}
-              onPrev={() => scrollTo(i - 1)}
-              onNext={() => scrollTo(i + 1)}
-              onReviewPrevious={() => scrollTo(Math.max(0, i - 1))}
-              onCompareFinished={() => scrollToCompare("finished")}
+              isFirst={safeActive === 0}
+              isLast={safeActive === stages.length - 1}
+              nextStage={stages[safeActive + 1]}
+              onPrev={() => selectStage(safeActive - 1)}
+              onNext={() => selectStage(safeActive + 1)}
+              onReviewPrevious={() => selectStage(Math.max(0, safeActive - 1))}
+              onCompareFinished={() => {
+                const finishedIndex = stages.findIndex((s) => s.id === "finished");
+                if (finishedIndex >= 0) selectStage(finishedIndex);
+                onCompareChange?.("target");
+              }}
               compare={compare}
               onCompareChange={onCompareChange}
               referenceUrl={referenceUrl}
               onRetry={onRetryStage}
-              retrying={retryingStage === stage.id}
+              retrying={retryingStage === activeStage.id}
+              workspaceChrome={workspaceChrome}
+              onOpenMaterials={onOpenMaterials}
             />
           </section>
-        ))}
+        ) : null}
       </div>
     </div>
   );

@@ -3,197 +3,115 @@
 import { useState } from "react";
 
 import type {
-  GenerationStatus,
   ProgressionStage,
   StageId,
 } from "@/lib/progression";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
+import type { ProjectStatus } from "@/lib/lessons";
 import type { CompareMode } from "@/components/progression/StageComparison";
 
-import { StageChapter } from "@/components/progression/StageChapter";
-import { StudyIndex } from "@/components/progression/StudyIndex";
-import { LessonMeta } from "@/components/progression/LessonMeta";
-import { PaletteSuppliesPreview } from "@/components/progression/PaletteSuppliesPreview";
-import { TutorialView } from "@/components/TutorialView";
+import { DeskStage } from "@/components/progression/DeskStage";
+import { StageScrollNav } from "@/components/progression/StageScrollNav";
+import { AtelierRibbon } from "@/components/progression/AtelierRibbon";
 
+/**
+ * Guided study: one active stage at a time with a compact stage rail.
+ * Does not stack every stage into a single continuous document.
+ */
 export function StudyMode({
   stages,
   tutorial,
-  imageUrl,
-  masterImageUrl,
-  masterStatus,
   medium,
   compare,
   onCompareChange,
   referenceUrl,
   onRetryStage,
   retryingStage,
+  projectStatus,
+  onProjectStatusChange,
+  savingStatus = false,
+  onOpenMaterials,
 }: {
   stages: ProgressionStage[];
   tutorial: Tutorial;
   imageUrl: string;
-  masterImageUrl?: string | null;
-  masterStatus?: GenerationStatus;
   medium: Medium;
   compare: CompareMode;
   onCompareChange?: (mode: CompareMode) => void;
   referenceUrl: string;
   onRetryStage?: (stageId: StageId) => void;
   retryingStage?: StageId | null;
+  projectStatus: ProjectStatus;
+  onProjectStatusChange: (next: ProjectStatus) => void;
+  savingStatus?: boolean;
+  onOpenMaterials?: (materialId?: string) => void;
 }) {
   const [active, setActive] = useState(0);
   const [visitedMax, setVisitedMax] = useState(0);
 
-  const finishedStage = stages.find((stage) => stage.id === "finished");
-
-  // Prefer the validated master explicitly. Fall back to the finished-stage
-  // target for older lessons whose master URL is already stored there.
-  const finishedTargetUrl =
-    masterImageUrl ??
-    finishedStage?.visual.url ??
-    null;
-
-  const masterIsLoading =
-    masterStatus === "pending" ||
-    masterStatus === "generating";
+  const safeActive = Math.max(0, Math.min(active, Math.max(stages.length - 1, 0)));
+  const activeStage = stages[safeActive];
 
   const selectStage = (index: number) => {
-    if (stages.length === 0) {
-      return;
-    }
-
-    const safeIndex = Math.max(
-      0,
-      Math.min(index, stages.length - 1),
-    );
-
-    setActive(safeIndex);
-    setVisitedMax((current) => Math.max(current, safeIndex));
-
-    const selectedStage = stages[safeIndex];
-
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`stage-${selectedStage.id}`)
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-    });
+    if (stages.length === 0) return;
+    const next = Math.max(0, Math.min(index, stages.length - 1));
+    setActive(next);
+    setVisitedMax((current) => Math.max(current, next));
   };
 
-  const reviewPreviousStage = (index: number) => {
-    if (index > 0) {
-      selectStage(index - 1);
-    }
-  };
-
-  const compareWithFinished = () => {
-    onCompareChange?.("target");
-  };
-
-  return (
-    <div className="study-mode">
-      <header className="atelier-cover">
-        <h2 className="atelier-title">{tutorial.title}</h2>
-        <p className="atelier-lead">{tutorial.overview}</p>
-      </header>
-
-      <section
-        className="atelier-target"
-        aria-labelledby="atelier-target-title"
-      >
-        <div className="atelier-target-heading">
-          <p className="reference-eyebrow">Finished target</p>
-          <h3 id="atelier-target-title">
-            What you’re working toward
-          </h3>
-          <p className="atelier-target-description">
-            Study the overall composition, value pattern, and focal point before
-            beginning the first stage.
-          </p>
-        </div>
-
-        {finishedTargetUrl ? (
-          <figure className="atelier-target-figure">
-            <div className="atelier-target-frame">
-              <img
-                src={finishedTargetUrl}
-                alt={`Finished ${medium} painting target for ${tutorial.title}`}
-                className="atelier-target-image"
-                decoding="async"
-              />
-            </div>
-            <figcaption className="atelier-target-caption">
-              Your validated finished painting target
-            </figcaption>
-          </figure>
-        ) : masterIsLoading ? (
-          <div className="atelier-target-loading" role="status">
-            <span className="spinner" aria-hidden="true" />
-            <p>Preparing your finished painting target…</p>
-          </div>
-        ) : (
-          <div className="atelier-target-loading" role="status">
-            <p>The finished target is not available yet.</p>
-          </div>
-        )}
-
-        <LessonMeta
-          difficulty={tutorial.difficulty}
-          estimatedMinutes={tutorial.estimatedMinutes}
-          stageCount={stages.length}
-        />
-      </section>
-
-      <PaletteSuppliesPreview tutorial={tutorial} />
-
-      <StudyIndex
+  const workspaceChrome = (
+    <div className="atelier-chrome atelier-workspace-chrome">
+      <StageScrollNav
         stages={stages}
-        active={active}
+        active={safeActive}
         visitedMax={visitedMax}
         onSelect={selectStage}
-        masterImageUrl={masterImageUrl}
       />
+    </div>
+  );
 
-      <div className="study-chapters">
-        {stages.map((stage, index) => (
+  return (
+    <div className="study-mode study-mode--single studio-mode studio-mode--atelier">
+      <div className="desk-stages studio-stage-host atelier-stage-host">
+        {activeStage ? (
           <section
-            key={stage.id}
-            id={`stage-${stage.id}`}
-            className="study-chapter"
+            key={activeStage.id}
+            id={`stage-${activeStage.id}`}
+            className="desk-stage studio-chapter-active"
+            aria-label={`${activeStage.title} — stage ${activeStage.index} of ${stages.length}`}
           >
-            <StageChapter
-              stage={stage}
+            <DeskStage
+              stage={activeStage}
               tutorial={tutorial}
               medium={medium}
-              referenceUrl={referenceUrl}
+              total={stages.length}
+              isFirst={safeActive === 0}
+              isLast={safeActive === stages.length - 1}
+              nextStage={stages[safeActive + 1]}
+              onPrev={() => selectStage(safeActive - 1)}
+              onNext={() => selectStage(safeActive + 1)}
+              onReviewPrevious={() => selectStage(Math.max(0, safeActive - 1))}
+              onCompareFinished={() => {
+                const finishedIndex = stages.findIndex((s) => s.id === "finished");
+                if (finishedIndex >= 0) selectStage(finishedIndex);
+                onCompareChange?.("target");
+              }}
               compare={compare}
               onCompareChange={onCompareChange}
+              referenceUrl={referenceUrl}
               onRetry={onRetryStage}
-              retrying={retryingStage === stage.id}
-              total={stages.length}
-              isFirst={index === 0}
-              isLast={index === stages.length - 1}
-              nextStage={stages[index + 1]}
-              onPrev={() => selectStage(index - 1)}
-              onNext={() => selectStage(index + 1)}
-              onReviewPrevious={() => reviewPreviousStage(index)}
-              onCompareFinished={compareWithFinished}
+              retrying={retryingStage === activeStage.id}
+              workspaceChrome={workspaceChrome}
+              onOpenMaterials={onOpenMaterials}
             />
           </section>
-        ))}
+        ) : null}
       </div>
 
-      <hr className="atelier-rule" />
-
-      <p className="reference-eyebrow">Reference &amp; analysis</p>
-
-      <TutorialView
-        tutorial={tutorial}
-        imageUrl={imageUrl}
-        medium={medium}
-        showCover={false}
+      <AtelierRibbon
+        status={projectStatus}
+        onStatusChange={onProjectStatusChange}
+        saving={savingStatus}
       />
     </div>
   );

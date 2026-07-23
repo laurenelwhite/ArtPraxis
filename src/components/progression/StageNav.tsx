@@ -1,14 +1,13 @@
 "use client";
 
 import type { ProgressionStage } from "@/lib/progression";
-import { StageProgressStepper } from "@/components/progression/StageProgressStepper";
+import { StageProcessRail } from "@/components/progression/StageProcessRail";
 
 export function StageNav({
   stages,
   active,
   visitedMax,
   onSelect,
-  masterImageUrl,
 }: {
   stages: ProgressionStage[];
   active: number;
@@ -17,13 +16,12 @@ export function StageNav({
   masterImageUrl?: string | null;
 }) {
   return (
-    <StageProgressStepper
-      className="desk-nav stage-progress-stepper"
+    <StageProcessRail
+      className="desk-nav"
       stages={stages}
       active={active}
       visitedMax={visitedMax}
       onSelect={onSelect}
-      masterImageUrl={masterImageUrl}
     />
   );
 }

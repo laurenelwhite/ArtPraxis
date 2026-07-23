@@ -39,7 +39,7 @@ export function MaterialCard({ material }: { material: MaterialCardModel }) {
     <article className="material-card">
       <div className="material-card-media">
         {isSvg ? (
-          // Local editorial SVGs — keep explicit dimensions to avoid CLS.
+          // Local editorial SVGs — native <img> preserves vector fidelity and fixed dimensions.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={resolved.src}

@@ -10,7 +10,7 @@ export function EmptyState() {
         Upload a reference image and ArtPraxis builds a personalized, stage-by-stage lesson —
         composition, values, palette, and technique for your chosen medium.
       </p>
-      <Link href="/studio/new" className="btn-solid btn-lg"><Icon name="plus" size={18} />Start your first painting</Link>
+      <Link href="/studio/new" className="btn-solid btn-lg btn-branded"><Icon name="plus" size={18} />Start your first painting</Link>
     </div>
   );
 }

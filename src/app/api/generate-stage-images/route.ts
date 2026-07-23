@@ -3,9 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import sharp from "sharp";
 import { z } from "zod";
-import { mediumSchema, tutorialSchema } from "@/lib/tutorial-schema";
+import { mediumSchema, tutorialSchema, normalizeTutorialInput } from "@/lib/tutorial-schema";
 import { STAGE_ORDER, buildStageImagePrompt, buildMasterPrompt } from "@/lib/stage-image-prompts";
 import type { StageId } from "@/lib/progression";
+import {
+  ERR_IMAGE_SAFETY_REVIEW,
+  MSG_IMAGE_SAFETY_REVIEW,
+  isModerationBlockedError,
+  shouldRetryMasterAttempt,
+} from "@/lib/master-pipeline";
 import {
   COMPOSITION_VALIDATOR_PROMPT,
   compositionValidatorPromptForStage,
@@ -29,6 +35,28 @@ import {
   structureSimilarity,
   type StructureSimilarityResult,
 } from "@/lib/stage-structure-similarity";
+import { measureValueStudyTonal } from "@/lib/value-study-tonal.server";
+
+/** Consistent non-2xx JSON shape for the progression client. */
+function apiErrorResponse(
+  status: number,
+  opts: {
+    error: string;
+    code: string;
+    retryable: boolean;
+    requestId?: string;
+    details?: Record<string, unknown>;
+  },
+) {
+  const body: Record<string, unknown> = {
+    error: opts.error,
+    code: opts.code,
+    retryable: opts.retryable,
+  };
+  if (opts.requestId) body.requestId = opts.requestId;
+  if (opts.details) body.details = opts.details;
+  return NextResponse.json(body, { status });
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -138,6 +166,29 @@ async function urlToParts(url: string, name: string): Promise<PreparedImage> {
   }
   const originalBuffer = Buffer.from(await response.arrayBuffer());
   return bufferToPrepared(originalBuffer, name, `${name}.png`);
+}
+
+/** Request-scoped buffer cache — reuse identical URLs within one POST. */
+function createRequestImageCache() {
+  const cache = new Map<string, Promise<PreparedImage>>();
+  return {
+    urlToParts(url: string, name: string): Promise<PreparedImage> {
+      const hit = cache.get(url);
+      if (hit) {
+        console.warn(
+          JSON.stringify({
+            event: "reference_fetch_cache_hit",
+            name,
+            t: Date.now(),
+          }),
+        );
+        return hit;
+      }
+      const pending = urlToParts(url, name);
+      cache.set(url, pending);
+      return pending;
+    },
+  };
 }
 
 /**
@@ -513,6 +564,39 @@ async function generateValidated(
     );
 
     if (progress.acceptable) {
+      if (stageId === "value-study") {
+        try {
+          const tonal = await measureValueStudyTonal(candidate);
+          console.warn(
+            JSON.stringify({
+              event: "value_study_tonal",
+              stageId,
+              attempt,
+              nearWhitePct: Number((tonal.nearWhitePct * 100).toFixed(1)),
+              middlePct: Number((tonal.middlePct * 100).toFixed(1)),
+              darkPct: Number((tonal.darkPct * 100).toFixed(1)),
+              nearBlackPct: Number((tonal.nearBlackPct * 100).toFixed(1)),
+              meanLuminance: Number(tonal.meanLuminance.toFixed(1)),
+              passed: tonal.passed,
+              reasons: tonal.reasons,
+            }),
+          );
+          if (!tonal.passed) {
+            // One targeted regeneration, then deterministic light fallback.
+            if (attempt < 1) continue;
+            return {
+              dataUrl: null,
+              validated: false,
+              fallback: true,
+              validation,
+              stageProgress: progress,
+              structureSimilarity: lastSimilarity,
+            };
+          }
+        } catch (err) {
+          console.warn("[value_study_tonal] measure failed — accepting with warning", err);
+        }
+      }
       return {
         dataUrl: candidate,
         validated: progress.severity === "pass",
@@ -553,10 +637,27 @@ async function generateValidated(
 
 export async function POST(request: NextRequest) {
   try {
-    const body = bodySchema.parse(await request.json());
+    const rawInput = (await request.json()) as Record<string, unknown>;
+    const normalizedInput = normalizeTutorialInput(rawInput);
+    const parsed = bodySchema.safeParse(normalizedInput);
+    if (!parsed.success) {
+      console.error(
+        "[generate-stage-images] invalid request",
+        parsed.error.flatten(),
+      );
+      return apiErrorResponse(400, {
+        error: "The stage-image request was invalid.",
+        code: "ERR_INVALID_REQUEST",
+        retryable: false,
+        details: { formErrors: parsed.error.flatten().formErrors },
+      });
+    }
+    const body = parsed.data;
     const { medium, tutorial, size, referenceImageUrl, stageId, masterImageUrl, precedingImageUrl } = body;
     const mode = body.mode ?? (stageId ? "stage" : "master");
     const imageSize: Size = size ?? "1024x1024";
+    const requestStartedAt = Date.now();
+    const imageCache = createRequestImageCache();
     console.warn(
       JSON.stringify({
         scope: "generate-stage-images",
@@ -567,7 +668,7 @@ export async function POST(request: NextRequest) {
         hasMaster: Boolean(masterImageUrl),
         hasPreceding: Boolean(precedingImageUrl),
         genEnabled: GEN_ENABLED,
-        t: Date.now(),
+        t: requestStartedAt,
       }),
     );
     const total = STAGE_ORDER.length;
@@ -620,11 +721,22 @@ export async function POST(request: NextRequest) {
 
     // ---- Single-stage regeneration ----------------------------------------
     if (mode === "stage") {
-      if (!stageId) return NextResponse.json({ error: "stageId is required for stage mode." }, { status: 400 });
+      if (!stageId) {
+        return apiErrorResponse(400, {
+          error: "stageId is required for stage mode.",
+          code: "ERR_INVALID_REQUEST",
+          retryable: false,
+        });
+      }
       const anchorUrl = masterImageUrl || referenceImageUrl;
-      if (!anchorUrl) return NextResponse.json({ error: "A master or reference image is required." }, { status: 400 });
-
-      const anchor = await urlToParts(anchorUrl, "anchor");
+      if (!anchorUrl) {
+        return apiErrorResponse(400, {
+          error: "A master or reference image is required.",
+          code: "ERR_INVALID_REQUEST",
+          retryable: false,
+        });
+      }
+      const anchor = await imageCache.urlToParts(anchorUrl, "anchor");
       const index = STAGE_ORDER.indexOf(stageId) + 1;
       const prompt = promptFor(stageId);
 
@@ -684,12 +796,13 @@ export async function POST(request: NextRequest) {
       } else {
         // IMAGE 1 = full prior (editable, high fidelity). IMAGE 2 = tiny weakened master guide.
         if (!precedingImageUrl) {
-          return NextResponse.json(
-            { error: "precedingImageUrl is required for stages after the pencil sketch." },
-            { status: 400 },
-          );
+          return apiErrorResponse(400, {
+            error: "precedingImageUrl is required for stages after the pencil sketch.",
+            code: "ERR_INVALID_REQUEST",
+            retryable: false,
+          });
         }
-        const preceding = await urlToParts(precedingImageUrl, "primary_prior_in_progress");
+        const preceding = await imageCache.urlToParts(precedingImageUrl, "primary_prior_in_progress");
         const prior = await bufferToPrepared(
           Buffer.from(preceding.dataUrl.split(",")[1]!, "base64"),
           "primary_editable_prior",
@@ -775,9 +888,18 @@ export async function POST(request: NextRequest) {
 
     // ---- Master painting --------------------------------------------------
     if (!referenceImageUrl) {
-      return NextResponse.json({ error: "referenceImageUrl is required for master mode." }, { status: 400 });
+      return apiErrorResponse(400, {
+        error: "referenceImageUrl is required for master mode.",
+        code: "ERR_INVALID_REQUEST",
+        retryable: false,
+      });
     }
-    const reference = await urlToParts(referenceImageUrl, "reference");
+    let referenceFetchMs = 0;
+    let editMs = 0;
+    let validationMs = 0;
+    const fetchStarted = Date.now();
+    const reference = await imageCache.urlToParts(referenceImageUrl, "reference");
+    referenceFetchMs = Date.now() - fetchStarted;
     const masterPrompt = buildMasterPrompt(tutorial, medium);
 
     let bestCandidate: string | null = null;
@@ -785,17 +907,64 @@ export async function POST(request: NextRequest) {
     let bestScore = -Infinity;
     let acceptedValidation: CompositionValidation | null = null;
     let acceptedCandidate: string | null = null;
+    let attemptCount = 0;
 
     for (let attempt = 0; attempt <= MASTER_MAX_RETRIES; attempt++) {
+      attemptCount = attempt + 1;
       let candidate: string | null = null;
       try {
+        // Reuse the already-fetched reference file for every attempt in this request.
+        const editStarted = Date.now();
         candidate = await edit(client, imageModel, [reference.file], masterPrompt, imageSize);
+        editMs += Date.now() - editStarted;
       } catch (err) {
-        console.error(`Master edit failed (attempt ${attempt})`, err);
+        const requestID =
+          err && typeof err === "object" && "requestID" in err
+            ? String((err as { requestID: unknown }).requestID)
+            : err && typeof err === "object" && "request_id" in err
+              ? String((err as { request_id: unknown }).request_id)
+              : undefined;
+        const safetyViolations =
+          err && typeof err === "object" && "safety_violations" in err && Array.isArray((err as { safety_violations: unknown }).safety_violations)
+            ? ((err as { safety_violations: unknown[] }).safety_violations).map(String)
+            : [];
+
+        if (isModerationBlockedError(err)) {
+          console.warn(
+            JSON.stringify({
+              event: "master_generation_moderation_blocked",
+              projectId: null,
+              attempt,
+              requestID: requestID ?? null,
+              safetyViolations,
+              retryable: false,
+            }),
+          );
+          return apiErrorResponse(422, {
+            error: MSG_IMAGE_SAFETY_REVIEW,
+            code: ERR_IMAGE_SAFETY_REVIEW,
+            retryable: false,
+            requestId: requestID,
+            details: safetyViolations.length > 0 ? { safetyViolations } : undefined,
+          });
+        }
+
+        console.error(`Master edit failed (attempt ${attempt})`, {
+          message: err instanceof Error ? err.message : String(err),
+          requestID: requestID ?? null,
+        });
+
+        if (!shouldRetryMasterAttempt(err, attempt, MASTER_MAX_RETRIES)) {
+          break;
+        }
         continue;
       }
-      if (!candidate) continue;
+      if (!candidate) {
+        if (attempt >= MASTER_MAX_RETRIES) break;
+        continue;
+      }
 
+      const validationStarted = Date.now();
       const validation = await validateComposition(
         client,
         visionModel,
@@ -804,6 +973,7 @@ export async function POST(request: NextRequest) {
         "master",
         attempt,
       );
+      validationMs += Date.now() - validationStarted;
 
       const score = scoreValidation(validation);
       if (score >= bestScore) {
@@ -829,11 +999,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const totalMs = Date.now() - requestStartedAt;
+    console.warn(
+      JSON.stringify({
+        event: "master_generation_timing",
+        referenceFetchMs,
+        editMs,
+        validationMs,
+        uploadMs: null,
+        totalMs,
+        attempts: attemptCount,
+        accepted: Boolean(acceptedCandidate),
+        t: Date.now(),
+      }),
+    );
+
     if (!bestCandidate && !acceptedCandidate) {
-      return NextResponse.json(
-        { error: "Could not generate the master painting." },
-        { status: 502 },
-      );
+      return apiErrorResponse(502, {
+        error: "Image generation temporarily failed.",
+        code: "ERR_MASTER_GENERATE",
+        retryable: true,
+      });
     }
 
     if (acceptedCandidate && acceptedValidation) {
@@ -847,6 +1033,13 @@ export async function POST(request: NextRequest) {
         imageModel,
         inputFidelity: supportsInputFidelity(imageModel) ? "high" : "omitted",
         images: [],
+        timing: {
+          referenceFetchMs,
+          editMs,
+          validationMs,
+          totalMs,
+          attempts: attemptCount,
+        },
       });
     }
 
@@ -873,18 +1066,44 @@ export async function POST(request: NextRequest) {
       imageModel,
       inputFidelity: supportsInputFidelity(imageModel) ? "high" : "omitted",
       images: [],
+      timing: {
+        referenceFetchMs,
+        editMs,
+        validationMs,
+        totalMs,
+        attempts: attemptCount,
+      },
     });
   } catch (error) {
-    console.error("Stage image generation failed", error);
+    console.error(
+      "Stage image generation failed",
+      error instanceof Error
+        ? { name: error.name, message: error.message }
+        : { message: "Unknown progression error" },
+    );
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "The stage-image request was invalid." }, { status: 400 });
+      return apiErrorResponse(400, {
+        error: "The stage-image request was invalid.",
+        code: "ERR_INVALID_REQUEST",
+        retryable: false,
+      });
     }
     if (error instanceof OpenAI.APIError) {
-      return NextResponse.json(
-        { error: "The image service could not complete this request." },
-        { status: error.status || 500 },
-      );
+      const status = error.status || 500;
+      const retryable = status === 408 || status === 429 || (status >= 500 && status <= 599);
+      return apiErrorResponse(status, {
+        error: retryable
+          ? "Image generation temporarily failed."
+          : "The image service could not complete this request.",
+        code: status === 422 ? ERR_IMAGE_SAFETY_REVIEW : "ERR_STAGE_GENERATE",
+        retryable,
+        requestId: typeof error.requestID === "string" ? error.requestID : undefined,
+      });
     }
-    return NextResponse.json({ error: "Could not generate stage images." }, { status: 500 });
+    return apiErrorResponse(500, {
+      error: "Image generation temporarily failed.",
+      code: "ERR_STAGE_GENERATE",
+      retryable: true,
+    });
   }
 }

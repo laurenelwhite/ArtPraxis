@@ -1,4 +1,5 @@
 import { inspirationGallery } from "@/lib/inspiration";
+import { AppImage } from "@/components/ui/AppImage";
 
 // Horizontal editorial strip rather than a grid of cards.
 export function InspirationGallery() {
@@ -11,7 +12,14 @@ export function InspirationGallery() {
         {inspirationGallery.map((item) => (
           <li key={item.id} className="inspiration-item">
             <figure>
-              <img src={item.imageUrl} alt={item.title} loading="lazy" />
+              <AppImage
+                src={item.imageUrl}
+                alt={item.title}
+                width={640}
+                height={480}
+                sizes="280px"
+                loading="lazy"
+              />
               <figcaption>
                 <span className="inspiration-medium">{item.medium}</span>
                 <span className="inspiration-title">{item.title}</span>

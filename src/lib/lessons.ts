@@ -18,6 +18,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
+import { withNormalizedMaterials } from "@/lib/tutorial-schema";
+import type { BrandThemeStored } from "@/lib/branding/brand-theme";
 
 // Generation/image lifecycle of the reference asset.
 export type LessonStatus = "generating" | "ready" | "error";
@@ -29,6 +31,12 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   "not-started": "Not started",
   "in-progress": "In progress",
   completed: "Completed",
+};
+
+/** Adaptive logo fields — computed once from the accepted/usable master. */
+export type LessonBrandFields = {
+  brandAccent: string | null;
+  brandTheme: BrandThemeStored | null;
 };
 
 // Lightweight card model the dashboard lists. The heavy `tutorial` object is
@@ -60,6 +68,10 @@ export interface LessonSummary {
   finishedImageUrl: string | null;
   aiCoachConversation: unknown[];
   completionPercentage: number;
+  /** Hex accent from master painting; null until lesson branding is computed. */
+  brandAccent: string | null;
+  /** Full brush-mark theme snapshot (medium + texture + accent). */
+  brandTheme: BrandThemeStored | null;
 }
 
 export interface LessonDetail {
@@ -113,6 +125,13 @@ function toSummary(snap: QueryDocumentSnapshot<DocumentData> | { id: string; dat
     finishedImageUrl: data.finishedImageUrl ?? null,
     aiCoachConversation: data.aiCoachConversation ?? [],
     completionPercentage: data.completionPercentage ?? 0,
+    brandAccent: typeof data.brandAccent === "string" ? data.brandAccent : null,
+    brandTheme:
+      data.brandTheme &&
+      typeof data.brandTheme === "object" &&
+      typeof (data.brandTheme as BrandThemeStored).accentColor === "string"
+        ? (data.brandTheme as BrandThemeStored)
+        : null,
   };
 }
 
@@ -136,6 +155,9 @@ export async function getLesson(uid: string, id: string): Promise<LessonDetail |
     const detailSnap = await getDoc(tutorialRef(uid, id));
     tutorial = detailSnap.exists() ? ((detailSnap.data().tutorial as Tutorial) ?? null) : null;
   }
+  if (tutorial) {
+    tutorial = withNormalizedMaterials(tutorial);
+  }
 
   return { summary: toSummary(summarySnap), tutorial };
 }
@@ -144,7 +166,8 @@ export async function createLesson(
   uid: string,
   input: { medium: Medium; skillLevel: string; tutorial: Tutorial }
 ): Promise<string> {
-  const { medium, skillLevel, tutorial } = input;
+  const { medium, skillLevel } = input;
+  const tutorial = withNormalizedMaterials(input.tutorial);
   const created = await addDoc(projectsCol(uid), {
     userId: uid,
     title: tutorial.title,
@@ -167,10 +190,47 @@ export async function createLesson(
     finishedImageUrl: null,
     aiCoachConversation: [],
     completionPercentage: 0,
+    brandAccent: null,
+    brandTheme: null,
   });
 
   await setDoc(tutorialRef(uid, created.id), { tutorial });
   return created.id;
+}
+
+/** Read only adaptive branding fields (cheap when summary is not already loaded). */
+export async function getLessonBrand(
+  uid: string,
+  id: string,
+): Promise<LessonBrandFields | null> {
+  const snap = await getDoc(summaryRef(uid, id));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return {
+    brandAccent: typeof data.brandAccent === "string" ? data.brandAccent : null,
+    brandTheme:
+      data.brandTheme &&
+      typeof data.brandTheme === "object" &&
+      typeof (data.brandTheme as BrandThemeStored).accentColor === "string"
+        ? (data.brandTheme as BrandThemeStored)
+        : null,
+  };
+}
+
+/**
+ * Persist adaptive branding once the master painting is usable.
+ * Callers should avoid rewriting when sourceMasterUrl is unchanged.
+ */
+export async function persistLessonBrand(
+  uid: string,
+  id: string,
+  fields: LessonBrandFields,
+): Promise<void> {
+  await updateDoc(summaryRef(uid, id), {
+    brandAccent: fields.brandAccent,
+    brandTheme: fields.brandTheme,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function attachLessonImage(uid: string, id: string, imageUrl: string): Promise<void> {

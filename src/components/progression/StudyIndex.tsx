@@ -1,29 +1,28 @@
 "use client";
 
 import type { ProgressionStage } from "@/lib/progression";
-import { StageProgressStepper } from "@/components/progression/StageProgressStepper";
+import { StageProcessRail } from "@/components/progression/StageProcessRail";
 
 export function StudyIndex({
   stages,
   active,
   visitedMax,
   onSelect,
-  masterImageUrl,
 }: {
   stages: ProgressionStage[];
   active: number;
   visitedMax: number;
   onSelect: (index: number) => void;
+  /** Kept for callers; process rail does not use photo thumbnails. */
   masterImageUrl?: string | null;
 }) {
   return (
-    <StageProgressStepper
-      className="study-index desk-nav stage-progress-stepper"
+    <StageProcessRail
+      className="study-index desk-nav"
       stages={stages}
       active={active}
       visitedMax={visitedMax}
       onSelect={onSelect}
-      masterImageUrl={masterImageUrl}
     />
   );
 }

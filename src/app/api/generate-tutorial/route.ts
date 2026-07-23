@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { mediumSchema, tutorialSchema } from "@/lib/tutorial-schema";
+import { mediumSchema, tutorialSchema, normalizeTutorial } from "@/lib/tutorial-schema";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -67,7 +67,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The model did not return a tutorial." }, { status: 502 });
     }
 
-    return NextResponse.json({ tutorial: response.output_parsed });
+    // Fill any omitted material fields before persistence / stage generation.
+    const tutorial = normalizeTutorial(response.output_parsed);
+    return NextResponse.json({ tutorial });
   } catch (error) {
     console.error("Tutorial generation failed", error);
 

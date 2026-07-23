@@ -59,16 +59,6 @@ export interface StageProgressValidation {
   acceptable: boolean;
 }
 
-const PASS_PROGRESS: Record<StageProgressCheck, CheckSeverity> = {
-  stageCompletion: "pass",
-  prematureDetail: "pass",
-  priorMarksRetained: "pass",
-  monotonicProgress: "pass",
-  sketchLightness: "pass",
-  washTransparency: "pass",
-  structuralFidelity: "pass",
-};
-
 function asSeverity(v: unknown): CheckSeverity | null {
   if (v === "pass" || v === "warning" || v === "hard_fail") return v;
   return null;

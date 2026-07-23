@@ -12,6 +12,12 @@ import { ensureProgression, orchestrateProgression, pickSizeForRatio, ratioForFi
 import { MEDIA, MEDIUM_HEADING, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
+import { AppImage } from "@/components/ui/AppImage";
+import { getLessonPreview } from "@/lib/lesson-preview";
+import {
+  CREATOR_PIPELINE,
+  LessonLoadingView,
+} from "@/components/studio/LessonLoadingView";
 
 function dataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -22,10 +28,20 @@ function dataUrl(file: File) {
   });
 }
 
+/** Map existing status strings to the creator checklist (presentation only). */
+function creatorStepIndex(status: string): number {
+  const s = status.toLowerCase();
+  if (s.includes("building your studio") || s.includes("opening")) return 3;
+  if (s.includes("preparing stage") || s.includes("demonstration")) return 2;
+  if (s.includes("saving")) return 1;
+  return 0;
+}
+
 export function LessonCreator() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Deep link from the Day 0 welcome email, e.g. /studio/new?medium=charcoal.
   // Invalid values are ignored; a valid value preselects the medium and drives
@@ -41,6 +57,7 @@ export function LessonCreator() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+  const lessonPreview = useMemo(() => getLessonPreview(medium, skill), [medium, skill]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -108,6 +125,7 @@ export function LessonCreator() {
         console.error("Could not initialize the stage progression", genError);
       }
 
+      setStatus("Building your studio…");
       router.push(`/studio/lessons/${lessonId}`);
     } catch (e) {
       setBusy(false);
@@ -116,45 +134,161 @@ export function LessonCreator() {
     }
   }
 
+  function onFileChange(next: File | null) {
+    setFile(next);
+    setError("");
+  }
+
+  if (busy) {
+    return (
+      <div
+        className="creator creator--atelier creator--generating"
+        data-lesson-medium={medium}
+      >
+        <LessonLoadingView
+          mode="creating"
+          referenceUrl={preview || null}
+          pipeline={CREATOR_PIPELINE}
+          activeStepIndex={creatorStepIndex(status)}
+          eyebrow="Beginning your lesson"
+          headline="Preparing your atelier"
+          detail="We're studying your reference and assembling a guided, stage-by-stage painting lesson."
+          estimate="Usually takes under a minute."
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="creator">
-      <header className="dashboard-header">
-        <div>
+    <div className="creator creator--atelier" data-lesson-medium={medium}>
+      <header className="creator-header">
+        <div className="creator-header-copy">
           <p className="eyebrow">New lesson</p>
-          <h1 className="dashboard-title">{emailMedium ? MEDIUM_HEADING[emailMedium] : "Choose your reference"}</h1>
-          <p className="meta">Upload an image, pick a medium and level, and generate a visual lesson.</p>
+          <h1 className="dashboard-title creator-title">
+            {emailMedium ? MEDIUM_HEADING[emailMedium] : "Choose your reference"}
+          </h1>
+          <p className="meta creator-lead">
+            Upload a reference to begin a professionally guided atelier lesson —
+            stage by stage, from observation to finish.
+          </p>
         </div>
-        <Link href="/studio" className="secondary"><Icon name="arrow-left" size={17} />Back to dashboard</Link>
+        <Link href="/studio" className="creator-back">
+          <Icon name="arrow-left" size={16} />
+          Dashboard
+        </Link>
       </header>
 
-      <section className="card form creator-form">
-        <label className="drop">
-          {preview ? (
-            <img src={preview} alt="Reference preview" />
-          ) : (
-            <span><b>Upload an image</b><br /><small>JPEG, PNG, or WebP up to 10 MB</small></span>
-          )}
-          <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-        </label>
-        <label>Medium
-          <select value={medium} onChange={(e) => setMedium(e.target.value as Medium)}>
-            {MEDIA.map((m) => <option key={m} value={m}>{MEDIUM_LABEL[m]}</option>)}
-          </select>
-        </label>
-        <label>Experience
-          <select value={skill} onChange={(e) => setSkill(e.target.value)}>
-            <option>beginner</option>
-            <option>intermediate</option>
-            <option>advanced</option>
-          </select>
-        </label>
-        {status && <p className="status">{status}</p>}
-        {error && <p className="status error">{error}</p>}
-        <button className="primary" disabled={!file || busy} onClick={generate}>
-          {busy && <span className="spinner spinner-on-accent" />}
-          {busy ? "Working…" : "Generate visual lesson"}
-        </button>
-      </section>
+      <div className="creator-layout">
+        <section className="creator-stage" aria-label="Reference and lesson settings">
+          <div className={preview ? "creator-upload is-filled" : "creator-upload"}>
+            <input
+              ref={fileInputRef}
+              hidden
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => onFileChange(e.target.files?.[0] || null)}
+            />
+
+            {preview ? (
+              <>
+                <figure className="creator-preview-frame">
+                  <AppImage
+                    src={preview}
+                    alt="Selected reference"
+                    width={1600}
+                    height={1200}
+                    sizes="(max-width: 900px) 100vw, 720px"
+                    className="creator-preview-img"
+                    unoptimized
+                  />
+                </figure>
+                <div className="creator-upload-actions">
+                  <button
+                    type="button"
+                    className="creator-change-image"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Change image
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="creator-drop"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="creator-drop-title">Upload a reference</span>
+                <span className="creator-drop-hint">JPEG, PNG, or WebP · up to 10 MB</span>
+              </button>
+            )}
+          </div>
+
+          <div className="creator-fields">
+            <label className="creator-field">
+              Medium
+              <select
+                value={medium}
+                onChange={(e) => setMedium(e.target.value as Medium)}
+              >
+                {MEDIA.map((m) => (
+                  <option key={m} value={m}>{MEDIUM_LABEL[m]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="creator-field">
+              Experience
+              <select value={skill} onChange={(e) => setSkill(e.target.value)}>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </label>
+          </div>
+
+          {error ? <p className="status error" role="alert">{error}</p> : null}
+
+          <button
+            type="button"
+            className="primary creator-submit"
+            disabled={!file || busy}
+            onClick={generate}
+          >
+            Begin your lesson
+          </button>
+        </section>
+
+        <aside className="creator-plan" aria-label="Lesson preview">
+          <p className="creator-plan-eyebrow">Your lesson plan</p>
+          <h2 className="creator-plan-title">What you&apos;ll practice</h2>
+          <p className="creator-plan-summary">{lessonPreview.summary}</p>
+
+          <dl className="creator-plan-meta">
+            <div>
+              <dt>Difficulty</dt>
+              <dd>{lessonPreview.difficulty}</dd>
+            </div>
+            <div>
+              <dt>Estimated time</dt>
+              <dd>{lessonPreview.duration}</dd>
+            </div>
+          </dl>
+
+          <div className="creator-plan-techniques">
+            <p className="creator-plan-techniques-label">Likely techniques</p>
+            <ul>
+              {lessonPreview.techniques.map((technique) => (
+                <li key={technique}>{technique}</li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="creator-plan-note">
+            Exact demos are tailored after we study your reference. This preview
+            reflects your medium and experience level.
+          </p>
+        </aside>
+      </div>
     </div>
   );
 }

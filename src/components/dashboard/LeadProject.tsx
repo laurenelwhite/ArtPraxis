@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatLessonDate, type LessonSummary } from "@/lib/lessons";
 import { StatusPill } from "@/components/project/StatusPill";
 import { Icon } from "@/components/Icon";
+import { AppImage } from "@/components/ui/AppImage";
 
 // The most recent project, presented as the lead story of the studio.
 export function LeadProject({ lesson }: { lesson: LessonSummary }) {
@@ -11,9 +12,15 @@ export function LeadProject({ lesson }: { lesson: LessonSummary }) {
       <div className="lead-project-body">
         <Link href={`/studio/lessons/${lesson.id}`} className="lead-media">
           {lesson.imageUrl ? (
-            <img src={lesson.imageUrl} alt={lesson.title} />
+            <AppImage
+              src={lesson.imageUrl}
+              alt={lesson.title}
+              fill
+              sizes="(max-width: 900px) 100vw, 560px"
+              style={{ objectFit: "cover" }}
+            />
           ) : (
-            <span className="lead-media-empty">{lesson.status === "generating" ? "Generating…" : lesson.medium}</span>
+            <span className="lead-media-empty">{lesson.status === "generating" ? "Painting…" : lesson.medium}</span>
           )}
         </Link>
         <div className="lead-detail">
@@ -23,7 +30,7 @@ export function LeadProject({ lesson }: { lesson: LessonSummary }) {
             <span className="capitalize">{lesson.medium}</span> · <span className="capitalize">{lesson.skillLevel}</span> · Updated {formatLessonDate(lesson.updatedAt)}
           </p>
           <div className="lead-actions">
-            <Link href={`/studio/lessons/${lesson.id}`} className="btn-solid"><Icon name="brush" size={17} />Open lesson</Link>
+            <Link href={`/studio/lessons/${lesson.id}`} className="btn-solid btn-branded"><Icon name="brush" size={17} />Open lesson</Link>
           </div>
         </div>
       </div>

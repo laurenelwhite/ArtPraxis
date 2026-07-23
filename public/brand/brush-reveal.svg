@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 28" fill="none" aria-hidden="true">
+  <!-- TEMPORARY: realistic angled paintbrush - brown bristles, navy tip only -->
+  <defs>
+    <linearGradient id="bristleGrad" x1="42" y1="4" x2="58" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8b5e3c"/>
+      <stop offset="42%" stop-color="#7a5234"/>
+      <stop offset="68%" stop-color="#3d3a45"/>
+      <stop offset="100%" stop-color="#0d1b2a"/>
+    </linearGradient>
+    <linearGradient id="handleGrad" x1="0" y1="14" x2="36" y2="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#2c2c2c"/>
+    </linearGradient>
+  </defs>
+  <!-- Handle -->
+  <path d="M2.5 16.2 L28 11.8 L29.2 15.6 L3.8 20 Z" fill="url(#handleGrad)"/>
+  <path d="M2.5 16.2 L28 11.8" stroke="#0a0a0a" stroke-width="0.4" opacity="0.35"/>
+  <!-- Ferrule -->
+  <path d="M27.2 11.4 L34.8 9.9 L36.2 15.2 L28.6 16.8 Z" fill="#9aa0a6"/>
+  <path d="M28.4 11.9 L35.2 10.6" stroke="#c5c9cd" stroke-width="0.5"/>
+  <path d="M29.2 14.8 L35.8 13.4" stroke="#6f757b" stroke-width="0.45" opacity="0.7"/>
+  <!-- Bristle mass -->
+  <path d="M34.5 9.6 C40 7.2 48 5.5 56.5 8.2 C60 9.5 63.5 12.2 65.2 14.8 C62.8 16.5 57.5 17.8 51 17.2 C44.5 16.6 38.5 15.2 35.2 14.2 Z" fill="url(#bristleGrad)"/>
+  <!-- Individual bristle hints (brown) -->
+  <path d="M36 10.2 C42 8.4 49 7.6 55.5 9.4" stroke="#6e4a2f" stroke-width="0.45" opacity="0.55"/>
+  <path d="M36.5 11.6 C43 10 50 9.4 56.8 11.2" stroke="#6e4a2f" stroke-width="0.4" opacity="0.4"/>
+  <!-- Navy paint tip -->
+  <path d="M54 10.8 C58 11.6 61.5 13.4 64.6 15.2 C62.5 16.4 58.5 17.2 54.8 16.4 C52.5 15.8 51.2 14.2 51.8 12.6 C52.2 11.6 53 11 54 10.8 Z" fill="#0d1b2a" opacity="0.92"/>
+  <path d="M56 12 C59.5 12.8 62.2 14.2 64.2 15.4" stroke="#172b3f" stroke-width="0.6" opacity="0.5"/>
+</svg>

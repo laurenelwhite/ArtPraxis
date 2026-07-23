@@ -2,17 +2,23 @@
 
 import { useMemo, useState } from "react";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
+import type { ProjectStatus } from "@/lib/lessons";
 import {
   buildProgression,
   type GenerationStatus,
   type StageId,
   type StageImageRecord,
 } from "@/lib/progression";
+import { resolveLessonUiState } from "@/lib/lesson-ui-state";
 import { StudyMode } from "@/components/progression/StudyMode";
 import { PaintMode } from "@/components/progression/PaintMode";
 import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
 import type { CompareMode } from "@/components/progression/StageComparison";
-import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
+import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
+import { MasterReviewView } from "@/components/studio/MasterReviewView";
+import { StageGenerationView } from "@/components/studio/StageGenerationView";
+import { AppImage } from "@/components/ui/AppImage";
+import { getLessonTheme } from "@/lib/lesson-theme";
 
 type Mode = "study" | "paint";
 
@@ -21,9 +27,14 @@ export function LessonExperience({
   imageUrl,
   medium,
   progression,
+  progressionHydrated = true,
   masterStatus = "pending",
   masterImageUrl = null,
+  masterError = null,
   masterReviewReasons = [],
+  masterRequestInFlight = false,
+  generationError = null,
+  onRetryGeneration,
   onRetryStage,
   retryingStage,
   onRegenerate,
@@ -32,14 +43,23 @@ export function LessonExperience({
   acceptingMaster,
   onRegenerateMaster,
   masterReadyToAccept = false,
+  projectStatus,
+  onProjectStatusChange,
+  savingStatus = false,
+  onOpenMaterials,
 }: {
   tutorial: Tutorial;
   imageUrl: string;
   medium: Medium;
   progression: StageImageRecord[];
+  progressionHydrated?: boolean;
   masterStatus?: GenerationStatus;
   masterImageUrl?: string | null;
+  masterError?: string | null;
   masterReviewReasons?: string[];
+  masterRequestInFlight?: boolean;
+  generationError?: string | null;
+  onRetryGeneration?: () => void;
   onRetryStage?: (stageId: StageId) => void;
   retryingStage?: StageId | null;
   onRegenerate?: () => void;
@@ -48,6 +68,10 @@ export function LessonExperience({
   acceptingMaster?: boolean;
   onRegenerateMaster?: () => void;
   masterReadyToAccept?: boolean;
+  projectStatus: ProjectStatus;
+  onProjectStatusChange: (next: ProjectStatus) => void;
+  savingStatus?: boolean;
+  onOpenMaterials?: (materialId?: string) => void;
 }) {
   const stages = useMemo(
     () => buildProgression(tutorial, imageUrl, medium, progression),
@@ -57,122 +81,167 @@ export function LessonExperience({
   const [mode, setMode] = useState<Mode>("study");
   const [compare, setCompare] = useState<CompareMode>("both");
 
-  const total = progression.length || stages.length;
+  const ui = useMemo(
+    () =>
+      resolveLessonUiState({
+        hasTutorial: Boolean(tutorial),
+        progressionHydrated,
+        masterStatus,
+        masterImageUrl,
+        masterError,
+        stages: progression,
+        regenerating: Boolean(regenerating),
+        masterRequestInFlight,
+        generationError,
+      }),
+    [
+      tutorial,
+      progressionHydrated,
+      masterStatus,
+      masterImageUrl,
+      masterError,
+      progression,
+      regenerating,
+      masterRequestInFlight,
+      generationError,
+    ],
+  );
 
-  // MVP counts any ready target, including deterministic master-derived targets.
-  const ready = progression.filter(
-    (stage) =>
-      stage.generationStatus === "ready" &&
-      Boolean(stage.targetImageUrl),
-  ).length;
+  const canAccept = Boolean(
+    onAcceptMaster &&
+      masterImageUrl &&
+      (masterReadyToAccept || masterStatus === "needsReview"),
+  );
 
-  const usable = progression.filter((stage) =>
-    Boolean(stage.targetImageUrl),
-  ).length;
-
-  const needsReview = masterStatus === "needsReview";
-
-  const stagesRefining =
-    ENABLE_AI_STAGE_REFINEMENT &&
-    progression.some(
-      (stage) =>
-        stage.generationStatus === "generating" &&
-        stage.previewSource === "master",
-    );
-
-  const anyGenerating =
-    masterStatus === "generating" ||
-    progression.some(
-      (stage) => stage.generationStatus === "generating",
-    );
-
-  const anyFailed =
-    masterStatus === "failed" ||
-    progression.some(
-      (stage) => stage.generationStatus === "failed",
-    );
-
-  const masterMessage = (
-    {
-      pending: "Preparing painted targets…",
-      generating: "Generating master painting…",
-      ready: null,
-      failed: "Couldn’t prepare the master painting",
-      needsReview: "Master needs review.",
-    } satisfies Record<GenerationStatus, string | null>
-  )[masterStatus];
-
-  // Show refinement messaging only when AI refinement is enabled
-  // and master-derived stages are actively refining.
-  const generationMessage =
-    masterMessage ??
-    (ENABLE_AI_STAGE_REFINEMENT && stagesRefining
-      ? `Refining targets… ${ready} / ${total} refined`
-      : null);
-
-  const progressLabel =
-    generationMessage ??
-    (anyFailed
-      ? "Some demonstrations need a retry"
-      : "Demonstrations ready");
-
-  const showProgress =
-    !needsReview &&
-    total > 0 &&
-    (
-      masterMessage !== null ||
-      (ENABLE_AI_STAGE_REFINEMENT && stagesRefining) ||
-      anyFailed ||
-      (
-        masterStatus !== "ready" &&
-        (
-          usable > 0 ||
-          masterStatus === "pending" ||
-          masterStatus === "generating"
-        )
-      )
-    );
-
-  // Single-stage retry stays available for internal/manual AI evaluation.
-  // Automatic stage refinement remains controlled by the feature flag.
   const shared = {
     compare,
     onCompareChange: setCompare,
     referenceUrl: imageUrl,
     onRetryStage,
     retryingStage,
+    onOpenMaterials,
   } as const;
 
-  // General lesson-level busy state.
-  // This can include background stage refinement.
- const regenerateBusy = Boolean(
-  regenerating ||
-  acceptingMaster ||
-  masterStatus === "generating" ||
-  (masterStatus === "ready" && stagesRefining),
-);
+  const regenerateBusy = Boolean(regenerating || acceptingMaster);
+  const lessonMedium = getLessonTheme(medium).dataAttribute;
 
-  // Master-review actions should not be blocked by background stage states.
-  // Only an active accept or regenerate request should disable them.
-  const masterReviewBusy = Boolean(
-    regenerating ||
-    acceptingMaster,
-  );
+  // —— Finite views: never mount atelier until ready ——
+  if (ui.state === "creating" || ui.state === "masterGenerating") {
+    return (
+      <div
+        className="lesson-experience lesson-experience--atelier lesson-experience--state lesson-experience--generating"
+        data-lesson-medium={lessonMedium}
+      >
+        <LessonLoadingView
+          headline={ui.headline}
+          detail={ui.detail}
+          referenceUrl={imageUrl}
+          mode={ui.state === "creating" ? "creating" : "masterGenerating"}
+        />
+      </div>
+    );
+  }
 
-  // After refresh, masterReadyToAccept may not be restored immediately.
-  // A visible saved master in needsReview state is sufficient to enable review.
-  const canAccept = Boolean(
-    onAcceptMaster &&
-    masterImageUrl &&
-    (
-      masterReadyToAccept ||
-      masterStatus === "needsReview"
-    ),
-  );
+  if (ui.state === "error") {
+    return (
+      <div
+        className="lesson-experience lesson-experience--atelier lesson-experience--state"
+        data-lesson-medium={lessonMedium}
+      >
+        <section className="lesson-state-view lesson-error-view" role="alert">
+          <div className="lesson-state-card">
+            <p className="lesson-state-kicker">Something went wrong</p>
+            <h2 className="lesson-state-title">{ui.headline}</h2>
+            <p className="lesson-state-detail">{ui.detail}</p>
+            {imageUrl ? (
+              <figure className="lesson-state-figure">
+                <AppImage
+                  src={imageUrl}
+                  alt="Your uploaded reference"
+                  className="lesson-state-img"
+                  width={1200}
+                  height={900}
+                  sizes="(max-width: 700px) 100vw, 480px"
+                  style={{ width: "100%", height: "auto" }}
+                />
+                <figcaption className="lesson-state-caption">Your reference is safe</figcaption>
+              </figure>
+            ) : null}
+            <div className="master-review-view-actions">
+              {onRetryGeneration && (
+                <button
+                  type="button"
+                  className="primary btn-branded"
+                  onClick={onRetryGeneration}
+                  disabled={regenerateBusy || masterRequestInFlight}
+                >
+                  {masterRequestInFlight ? "Retrying…" : "Retry"}
+                </button>
+              )}
+              {(onRegenerateMaster || onRegenerate) && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={onRegenerateMaster || onRegenerate}
+                  disabled={regenerateBusy}
+                >
+                  {regenerating ? "Retrying…" : "Try again"}
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
+  if (ui.state === "masterReview") {
+    return (
+      <div
+        className="lesson-experience lesson-experience--atelier lesson-experience--state"
+        data-lesson-medium={lessonMedium}
+      >
+        <MasterReviewView
+          referenceUrl={imageUrl}
+          masterImageUrl={masterImageUrl}
+          reasons={masterReviewReasons}
+          regenerating={Boolean(regenerating)}
+          accepting={Boolean(acceptingMaster)}
+          canAccept={canAccept}
+          onAccept={onAcceptMaster}
+          onRegenerate={onRegenerateMaster || onRegenerate}
+          headline={ui.headline}
+          detail={ui.detail}
+        />
+      </div>
+    );
+  }
+
+  if (ui.state === "stageGenerating") {
+    return (
+      <div
+        className="lesson-experience lesson-experience--atelier lesson-experience--state"
+        data-lesson-medium={lessonMedium}
+      >
+        <StageGenerationView
+          masterImageUrl={masterImageUrl || imageUrl}
+          stages={progression}
+          headline={ui.headline}
+          detail={ui.detail}
+          progress={ui.progress}
+          activeStageLabel={ui.activeStageLabel}
+        />
+      </div>
+    );
+  }
+
+  // —— Lesson ready: atelier ——
   return (
-    <div className={`lesson-experience mode-${mode}`}>
-      <div className="lesson-controls">
+    <div
+      className={`lesson-experience mode-${mode} lesson-experience--atelier`}
+      data-lesson-medium={lessonMedium}
+    >
+      <div className="lesson-controls atelier-lesson-toolbar">
         <div
           className="mode-switch"
           role="tablist"
@@ -182,185 +251,53 @@ export function LessonExperience({
             type="button"
             role="tab"
             aria-selected={mode === "study"}
-            className={
-              mode === "study"
-                ? "mode-tab active"
-                : "mode-tab"
-            }
+            className={mode === "study" ? "mode-tab active" : "mode-tab"}
             onClick={() => setMode("study")}
           >
             Study
-            <small>Read the lesson</small>
           </button>
 
           <button
             type="button"
             role="tab"
             aria-selected={mode === "paint"}
-            className={
-              mode === "paint"
-                ? "mode-tab active"
-                : "mode-tab"
-            }
+            className={mode === "paint" ? "mode-tab active" : "mode-tab"}
             onClick={() => setMode("paint")}
           >
             Paint
-            <small>Work stage by stage</small>
           </button>
         </div>
 
-        {onRegenerate && !needsReview && (
+        {onRegenerate && (
           <button
             type="button"
             className="secondary regenerate-targets"
             onClick={onRegenerate}
-          disabled={regenerateBusy}
+            disabled={regenerateBusy}
           >
-            {regenerating
-              ? "Regenerating…"
-              : "Regenerate all targets"}
+            {regenerating ? "Painting another option…" : "Try another painting"}
           </button>
         )}
       </div>
 
-      {needsReview && (
-        <div
-          className="master-review"
-          role="region"
-          aria-label="Review master painting"
-        >
-          <div className="master-review-copy">
-            <p className="master-review-title">
-              Review master
-            </p>
-
-            <p className="master-review-body">
-              Composition checks flagged this master. Stage demonstrations
-              continue from this candidate. Accept to keep it, or regenerate
-              only the master.
-            </p>
-
-            {masterReviewReasons.length > 0 && (
-              <ul className="master-review-reasons">
-                {masterReviewReasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {masterImageUrl ? (
-            <figure className="master-review-figure">
-              <img
-                src={masterImageUrl}
-                alt="Proposed master painting for this lesson"
-                className="master-review-img"
-              />
-            </figure>
-          ) : (
-            <div
-              className="master-review-pending"
-              role="status"
-            >
-              <span
-                className="spinner"
-                aria-hidden="true"
-              />
-              <p>Saving the master candidate…</p>
-            </div>
-          )}
-
-          <div className="master-review-actions">
-            {onAcceptMaster && (
-              <button
-                type="button"
-                className="primary"
-                onClick={onAcceptMaster}
-                disabled={masterReviewBusy || !canAccept}
-              >
-                {acceptingMaster
-                  ? "Accepting…"
-                  : !canAccept
-                    ? "Saving…"
-                    : "Accept master"}
-              </button>
-            )}
-
-            {(onRegenerateMaster || onRegenerate) && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={
-                  onRegenerateMaster ||
-                  onRegenerate
-                }
-                disabled={masterReviewBusy}
-              >
-                {regenerating
-                  ? "Regenerating…"
-                  : "Regenerate"}
-              </button>
-            )}
-          </div>
+      {regenerating ? (
+        <div className="atelier-regen-banner" role="status">
+          <p className="atelier-regen-whisper">Painting another option… Your current lesson stays visible.</p>
         </div>
-      )}
-
-      {showProgress && (
-        <div
-          className={`gen-progress${
-            anyFailed && !anyGenerating
-              ? " has-error"
-              : ""
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {anyGenerating && (
-            <span
-              className="spinner gen-progress-spinner"
-              aria-hidden="true"
-            />
-          )}
-
-          <span className="gen-progress-label">
-            {progressLabel}
-          </span>
-
-          {ENABLE_AI_STAGE_REFINEMENT && (
-            <span className="gen-progress-count">
-              {ready} / {total} refined
-            </span>
-          )}
-
-          <span
-            className="gen-progress-track"
-            aria-hidden="true"
-          >
-            <span
-              className="gen-progress-fill"
-              style={{
-                width: `${
-                  total
-                    ? (ready / total) * 100
-                    : 0
-                }%`,
-              }}
-            />
-          </span>
-        </div>
-      )}
+      ) : null}
 
       {mode === "study" ? (
         <TermBudgetProvider>
-         <StudyMode
-  stages={stages}
-  tutorial={tutorial}
-  imageUrl={imageUrl}
-  masterImageUrl={masterImageUrl}
-  masterStatus={masterStatus}
-  medium={medium}
-  {...shared}
-/>
+          <StudyMode
+            stages={stages}
+            tutorial={tutorial}
+            imageUrl={imageUrl}
+            medium={medium}
+            projectStatus={projectStatus}
+            onProjectStatusChange={onProjectStatusChange}
+            savingStatus={savingStatus}
+            {...shared}
+          />
         </TermBudgetProvider>
       ) : (
         <TermBudgetProvider>

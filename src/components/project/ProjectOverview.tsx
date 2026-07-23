@@ -1,3 +1,4 @@
+import { AppImage } from "@/components/ui/AppImage";
 import {
   formatFullDate,
   formatLessonDate,
@@ -27,7 +28,14 @@ export function ProjectOverview({
     <div className="project-overview">
       <figure className="overview-reference">
         {summary.imageUrl ? (
-          <img src={summary.imageUrl} alt={summary.title} />
+          <AppImage
+            src={summary.imageUrl}
+            alt={summary.title}
+            width={1200}
+            height={900}
+            sizes="(max-width: 900px) 100vw, 560px"
+            style={{ width: "100%", height: "auto", maxHeight: "540px", objectFit: "cover" }}
+          />
         ) : (
           <div className="overview-reference-empty">No reference image</div>
         )}

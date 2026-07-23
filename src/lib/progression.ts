@@ -60,6 +60,16 @@ export interface StageImageRecord {
   fallback?: boolean;
   /** Where the current deterministic preview was derived from. */
   previewSource?: "reference" | "master" | null;
+  /** Machine-readable failure code (Storage / API / custom). */
+  errorCode?: string | null;
+  /** Detailed failure message for diagnostics (may mirror `error`). */
+  errorMessage?: string | null;
+  /** Whether an automatic retry is appropriate for this failure. */
+  retryable?: boolean | null;
+  /** Epoch ms when the stage last entered failed. */
+  failedAt?: number | null;
+  /** Seed/generation source that failed (reference | master | api | upload…). */
+  failureSource?: string | null;
 }
 
 export interface StageVisual {
@@ -148,9 +158,9 @@ type StageMeta = {
 // `progressionImages` (see stage-image-prompts.ts + /api/generate-stage-images).
 const STAGE_META: StageMeta[] = [
   { id: "pencil-sketch", title: "Pencil sketch", filter: "grayscale(1) contrast(1.5) brightness(1.4) opacity(.5)" },
-  { id: "value-study", title: "Value study", filter: "grayscale(1) contrast(1.95) brightness(1.04)" },
+  { id: "value-study", title: "Value Map — Plan the Light and Dark Shapes", filter: "grayscale(1) contrast(.85) brightness(1.35)" },
   { id: "first-wash", title: "First wash", filter: "saturate(.34) brightness(1.16) contrast(.82) blur(1.4px)" },
-  { id: "second-wash", title: "Second wash", filter: "saturate(.72) brightness(1.04) contrast(.96) blur(.5px)" },
+  { id: "second-wash", title: "Build Color", filter: "saturate(.72) brightness(1.04) contrast(.96) blur(.5px)" },
   { id: "refinement", title: "Refinement", filter: "saturate(.92) contrast(1.07)" },
   { id: "finished", title: "Finished painting", filter: "none" },
 ];
@@ -219,20 +229,27 @@ function stageContent(id: StageId, tutorial: Tutorial, phases: [Step[], Step[], 
       };
     case "value-study":
       return {
-        explanation: `Resolve the value structure before any color. Mass the scene into three values so the painting reads from across the room. ${valueMap.squintTest}`,
+        explanation:
+          "Before adding watercolor, reduce the scene into a few broad light and dark shapes. This helps you preserve the bright sky, separate the flowers from the foliage, and identify where the strongest contrast will eventually sit. This is not a finished grayscale painting. Most of the paper should remain light.",
         goals: clean([
+          "Keep the sky and sunlit flowers nearly white",
+          "Group distant trees and garden into soft middle values",
+          "Reserve the darkest marks for small deep-foliage accents and a few structural notes",
+          "Aim for about three or four value groups: white paper, very light gray, soft middle gray, and a little dark gray",
           `Lights: ${valueMap.lights}`,
           `Midtones: ${valueMap.midtones}`,
           `Darks: ${valueMap.darks}`,
-          `Commit to the plan: ${composition.valuePlan}`,
         ]),
         commonMistakes: clean([
-          "Making midtones too dark, leaving no room for true darks.",
-          "Losing the lightest lights by covering them too early.",
+          "Treating the value study like a finished black-and-white painting.",
+          "Shading every flower and leaf instead of massing broad shapes.",
+          "Making the sky or sunlit flowers mid-gray or darker.",
+          "Using true black or covering most of the paper with dark tones.",
         ]),
         proTips: clean([
-          "Reserve your whites now — they are hard to recover later.",
-          `Keep the darkest dark near the focal point: ${composition.focalPoint}`,
+          "Squint: if you still see petal texture, simplify further.",
+          `Keep the darkest dark sparse and near the focal point: ${composition.focalPoint}`,
+          "Reserve whites now — they are hard to recover later.",
         ]),
       };
     case "first-wash":
@@ -296,9 +313,9 @@ const STAGE_PHASE: Record<StageId, PhaseKey> = {
 // Short stroke-purpose shown beside the brush on the desk (medium-agnostic).
 const BRUSH_PURPOSE: Record<StageId, string> = {
   "pencil-sketch": "Transfer the construction drawing",
-  "value-study": "Mass the three values",
+  "value-study": "Map lights and darks lightly",
   "first-wash": "First large, light washes",
-  "second-wash": "Build midtones & local colour",
+  "second-wash": "Strengthen color & midtones",
   refinement: "Darks, edges & focal detail",
   finished: "Final accents & unifying touches",
 };

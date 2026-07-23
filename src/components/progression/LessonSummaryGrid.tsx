@@ -1,16 +1,8 @@
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProgressionStage } from "@/lib/progression";
-import { stageFocusPrimary } from "@/components/progression/stage-focus";
-import { AutoTerms } from "@/components/vocabulary/AutoTerms";
-import { LearningCard } from "@/components/progression/LearningCard";
-import { StageFocusPanel } from "@/components/progression/StageFocusPanel";
-import { StageCheckpoint } from "@/components/progression/StageCheckpoint";
-import { StageMistake } from "@/components/progression/StageMistake";
-import { StageInstructorNote } from "@/components/progression/StageInstructorNote";
-import { StagePalette } from "@/components/progression/StagePalette";
-import { StageSetupStrip } from "@/components/progression/StageSetupStrip";
+import { stageFocusPrimary, stageIgnoreLine } from "@/components/progression/stage-focus";
 
-function excerpt(text: string, max = 128): string {
+function excerpt(text: string, max = 72): string {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length <= max) return trimmed;
   const cut = trimmed.slice(0, max);
@@ -20,159 +12,121 @@ function excerpt(text: string, max = 128): string {
     cut.lastIndexOf(" — "),
     cut.lastIndexOf(", "),
   );
-  if (breakAt > 48) return cut.slice(0, breakAt + 1).trim();
+  if (breakAt > 24) return cut.slice(0, breakAt + 1).trim();
   return `${cut.replace(/\s+\S*$/, "").trim()}…`;
 }
 
-function buildSummary(stage: ProgressionStage, medium: Medium) {
+function normalizeForCompare(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type GlanceNote = {
+  tone: "goal" | "observe" | "technique" | "avoid";
+  label: string;
+  body: string;
+};
+
+/** Instructional blocks — Technique / Watch For / Goal (omit Goal if it duplicates instruction). */
+function buildGlanceNotes(
+  stage: ProgressionStage,
+  medium: Medium,
+  instruction?: string,
+): GlanceNote[] {
   const { paint, visual, goals, commonMistakes, proTips } = stage;
-  const usePencil =
-    stage.id === "pencil-sketch" ||
-    medium === "pencil" ||
-    medium === "charcoal";
+  void medium;
 
-  const goal =
-    paint.goal.trim() ||
-    goals.find((g) => g.trim())?.trim() ||
-    stageFocusPrimary(stage);
-
-  const observe = visual.intent.trim();
+  const notes: GlanceNote[] = [];
 
   const technique =
     paint.brushPurpose.trim() ||
     proTips.find((t) => t.trim())?.trim() ||
-    paint.brushPressure.trim();
+    paint.brushPressure.trim() ||
+    null;
+  if (technique) {
+    notes.push({
+      tone: "technique",
+      label: "Technique",
+      body: excerpt(technique),
+    });
+  }
 
   const avoid =
     paint.watchOut.trim() ||
     commonMistakes.find((m) => m.trim())?.trim() ||
-    "";
+    stageIgnoreLine(stage.id);
+  if (avoid) {
+    notes.push({
+      tone: "avoid",
+      label: "Watch for",
+      body: excerpt(avoid),
+    });
+  }
 
-  const materialsParts = [
-    paint.brush.trim(),
-    usePencil ? "" : paint.water.trim(),
-  ].filter(Boolean);
-  const materials = materialsParts.join(" · ") || paint.brushPurpose.trim();
+  const goalCandidate =
+    paint.goal.trim() ||
+    goals.find((g) => g.trim() && normalizeForCompare(g) !== normalizeForCompare(technique ?? ""))?.trim() ||
+    visual.intent.trim() ||
+    stageFocusPrimary(stage);
 
-  const time = paint.estimatedMinutes > 0
-    ? `~${paint.estimatedMinutes} min`
-    : "";
+  if (goalCandidate) {
+    const goalNorm = normalizeForCompare(goalCandidate);
+    const instructionNorm = instruction ? normalizeForCompare(instruction) : "";
+    const techniqueNorm = technique ? normalizeForCompare(technique) : "";
+    const duplicatesInstruction =
+      instructionNorm.length > 0 &&
+      (goalNorm === instructionNorm ||
+        instructionNorm.includes(goalNorm) ||
+        goalNorm.includes(instructionNorm));
+    const duplicatesTechnique =
+      techniqueNorm.length > 0 &&
+      (goalNorm === techniqueNorm || goalNorm.includes(techniqueNorm));
 
-  return { goal, observe, technique, avoid, materials, time };
+    if (!duplicatesInstruction && !duplicatesTechnique) {
+      notes.push({
+        tone: "goal",
+        label: "Focus",
+        body: excerpt(goalCandidate),
+      });
+    }
+  }
+
+  return notes.slice(0, 3);
 }
 
 export function LessonSummaryGrid({
   stage,
-  tutorial,
   medium,
+  instruction,
 }: {
   stage: ProgressionStage;
   tutorial: Tutorial;
   medium: Medium;
+  instruction?: string;
 }) {
-  const summary = buildSummary(stage, medium);
-  const extraGoals = stage.goals
-    .map((g) => g.trim())
-    .filter((g) => g && g !== summary.goal);
-  const extraMistakes = stage.commonMistakes
-    .map((m) => m.trim())
-    .filter((m) => m && m !== summary.avoid);
+  const notes = buildGlanceNotes(stage, medium, instruction);
+  if (notes.length === 0) return null;
 
   return (
     <section
-      className="lesson-summary"
-      aria-labelledby={`summary-${stage.id}`}
+      className="lesson-summary lesson-summary--cards"
+      aria-label="Stage guidance"
     >
-      <h4 className="lesson-summary-title" id={`summary-${stage.id}`}>
-        Stage at a glance
-      </h4>
-
-      <div className="lesson-summary-grid">
-        {summary.goal && (
-          <LearningCard tone="goal" label="Goal">
-            <p>{excerpt(summary.goal)}</p>
-          </LearningCard>
-        )}
-        {summary.observe && (
-          <LearningCard tone="observe" label="Observe">
-            <p>{excerpt(summary.observe)}</p>
-          </LearningCard>
-        )}
-        {summary.technique && (
-          <LearningCard tone="technique" label="Technique">
-            <p>{excerpt(summary.technique)}</p>
-          </LearningCard>
-        )}
-        {summary.avoid && (
-          <LearningCard tone="avoid" label="Avoid">
-            <p>{excerpt(summary.avoid)}</p>
-          </LearningCard>
-        )}
-        {summary.materials && (
-          <LearningCard tone="materials" label="Materials">
-            <p>{excerpt(summary.materials, 100)}</p>
-          </LearningCard>
-        )}
-        {summary.time && (
-          <LearningCard tone="time" label="Time">
-            <p>{summary.time}</p>
-          </LearningCard>
-        )}
+      <div className="studio-guide-cards">
+        {notes.map((note) => (
+          <article
+            key={`${note.tone}-${note.label}`}
+            className="studio-guide-card"
+            data-tone={note.tone}
+          >
+            <h3 className="studio-guide-card-label">{note.label}</h3>
+            <p className="studio-guide-card-body">{note.body}</p>
+          </article>
+        ))}
       </div>
-
-      <details className="lesson-summary-more">
-        <summary>Full stage guidance</summary>
-        <div className="lesson-summary-more-body">
-          <StageFocusPanel stage={stage} />
-
-          {stage.explanation.trim() && (
-            <div className="lesson-summary-block">
-              <h5 className="lesson-summary-block-label">Explanation</h5>
-              <p className="stage-explanation">
-                <AutoTerms text={stage.explanation} />
-              </p>
-            </div>
-          )}
-
-          {extraGoals.length > 0 && (
-            <div className="lesson-summary-block">
-              <h5 className="lesson-summary-block-label">All goals</h5>
-              <ul className="lesson-summary-list">
-                {stage.goals.filter((g) => g.trim()).map((g, i) => (
-                  <li key={i}>
-                    <AutoTerms text={g} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <StageSetupStrip stage={stage} medium={medium} />
-
-          <StagePalette
-            stage={stage}
-            tutorial={tutorial}
-            medium={medium}
-          />
-
-          <StageCheckpoint stage={stage} />
-
-          <StageMistake stage={stage} />
-
-          {extraMistakes.length > 0 && summary.avoid && (
-            <div className="lesson-summary-block">
-              <h5 className="lesson-summary-block-label">Also watch for</h5>
-              <ul className="lesson-summary-list">
-                {extraMistakes.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <StageInstructorNote stage={stage} />
-        </div>
-      </details>
     </section>
   );
 }

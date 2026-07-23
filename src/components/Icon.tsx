@@ -14,7 +14,11 @@ export type IconName =
   | "message"
   | "arrow-left"
   | "logout"
-  | "brush";
+  | "brush"
+  | "eye"
+  | "crop"
+  | "palette"
+  | "ban";
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></>),
@@ -31,22 +35,27 @@ const paths: Record<IconName, React.ReactNode> = {
   "arrow-left": (<><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></>),
   logout: (<><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5" /><path d="M5 12h11" /></>),
   brush: (<><path d="M14.5 3.5l6 6-7.8 7.8a3 3 0 0 1-1.6.8l-4.6.8.8-4.6a3 3 0 0 1 .8-1.6z" /><path d="M6.5 15.5c-1.6.4-2.5 1.8-2.8 3.9 2.1-.3 3.5-1.2 3.9-2.8" /></>),
+  eye: (<><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>),
+  crop: (<><path d="M6 3v14a1 1 0 0 0 1 1h14" /><path d="M18 21V7a1 1 0 0 0-1-1H3" /></>),
+  palette: (<><path d="M12 3.5a8.5 8.5 0 0 0-1.2 16.9c.8.1 1.2-.4 1.2-1v-1.1c0-.7.5-1.2 1.1-1.3a6.2 6.2 0 0 0 7.4-6C20.5 6.8 16.7 3.5 12 3.5z" /><circle cx="7.8" cy="10.2" r="1" fill="currentColor" stroke="none" /><circle cx="11" cy="7.5" r="1" fill="currentColor" stroke="none" /><circle cx="14.8" cy="8.2" r="1" fill="currentColor" stroke="none" /><circle cx="16.5" cy="11.5" r="1" fill="currentColor" stroke="none" /></>),
+  ban: (<><circle cx="12" cy="12" r="9" /><path d="M6.2 6.2l11.6 11.6" /></>),
 };
 
 export function Icon({
   name,
   size = 20,
+  className,
   ...props
 }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {
   return (
     <svg
-      className="icon"
+      className={["icon", className].filter(Boolean).join(" ")}
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.75}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

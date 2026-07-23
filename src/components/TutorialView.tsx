@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import { conceptsForLesson } from "@/lib/vocabulary";
 import { Term } from "@/components/vocabulary/Term";
+import { AppImage } from "@/components/ui/AppImage";
 
 type OverlayMode = "composition" | "values" | "temperature" | "none";
 
@@ -67,7 +68,15 @@ export function TutorialView({ tutorial, imageUrl, medium = "watercolor", showCo
                 <button key={v} type="button" aria-pressed={overlayMode === v} className={overlayMode === v ? 'overlay-tab active' : 'overlay-tab'} onClick={() => setOverlayMode(v)}>{l}</button>)}
             </div>
             <div className="annotated-image">
-              <img src={imageUrl} alt="Uploaded reference" />
+              <AppImage
+                src={imageUrl}
+                alt="Uploaded reference"
+                width={1600}
+                height={1200}
+                sizes="(max-width: 900px) 100vw, 640px"
+                className="annotated-image-photo"
+                style={{ width: "100%", height: "auto" }}
+              />
               {overlayMode !== "none" && <svg className="analysis-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
                 {tutorial.visualGuides.regions.filter(r => showRegion(r.type, overlayMode)).map((r, i) => <g key={i}>
                   <rect x={r.x} y={r.y} width={r.width} height={r.height} rx="1.5" fill={regionColors[r.type]} stroke="white" strokeWidth=".45" vectorEffect="non-scaling-stroke" />
@@ -154,7 +163,17 @@ export function TutorialView({ tutorial, imageUrl, medium = "watercolor", showCo
           </div>
 
           <aside className="page-side">
-            <div className="mini-reference"><img src={imageUrl} alt="" />{step.focusBox && <div className="mini-focus" style={{ left: `${step.focusBox.x}%`, top: `${step.focusBox.y}%`, width: `${step.focusBox.width}%`, height: `${step.focusBox.height}%` }} />}</div>
+            <div className="mini-reference">
+              <AppImage
+                src={imageUrl}
+                alt=""
+                width={400}
+                height={400}
+                sizes="160px"
+                style={{ width: "100%", height: "auto" }}
+              />
+              {step.focusBox && <div className="mini-focus" style={{ left: `${step.focusBox.x}%`, top: `${step.focusBox.y}%`, width: `${step.focusBox.width}%`, height: `${step.focusBox.height}%` }} />}
+            </div>
             {step.paletteNames.length > 0 && <>
               <span className="note-label">Colors for this step</span>
               <div className="step-colors">{step.paletteNames.map(n => { const c = palette.get(n); return c ? <div className="step-color" key={n}><span style={{ background: c.hex }} />{n}</div> : null; })}</div>

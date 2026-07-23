@@ -5,7 +5,9 @@ import type { ProgressionStage } from "@/lib/progression";
 import { AnnotatedImage } from "@/components/progression/AnnotatedImage";
 import { CompareMenu } from "@/components/progression/CompareMenu";
 import { ComparisonFrame } from "@/components/progression/ComparisonFrame";
+import { AppImage } from "@/components/ui/AppImage";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
+import { STAGE_PROCESS_LABEL } from "@/lib/stage-icons";
 
 // Which panels are visible in the two-image comparison. Add "overlay" here (and
 // one entry in CompareMenu) to introduce an overlay view later.
@@ -51,7 +53,16 @@ function TargetPanel({
         : `${stage.title} — target for this stage`;
     return (
       <div className={`cmp-target-live${statusLabel ? " is-refining" : ""}${preparingFinished ? " is-preparing-finished" : ""}`}>
-        <img className="cmp-frame-img" src={visual.url} alt={alt} loading="lazy" />
+        <AppImage
+          className="cmp-frame-img"
+          src={visual.url}
+          alt={alt}
+          width={1600}
+          height={1200}
+          sizes="(max-width: 1100px) 100vw, 560px"
+          style={{ width: "100%", height: "auto" }}
+          loading="lazy"
+        />
         {statusLabel && (
           <div className="cmp-refining" role="status" aria-live="polite">
             <span className="spinner cmp-refining-spinner" aria-hidden="true" />
@@ -137,10 +148,14 @@ export function StageComparison({
       />
     ) : (
       <ComparisonFrame>
-        <img
+        <AppImage
           className="cmp-frame-img"
           src={referenceUrl}
           alt="Reference"
+          width={1600}
+          height={1200}
+          sizes="(max-width: 1100px) 100vw, 560px"
+          style={{ width: "100%", height: "auto" }}
           loading="lazy"
         />
       </ComparisonFrame>
@@ -151,47 +166,46 @@ export function StageComparison({
     </ComparisonFrame>
   );
 
-  const targetTag = isSketch ? "Pencil sketch target" : "Target for this stage";
-  const targetSub = isSketch
-    ? "The drawing you need before you paint"
-    : "What your painting may look like now";
-  const referenceSub = isSketch ? "What you’re transferring" : "What you’re observing";
+  const targetLabel = STAGE_PROCESS_LABEL[stage.id] || (isSketch ? "Sketch" : "Stage");
+  const showReference = compare === "both" || compare === "reference";
+  const showTarget = compare === "both" || compare === "target";
 
   // Only offer the view-mode control when there is imagery to compare.
   const hasImagery = Boolean(referenceUrl) || Boolean(stage.visual.url);
+  const showControls = hasImagery && Boolean(onCompareChange);
 
   return (
-    <div className={`stage-compare compare-${compare}`}>
-      {hasImagery && onCompareChange && (
-        <div className="cmp-controls">
+    <div className={`stage-compare studio-compare compare-${compare}`}>
+      <div className="cmp-shell-toolbar" role="toolbar" aria-label="Comparison tools">
+        <p className="cmp-shell-kicker">Compare</p>
+        {showControls && onCompareChange ? (
           <CompareMenu value={compare} onChange={onCompareChange} />
-        </div>
-      )}
+        ) : null}
+      </div>
 
-      <figure className="cmp-panel cmp-reference">
-        <figcaption className="cmp-label">
-          <span className="cmp-tag observe">Reference</span>
-          <span className="cmp-sub">{referenceSub}</span>
-        </figcaption>
-        {referenceMedia}
-      </figure>
+      <div className={`cmp-panels cmp-panels--${compare}`}>
+        {showReference ? (
+          <figure className="cmp-panel cmp-reference">
+            <figcaption className="cmp-caption">Reference</figcaption>
+            <div className="cmp-viewport">{referenceMedia}</div>
+          </figure>
+        ) : null}
 
-      <figure className="cmp-panel cmp-target">
-        <figcaption className="cmp-label">
-          <span className="cmp-tag action">{targetTag}</span>
-          <span className="cmp-sub">{targetSub}</span>
-        </figcaption>
-        {analytic && compare === "both" && (
-          <div className="cmp-overlay-tools-spacer" aria-hidden="true" />
-        )}
-        <ComparisonFrame>
-          <TargetPanel
-            stage={stage}
-            onRetry={onRetry ? () => onRetry(stage.id) : undefined}
-            retrying={retrying}
-          />
-        </ComparisonFrame>
-      </figure>
+        {showTarget ? (
+          <figure className="cmp-panel cmp-target">
+            <figcaption className="cmp-caption">{targetLabel}</figcaption>
+            <div className="cmp-viewport">
+              <ComparisonFrame>
+                <TargetPanel
+                  stage={stage}
+                  onRetry={onRetry ? () => onRetry(stage.id) : undefined}
+                  retrying={retrying}
+                />
+              </ComparisonFrame>
+            </div>
+          </figure>
+        ) : null}
+      </div>
     </div>
   );
 }

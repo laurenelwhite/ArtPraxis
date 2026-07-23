@@ -89,21 +89,38 @@ export function useActiveStage(domIds: string[]) {
 
   // Track the centred stage as the user scrolls (highlight only — no history).
   useEffect(() => {
-    const els = domIds.map((_, i) => elementAt(i)).filter((el): el is HTMLElement => Boolean(el));
-    if (els.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const top = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!top) return;
-        const idx = domIds.indexOf((top.target as HTMLElement).id);
-        if (idx >= 0) setActive(idx);
-      },
-      { rootMargin: "-45% 0px -45% 0px", threshold: [0, 0.2, 0.5, 0.8, 1] },
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    let observer: IntersectionObserver | null = null;
+    let cancelled = false;
+
+    const attach = () => {
+      if (cancelled) return;
+      const els = domIds
+        .map((_, i) => elementAt(i))
+        .filter((el): el is HTMLElement => Boolean(el));
+      if (els.length === 0) {
+        requestAnimationFrame(attach);
+        return;
+      }
+      observer = new IntersectionObserver(
+        (entries) => {
+          const top = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (!top) return;
+          const idx = domIds.indexOf((top.target as HTMLElement).id);
+          if (idx >= 0) setActive(idx);
+        },
+        // Bias toward the upper workspace beneath sticky chrome
+        { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.15, 0.35, 0.6, 1] },
+      );
+      els.forEach((el) => observer!.observe(el));
+    };
+
+    attach();
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);
 

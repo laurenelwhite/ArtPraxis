@@ -2,7 +2,22 @@
 
 import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
+import {
+  ERR_IMAGE_SAFETY_REVIEW,
+  MSG_IMAGE_SAFETY_REVIEW,
+  createInflightGuard,
+  shouldGenerateMaster,
+} from "@/lib/master-pipeline";
+import {
+  buildApiErrorDetails,
+  buildFailedStagePatch,
+  classifyStorageRetryability,
+  createProgressionThrownError,
+  normalizeProgressionError,
+  parseApiErrorBody,
+  sanitizeProgressionLogObject,
+} from "@/lib/progression-errors";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import { STAGE_ORDER, buildStageImagePrompt } from "@/lib/stage-image-prompts";
 import { buildStageFallback, toDataUrl } from "@/lib/stage-fallback";
@@ -40,7 +55,7 @@ import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 //   - Every completed item is persisted before the next starts, so a timeout or
 //     closed browser never erases finished work.
 //
-// Storage: image bytes at users/{uid}/projects/{projectId}/stages/{name}.png
+// Storage: image bytes at users/{uid}/projects/{projectId}/stages/{name}.webp
 //   (name = stageId | "master"). The original reference is never overwritten.
 // ============================================================================
 
@@ -184,7 +199,15 @@ export function subscribeProgression(
   return onSnapshot(
     progressionRef(uid, projectId),
     (snap) => cb(snap.exists() ? toDoc(snap.data()) : null),
-    () => cb(null),
+    (err) => {
+      // Do not cb(null) on transport errors — that would look like "no master".
+      console.error(
+        "[progression] subscribeProgression error",
+        sanitizeProgressionLogObject(
+          normalizeProgressionError(err, { operation: "subscribe-progression" }),
+        ),
+      );
+    },
   );
 }
 
@@ -228,11 +251,489 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
+const EXPECTED_STORAGE_BUCKET = "artpraxis-33840.firebasestorage.app";
+const STAGE_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
+const STAGE_UPLOAD_CONTENT_TYPE = "image/webp";
+const STAGE_UPLOAD_EXT = "webp";
+
+type NormalizedStageImage = {
+  blob: Blob;
+  originalBytes: number;
+  normalizedBytes: number;
+  originalWidth: number;
+  originalHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  contentType: string;
+  quality: number;
+  maxLongEdge: number;
+};
+
+function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === "undefined" || typeof Image === "undefined") {
+      reject(new Error("Canvas image normalization requires a browser environment."));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not decode stage image for upload normalization."));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function fitWithinLongEdge(
+  width: number,
+  height: number,
+  maxLongEdge: number,
+): { width: number; height: number } {
+  const longEdge = Math.max(width, height);
+  if (!Number.isFinite(longEdge) || longEdge <= 0) {
+    throw new Error("Invalid image dimensions for stage upload normalization.");
+  }
+  // Never upscale — only shrink when the long edge exceeds the cap.
+  if (longEdge <= maxLongEdge) {
+    return { width: Math.round(width), height: Math.round(height) };
+  }
+  const scale = maxLongEdge / longEdge;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+function canvasToWebpBlob(
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(
+        (result) => {
+          if (!result || result.size <= 0) {
+            reject(new Error("Canvas toBlob returned an empty WebP stage image."));
+            return;
+          }
+          if (result.type && !/^image\/webp$/i.test(result.type)) {
+            // Some browsers may omit type; accept empty type but reject non-webp.
+            if (result.type.length > 0) {
+              reject(
+                new Error(
+                  `Canvas normalization produced unsupported type "${result.type}" (expected image/webp).`,
+                ),
+              );
+              return;
+            }
+          }
+          resolve(
+            result.type === "image/webp"
+              ? result
+              : new Blob([result], { type: STAGE_UPLOAD_CONTENT_TYPE }),
+          );
+        },
+        STAGE_UPLOAD_CONTENT_TYPE,
+        quality,
+      );
+    } catch (error) {
+      reject(
+        error instanceof Error
+          ? error
+          : new Error("Canvas toBlob failed during stage image normalization."),
+      );
+    }
+  });
+}
+
+async function encodeStageAtSize(
+  img: HTMLImageElement,
+  maxLongEdge: number,
+  qualities: number[],
+  maxBytes: number,
+): Promise<{ blob: Blob; width: number; height: number; quality: number } | null> {
+  const { width, height } = fitWithinLongEdge(
+    img.naturalWidth || img.width,
+    img.naturalHeight || img.height,
+    maxLongEdge,
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not create a 2D canvas context for stage image normalization.");
+  }
+  ctx.drawImage(img, 0, 0, width, height);
+
+  for (const quality of qualities) {
+    const blob = await canvasToWebpBlob(canvas, quality);
+    if (blob.size < maxBytes) {
+      return { blob, width, height, quality };
+    }
+  }
+  return null;
+}
+
+/**
+ * Shrink + WebP-compress stage images so they stay under the Storage 15 MB rule.
+ * Does not upscale. Browser-only (canvas).
+ */
+async function normalizeStageImageForUpload(source: Blob): Promise<NormalizedStageImage> {
+  const originalBytes = source.size;
+  const img = await loadImageFromBlob(source);
+  const originalWidth = img.naturalWidth || img.width;
+  const originalHeight = img.naturalHeight || img.height;
+
+  if (!originalWidth || !originalHeight) {
+    throw new Error("Stage image has invalid dimensions and cannot be normalized.");
+  }
+
+  // Pass 1: long edge ≤ 2048, quality ladder 0.88 → 0.82 → 0.74 → 0.65
+  let encoded = await encodeStageAtSize(
+    img,
+    2048,
+    [0.88, 0.82, 0.74, 0.65],
+    STAGE_UPLOAD_MAX_BYTES,
+  );
+
+  // Pass 2: long edge ≤ 1600, quality 0.82 then 0.72
+  if (!encoded) {
+    encoded = await encodeStageAtSize(img, 1600, [0.82, 0.72], STAGE_UPLOAD_MAX_BYTES);
+  }
+
+  if (!encoded) {
+    const failedBytes = originalBytes;
+    throw createProgressionThrownError(
+      `Firebase Storage upload blocked: image is still over 15 MB after normalization (${Number((failedBytes / 1024 / 1024).toFixed(2))} MB source).`,
+      {
+        name: "StageUploadError",
+        code: "ERR_STAGE_IMAGE_TOO_LARGE",
+        retryable: false,
+        uploadDetails: sanitizeProgressionLogObject({
+          operation: "upload-stage-image",
+          originalBytes,
+          originalWidth,
+          originalHeight,
+          contentType: STAGE_UPLOAD_CONTENT_TYPE,
+        }),
+      },
+    );
+  }
+
+  const result: NormalizedStageImage = {
+    blob: encoded.blob,
+    originalBytes,
+    normalizedBytes: encoded.blob.size,
+    originalWidth,
+    originalHeight,
+    outputWidth: encoded.width,
+    outputHeight: encoded.height,
+    contentType: STAGE_UPLOAD_CONTENT_TYPE,
+    quality: encoded.quality,
+    maxLongEdge: Math.max(encoded.width, encoded.height),
+  };
+
+  console.info(
+    "[upload-stage-image] normalized",
+    sanitizeProgressionLogObject({
+      originalBytes: result.originalBytes,
+      normalizedBytes: result.normalizedBytes,
+      originalWidth: result.originalWidth,
+      originalHeight: result.originalHeight,
+      outputWidth: result.outputWidth,
+      outputHeight: result.outputHeight,
+      contentType: result.contentType,
+      quality: result.quality,
+    }),
+  );
+
+  return result;
+}
+
+function throwStageUploadPreflightError(
+  code: string,
+  message: string,
+  details: Record<string, unknown>,
+): never {
+  throw createProgressionThrownError(message, {
+    name: "StageUploadError",
+    code,
+    retryable: false,
+    uploadDetails: sanitizeProgressionLogObject({
+      operation: "upload-stage-image",
+      ...details,
+    }),
+  });
+}
+
+/**
+ * Upload with at most one ID-token refresh retry on storage/unauthorized
+ * or storage/unauthenticated. Does not retry size/MIME/bucket/UID preflight failures.
+ */
+async function uploadStageBlobWithAuthRefresh(params: {
+  uid: string;
+  projectId: string;
+  name: string;
+  storagePath: string;
+  blob: Blob;
+  object: ReturnType<typeof ref>;
+  performUpload: () => Promise<string>;
+}): Promise<string> {
+  const { uid, projectId, name, storagePath, blob, performUpload } = params;
+
+  try {
+    return await performUpload();
+  } catch (error) {
+    const normalized = normalizeProgressionError(error, {
+      operation: "upload-stage-image",
+      projectId,
+      stageId: name,
+    });
+
+    if (
+      normalized.code !== "storage/unauthorized" &&
+      normalized.code !== "storage/unauthenticated"
+    ) {
+      throw error;
+    }
+
+    const user = auth.currentUser;
+    if (!user || user.uid !== uid) {
+      throw error;
+    }
+
+    console.info(
+      "[upload-stage-image] refreshing auth token",
+      sanitizeProgressionLogObject({
+        projectId,
+        stageName: name,
+        authenticatedUid: user.uid,
+      }),
+    );
+
+    await user.getIdToken(true);
+
+    try {
+      return await performUpload();
+    } catch (retryError) {
+      const retryNormalized = normalizeProgressionError(retryError, {
+        operation: "upload-stage-image",
+        projectId,
+        stageId: name,
+      });
+
+      console.error(
+        "[upload-stage-image] failed after auth refresh",
+        sanitizeProgressionLogObject({
+          ...retryNormalized,
+          storagePath,
+          authenticatedUid: auth.currentUser?.uid ?? null,
+          expectedUid: uid,
+          blobSizeBytes: blob.size,
+          blobType: blob.type,
+          bucket: storage.app.options.storageBucket ?? null,
+          retryAttempted: true,
+        }),
+      );
+
+      throw retryError;
+    }
+  }
+}
+
 async function uploadDataUrl(uid: string, projectId: string, name: string, dataUrl: string): Promise<string> {
-  const blob = dataUrlToBlob(dataUrl);
-  const object = ref(storage, `users/${uid}/projects/${projectId}/stages/${name}.png`);
-  await uploadBytes(object, blob, { contentType: blob.type || "image/png" });
-  return getDownloadURL(object);
+  await auth.authStateReady();
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_SAVE_AUTH",
+      "Firebase Storage upload blocked: no authenticated user.",
+      {
+        projectId,
+        stageName: name,
+        expectedUid: uid,
+        authenticatedUid: null,
+      },
+    );
+  }
+
+  // Stage object names must be a single path segment (no nested folders).
+  if (!name || name.includes("/") || name.includes("\\") || name.includes("..")) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_INVALID_NAME",
+      `Firebase Storage upload blocked: invalid stage name "${name}".`,
+      { projectId, stageName: name, expectedUid: uid, authenticatedUid: currentUser.uid },
+    );
+  }
+
+  if (currentUser.uid !== uid) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_AUTH_UID_MISMATCH",
+      `Firebase Storage upload blocked: path uid "${uid}" does not match authenticated uid "${currentUser.uid}".`,
+      {
+        projectId,
+        stageName: name,
+        expectedUid: uid,
+        authenticatedUid: currentUser.uid,
+      },
+    );
+  }
+
+  const sourceBlob = dataUrlToBlob(dataUrl);
+  let normalized: NormalizedStageImage;
+  try {
+    normalized = await normalizeStageImageForUpload(sourceBlob);
+  } catch (error) {
+    const alreadyCoded =
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "ERR_STAGE_IMAGE_TOO_LARGE";
+    if (alreadyCoded) throw error;
+    throw createProgressionThrownError(
+      error instanceof Error
+        ? error.message
+        : "Stage image normalization failed before upload.",
+      {
+        name: "StageUploadError",
+        code: "ERR_STAGE_NORMALIZE_FAILED",
+        retryable: false,
+        cause: error,
+        uploadDetails: sanitizeProgressionLogObject({
+          operation: "upload-stage-image",
+          projectId,
+          stageName: name,
+          originalBytes: sourceBlob.size,
+          blobType: sourceBlob.type,
+        }),
+      },
+    );
+  }
+
+  const uploadBlob = normalized.blob;
+  const storagePath = `users/${uid}/projects/${projectId}/stages/${name}.${STAGE_UPLOAD_EXT}`;
+  const object = ref(storage, storagePath);
+  const bucket = storage.app.options.storageBucket ?? null;
+
+  const preflight = {
+    bucket,
+    storagePath,
+    authenticatedUid: currentUser.uid,
+    expectedUid: uid,
+    uidMatches: currentUser.uid === uid,
+    blobSizeBytes: uploadBlob.size,
+    blobSizeMB: Number((uploadBlob.size / 1024 / 1024).toFixed(2)),
+    belowRuleLimit: uploadBlob.size < STAGE_UPLOAD_MAX_BYTES,
+    blobType: uploadBlob.type || STAGE_UPLOAD_CONTENT_TYPE,
+    contentTypeAllowed: /^image\/(webp|png|jpeg|jpg)$/i.test(
+      uploadBlob.type || STAGE_UPLOAD_CONTENT_TYPE,
+    ),
+    stageName: name,
+    projectId,
+    originalBytes: normalized.originalBytes,
+    quality: normalized.quality,
+  };
+
+  console.info(
+    "[upload-stage-image] rule preflight",
+    sanitizeProgressionLogObject(preflight),
+  );
+
+  if (bucket !== EXPECTED_STORAGE_BUCKET) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_BUCKET_MISMATCH",
+      `Firebase Storage upload blocked: unexpected bucket "${bucket ?? "null"}" (expected ${EXPECTED_STORAGE_BUCKET}).`,
+      { ...preflight },
+    );
+  }
+
+  if (uploadBlob.size >= STAGE_UPLOAD_MAX_BYTES) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_IMAGE_TOO_LARGE",
+      `Firebase Storage upload blocked: image is ${preflight.blobSizeMB} MB (limit 15 MB).`,
+      { ...preflight },
+    );
+  }
+
+  if (!/^image\//.test(uploadBlob.type || STAGE_UPLOAD_CONTENT_TYPE)) {
+    throwStageUploadPreflightError(
+      "ERR_STAGE_INVALID_CONTENT_TYPE",
+      `Firebase Storage upload blocked: content type "${uploadBlob.type || "empty"}" is not image/*.`,
+      { ...preflight },
+    );
+  }
+
+  console.info(
+    "[upload-stage-image] starting",
+    sanitizeProgressionLogObject({
+      projectId,
+      stageName: name,
+      storagePath,
+      authenticatedUid: currentUser.uid,
+      expectedUid: uid,
+      blobSizeBytes: uploadBlob.size,
+      blobType: uploadBlob.type || STAGE_UPLOAD_CONTENT_TYPE,
+      dataUrlPrefix: dataUrl.slice(0, 30),
+      bucket,
+    }),
+  );
+
+  const performUpload = async () => {
+    await uploadBytes(object, uploadBlob, { contentType: STAGE_UPLOAD_CONTENT_TYPE });
+    return await getDownloadURL(object);
+  };
+
+  try {
+    return await uploadStageBlobWithAuthRefresh({
+      uid,
+      projectId,
+      name,
+      storagePath,
+      blob: uploadBlob,
+      object,
+      performUpload,
+    });
+  } catch (error) {
+    const errNormalized = normalizeProgressionError(error, {
+      operation: "upload-stage-image",
+      projectId,
+      stageId: name,
+    });
+    const retryable = classifyStorageRetryability(errNormalized.code, errNormalized.message);
+    const details = sanitizeProgressionLogObject({
+      ...errNormalized,
+      retryable,
+      storagePath,
+      authenticatedUid: auth.currentUser?.uid ?? null,
+      expectedUid: uid,
+      blobSizeBytes: uploadBlob.size,
+      blobType: uploadBlob.type || STAGE_UPLOAD_CONTENT_TYPE,
+      dataUrlPrefix: dataUrl.slice(0, 30),
+      bucket,
+    });
+
+    // Auth-refresh path already emitted "failed after auth refresh"; still emit
+    // the boundary failure once with full serializable context.
+    console.error("[upload-stage-image] failed", details);
+
+    throw createProgressionThrownError(
+      errNormalized.message || `Failed to upload stage image "${name}".`,
+      {
+        name: errNormalized.name ?? "StageUploadError",
+        code: errNormalized.code ?? "ERR_STAGE_SAVE",
+        retryable,
+        cause: error,
+        uploadDetails: details,
+      },
+    );
+  }
 }
 
 // Merge-write a patch. `withLease` also renews the current client's lease so a
@@ -301,6 +802,8 @@ interface ApiResponse {
   masterValidation?: unknown;
   images: ApiImage[];
   error?: string;
+  code?: string;
+  retryable?: boolean;
 }
 
 /** User-facing copy — never surface raw validation JSON or HTTP details. */
@@ -310,7 +813,12 @@ const ERR_STAGE_GENERATE = "This demonstration couldn’t be generated. Please r
 const ERR_STAGE_SAVE = "Couldn’t save this demonstration. Please retry.";
 
 /** Dedup concurrent orchestrateProgression calls for the same project. */
-const orchestrationInflight = new Map<string, Promise<void>>();
+const orchestrationInflight = new Map<
+  string,
+  Promise<"ran" | "skipped_complete" | "skipped_lease" | "skipped_review">
+>;
+/** Dedup concurrent master API generations (stricter than full orchestration). */
+const masterInflight = createInflightGuard<ProgressionDoc>();
 
 function progressionKey(uid: string, projectId: string): string {
   return `${uid}/${projectId}`;
@@ -328,6 +836,39 @@ function masterUsableForStages(doc: Pick<ProgressionDoc, "masterStatus" | "maste
   );
 }
 
+class ProgressionApiError extends Error {
+  code?: string;
+  retryable: boolean;
+  status: number;
+  apiDetails?: Record<string, unknown>;
+
+  constructor(
+    message: string,
+    opts: {
+      code?: string;
+      retryable?: boolean;
+      status?: number;
+      apiDetails?: Record<string, unknown>;
+    } = {},
+  ) {
+    super(message);
+    this.name = "ProgressionApiError";
+    this.code = opts.code;
+    this.retryable = opts.retryable ?? true;
+    this.status = opts.status ?? 500;
+    this.apiDetails = opts.apiDetails;
+    // Ensure enumerable own props so Next.js / JSON logs are not `{}`.
+    Object.assign(this, {
+      name: this.name,
+      code: this.code,
+      retryable: this.retryable,
+      status: this.status,
+      apiDetails: this.apiDetails,
+      message: this.message,
+    });
+  }
+}
+
 async function callApi(body: {
   mode: "master" | "stage";
   medium: Medium;
@@ -337,27 +878,97 @@ async function callApi(body: {
   stageId?: StageId;
   masterImageUrl?: string;
   precedingImageUrl?: string;
+  projectId?: string;
 }): Promise<ApiResponse> {
+  const projectId = body.projectId ?? null;
   logProgression("generation_request_started", {
     mode: body.mode,
     stageId: body.stageId ?? null,
+    projectId,
+    hasMaster: Boolean(body.masterImageUrl),
   });
-  const res = await fetch("/api/generate-stage-images", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  let data: ApiResponse & { error?: string } = { generated: false, master: null, images: [] };
+
+  let res: Response;
   try {
-    data = await res.json();
-  } catch {
-    /* ignore parse errors */
+    res = await fetch("/api/generate-stage-images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: body.mode,
+        medium: body.medium,
+        tutorial: body.tutorial,
+        size: body.size,
+        referenceImageUrl: body.referenceImageUrl,
+        stageId: body.stageId,
+        masterImageUrl: body.masterImageUrl,
+        precedingImageUrl: body.precedingImageUrl,
+      }),
+    });
+  } catch (networkError) {
+    const normalized = normalizeProgressionError(networkError, {
+      operation: "generate-stage-images-api",
+      stageId: body.stageId,
+      projectId: projectId ?? undefined,
+      source: body.mode,
+      retryable: true,
+    });
+    const apiDetails = sanitizeProgressionLogObject({
+      ...normalized,
+      mode: body.mode,
+      status: null,
+      statusText: "network_error",
+    });
+    console.error("[progression] API error", apiDetails);
+    throw createProgressionThrownError(normalized.message, {
+      name: "ProgressionApiError",
+      code: body.mode === "master" ? "ERR_MASTER_GENERATE" : "ERR_STAGE_GENERATE",
+      status: 0,
+      retryable: true,
+      cause: networkError,
+      apiDetails,
+    });
   }
+
+  const rawText = await res.text();
   if (!res.ok) {
-    console.error("[progression] API error", { status: res.status, error: data?.error });
-    throw new Error(body.mode === "master" ? ERR_MASTER_GENERATE : ERR_STAGE_GENERATE);
+    const fallbackMessage =
+      body.mode === "master" ? ERR_MASTER_GENERATE : ERR_STAGE_GENERATE;
+    const parsed = parseApiErrorBody(rawText, res.status, {
+      mode: body.mode,
+      fallbackMessage,
+    });
+    const responseMessage =
+      parsed.code === ERR_IMAGE_SAFETY_REVIEW
+        ? MSG_IMAGE_SAFETY_REVIEW
+        : parsed.message || fallbackMessage;
+    const apiDetails = buildApiErrorDetails({
+      status: res.status,
+      statusText: res.statusText,
+      mode: body.mode,
+      stageId: body.stageId ?? null,
+      projectId,
+      parsed: { ...parsed, message: responseMessage },
+    });
+    console.error("[progression] API error", apiDetails);
+    throw new ProgressionApiError(responseMessage, {
+      code:
+        parsed.code ??
+        (body.mode === "master" ? "ERR_MASTER_GENERATE" : "ERR_STAGE_GENERATE"),
+      retryable: parsed.retryable,
+      status: res.status,
+      apiDetails,
+    });
   }
-  return data as ApiResponse;
+
+  let data: ApiResponse = { generated: false, master: null, images: [] };
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText) as ApiResponse;
+    } catch {
+      /* keep empty */
+    }
+  }
+  return data;
 }
 
 // `fallback` is internal-only metadata (no customer-facing caption). When true,
@@ -424,6 +1035,7 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
       referenceImageUrl: ctx.referenceImageUrl,
       masterImageUrl: ctx.masterImageUrl ?? undefined,
       precedingImageUrl: ctx.precedingUrl ?? undefined,
+      projectId: ctx.projectId,
     });
 
     if (!response.generated) {
@@ -497,15 +1109,26 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
       retryCount: existing.retryCount + 1,
     };
   } catch (e) {
-    const reason = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.error(`[progression] stage "${stageId}" failed`, e);
+    const normalized = normalizeProgressionError(e, {
+      operation: "process-stage",
+      stageId,
+      projectId: ctx.projectId,
+    });
+    console.error(
+      `[progression] stage "${stageId}" failed`,
+      sanitizeProgressionLogObject({ ...normalized }),
+    );
     logProgression("stage_refinement_failed", {
       projectId: ctx.projectId,
       stageId,
-      reason,
-      stack: e instanceof Error ? e.stack ?? null : null,
+      code: normalized.code,
+      message: normalized.message,
+      retryable: normalized.retryable,
     });
-    const uploadFail = e instanceof Error && /save|upload|storage/i.test(e.message);
+    const uploadFail =
+      normalized.operation === "upload-stage-image" ||
+      Boolean(normalized.code?.startsWith("storage/")) ||
+      /save|upload|storage/i.test(normalized.message);
     // Preserve provisional image so later stages can continue from it.
     if (existing.targetImageUrl) {
       return {
@@ -514,13 +1137,29 @@ async function processStage(existing: StageImageRecord, ctx: StageContext): Prom
         error: null,
         fallback: true,
         retryCount: existing.retryCount + 1,
+        errorCode: null,
+        errorMessage: null,
+        retryable: null,
+        failedAt: null,
+        failureSource: null,
       };
     }
+    const patch = buildFailedStagePatch(normalized, {
+      source: uploadFail ? "upload" : "api",
+      userFacingError: uploadFail ? ERR_STAGE_SAVE : ERR_STAGE_GENERATE,
+      retryCount: existing.retryCount + 1,
+      preserveTargetUrl: null,
+    });
     return {
       ...existing,
-      generationStatus: "failed",
-      error: uploadFail ? ERR_STAGE_SAVE : ERR_STAGE_GENERATE,
-      retryCount: existing.retryCount + 1,
+      generationStatus: patch.generationStatus,
+      error: patch.error,
+      errorCode: patch.errorCode,
+      errorMessage: patch.errorMessage,
+      retryable: patch.retryable,
+      failedAt: patch.failedAt,
+      failureSource: patch.failureSource,
+      retryCount: patch.retryCount,
     };
   }
 }
@@ -550,7 +1189,16 @@ async function seedStagePreviews(
   try {
     sourceDataUrl = await toDataUrl(sourceImageUrl);
   } catch (e) {
-    console.error(`[progression] could not load ${source} for stage previews`, e);
+    console.error(
+      `[progression] could not load ${source} for stage previews`,
+      sanitizeProgressionLogObject(
+        normalizeProgressionError(e, {
+          operation: "seed-stage-source-load",
+          projectId,
+          source,
+        }),
+      ),
+    );
     if (source === "master") {
       logProgression("master_preview_derivation_complete", {
         projectId,
@@ -674,21 +1322,63 @@ async function seedStagePreviews(
       continue;
     }
 
+    let generatedFallback: string | null = null;
     try {
+      const intendedStorageName = s.stageId;
+      console.info(
+        "[progression] preview seed starting",
+        sanitizeProgressionLogObject({
+          projectId,
+          stageId: s.stageId,
+          source,
+          hasDataUrl: Boolean(sourceDataUrl),
+          dataUrlPrefix: sourceDataUrl ? sourceDataUrl.slice(0, 30) : null,
+          intendedStorageName,
+        }),
+      );
+
       const precedingForFallback =
         s.stageId === "pencil-sketch" ? null : chainDataUrl;
-      const fb = await buildStageFallback(
+      generatedFallback = await buildStageFallback(
         sourceDataUrl,
         s.stageId,
         precedingForFallback,
       );
-      const url = await uploadDataUrl(uid, projectId, s.stageId, fb);
-      chainDataUrl = fb;
+
+      console.info(
+        "[progression] preview seed generated",
+        sanitizeProgressionLogObject({
+          projectId,
+          stageId: s.stageId,
+          source,
+          blobSizeEstimate: Math.max(0, Math.floor((generatedFallback.length * 3) / 4)),
+          dataUrlPrefix: generatedFallback.slice(0, 30),
+        }),
+      );
+
+      const url = await uploadDataUrl(uid, projectId, s.stageId, generatedFallback);
+      chainDataUrl = generatedFallback;
+
+      console.info(
+        "[progression] preview seed persisted",
+        sanitizeProgressionLogObject({
+          projectId,
+          stageId: s.stageId,
+          source,
+          storagePath: `users/${uid}/projects/${projectId}/stages/${s.stageId}.${STAGE_UPLOAD_EXT}`,
+        }),
+      );
+
       stages[i] = {
         ...s,
         targetImageUrl: url,
         generationStatus: masterTargetsAreFinal ? "ready" : "generating",
         error: null,
+        errorCode: null,
+        errorMessage: null,
+        retryable: null,
+        failedAt: null,
+        failureSource: null,
         validated: false,
         fallback: true,
         previewSource: masterTargetsAreFinal ? null : source,
@@ -697,17 +1387,77 @@ async function seedStagePreviews(
       await persist(uid, projectId, { stages: [...stages] }, true);
       derivedCount++;
     } catch (e) {
-      console.error(`[progression] ${source} preview seed failed for "${s.stageId}"`, e);
-      if (!s.targetImageUrl) stages[i] = { ...s, generationStatus: "pending", error: null };
+      const normalized = normalizeProgressionError(e, {
+        operation: "seed-stage-preview",
+        stageId: s.stageId,
+        projectId,
+        source,
+      });
+      const uploadDetails =
+        e && typeof e === "object" && "uploadDetails" in e
+          ? sanitizeProgressionLogObject(
+              (e as { uploadDetails: Record<string, unknown> }).uploadDetails,
+            )
+          : null;
+
+      console.error(
+        `[progression] ${source} preview seed failed for "${s.stageId}"`,
+        sanitizeProgressionLogObject({
+          ...normalized,
+          stageName: s.stageId,
+          hadDeterministicPreview: Boolean(generatedFallback),
+          uploadDetails,
+        }),
+      );
+
+      // Keep deterministic plate in the in-memory chain for later stages even
+      // when Storage upload failed (do not write data URLs to Firestore).
+      if (generatedFallback) {
+        chainDataUrl = generatedFallback;
+      }
+
+      const patch = buildFailedStagePatch(normalized, {
+        source,
+        userFacingError: ERR_STAGE_SAVE,
+        retryCount: (s.retryCount ?? 0) + 1,
+        preserveTargetUrl: s.targetImageUrl,
+      });
+      stages[i] = {
+        ...s,
+        generationStatus: patch.generationStatus,
+        error: patch.error,
+        errorCode: patch.errorCode,
+        errorMessage: patch.errorMessage,
+        retryable: patch.retryable,
+        failedAt: patch.failedAt,
+        failureSource: patch.failureSource,
+        targetImageUrl: s.targetImageUrl,
+        retryCount: patch.retryCount,
+      };
+      try {
+        await persist(uid, projectId, { stages: [...stages] }, true);
+      } catch (persistErr) {
+        console.error(
+          `[progression] could not persist failed status for "${s.stageId}"`,
+          sanitizeProgressionLogObject(
+            normalizeProgressionError(persistErr, {
+              operation: "persist-failed-seed",
+              stageId: s.stageId,
+              projectId,
+            }),
+          ),
+        );
+      }
     }
   }
 
   if (source === "master") {
     logProgression("master_preview_derivation_complete", {
       projectId,
-      ok: true,
+      ok: derivedCount > 0,
       derivedCount,
       masterTargetsAreFinal,
+      failedWithoutUrl: stages.filter((st) => st.generationStatus === "failed" && !st.targetImageUrl).length,
     });
   }
 
@@ -735,7 +1485,8 @@ function stagesNeedDeterministicWork(stages: StageImageRecord[]): boolean {
 
 // Generate + validate + upload + persist the MASTER in its own request.
 // Warnings and passes → ready (continue stages). Final hard_fail → needsReview
-// (candidate is saved; user Accept / Regenerate). Never discards the candidate.
+// (candidate is saved; user Accept / Regenerate). Never discards a prior valid master
+// merely because a later attempt fails.
 async function runMaster(
   uid: string,
   projectId: string,
@@ -746,138 +1497,272 @@ async function runMaster(
   onMasterCandidate?: MasterCandidateHandler,
   forceReview = false,
 ): Promise<ProgressionDoc> {
-  logProgression("master_generation_started", { projectId, size: docData.size });
-  await persist(uid, projectId, {
-    masterStatus: "generating",
-    masterError: null,
-    masterValidation: null,
-    masterReviewReasons: [],
-  }, true);
+  const key = progressionKey(uid, projectId);
+  const priorMasterUrl = docData.masterImageUrl;
 
-  let response: ApiResponse;
-  try {
-    response = await callApi({ mode: "master", medium, tutorial, size: docData.size, referenceImageUrl });
-  } catch (e) {
-    console.error("[progression] master API failed", e);
-    await persist(uid, projectId, { masterStatus: "failed", masterError: ERR_MASTER_GENERATE }, true);
-    return { ...docData, masterStatus: "failed", masterError: ERR_MASTER_GENERATE };
+  if (masterInflight.get(key)) {
+    logProgression("master_generation_already_in_flight", { projectId });
+    return masterInflight.get(key)!;
   }
 
-  if (!response.generated || !response.master?.dataUrl) {
+  return masterInflight.run(key, async () => {
+    const clientStartedAt = Date.now();
+    logProgression("master_generation_started", { projectId, size: docData.size });
+    // Keep any prior masterImageUrl while regenerating so failures can restore it.
+    await persist(uid, projectId, {
+      masterStatus: "generating",
+      masterError: null,
+      masterValidation: null,
+      masterReviewReasons: [],
+    }, true);
+
+    let response: ApiResponse;
+    let apiMs = 0;
+    try {
+      const apiStarted = Date.now();
+      response = await callApi({
+        mode: "master",
+        medium,
+        tutorial,
+        size: docData.size,
+        referenceImageUrl,
+        projectId,
+      });
+      apiMs = Date.now() - apiStarted;
+    } catch (e) {
+      const normalized = normalizeProgressionError(e, {
+        operation: "run-master",
+        projectId,
+        source: "master",
+      });
+      const safety = normalized.code === ERR_IMAGE_SAFETY_REVIEW;
+      if (safety) {
+        logProgression("master_generation_moderation_blocked", {
+          projectId,
+          retryable: false,
+        });
+      } else {
+        // Avoid duplicate raw dumps — callApi already logged API details.
+        if (!(e && typeof e === "object" && "apiDetails" in e)) {
+          console.error(
+            "[progression] master API failed",
+            sanitizeProgressionLogObject({ ...normalized }),
+          );
+        }
+        logProgression("master_generation_failed", {
+          projectId,
+          code: normalized.code,
+          message: normalized.message,
+          retryable: normalized.retryable,
+        });
+      }
+
+      // Preserve a previously successful master — never clear it on failure.
+      if (priorMasterUrl) {
+        await persist(
+          uid,
+          projectId,
+          {
+            masterImageUrl: priorMasterUrl,
+            masterStatus: "ready",
+            masterError: null,
+          },
+          true,
+        );
+        return {
+          ...docData,
+          masterImageUrl: priorMasterUrl,
+          masterStatus: "ready",
+          masterError: null,
+        };
+      }
+
+      const masterError = safety ? MSG_IMAGE_SAFETY_REVIEW : ERR_MASTER_GENERATE;
+      const masterStatus: GenerationStatus = "failed";
+      await persist(
+        uid,
+        projectId,
+        {
+          masterStatus,
+          masterError,
+          // Machine-readable code stored in masterError prefix for UI branching.
+          masterValidation: safety
+            ? ({ code: ERR_IMAGE_SAFETY_REVIEW } as unknown as CompositionValidation)
+            : null,
+        },
+        true,
+      );
+      return {
+        ...docData,
+        masterStatus,
+        masterError,
+      };
+    }
+
+    if (!response.generated || !response.master?.dataUrl) {
+      logProgression("master_response_received", {
+        projectId,
+        generated: false,
+        reason: "missing_master_dataUrl",
+      });
+      if (priorMasterUrl) {
+        await persist(
+          uid,
+          projectId,
+          { masterImageUrl: priorMasterUrl, masterStatus: "ready", masterError: null },
+          true,
+        );
+        return { ...docData, masterImageUrl: priorMasterUrl, masterStatus: "ready", masterError: null };
+      }
+      await persist(uid, projectId, { masterStatus: "pending" }, true);
+      return { ...docData, masterStatus: "pending" };
+    }
+
     logProgression("master_response_received", {
       projectId,
-      generated: false,
-      reason: "missing_master_dataUrl",
+      generated: true,
+      masterNeedsReview: Boolean(response.masterNeedsReview),
+      masterValidated: response.masterValidated ?? null,
     });
-    await persist(uid, projectId, { masterStatus: "pending" }, true);
-    return { ...docData, masterStatus: "pending" };
-  }
 
-  logProgression("master_response_received", {
-    projectId,
-    generated: true,
-    masterNeedsReview: Boolean(response.masterNeedsReview),
-    masterValidated: response.masterValidated ?? null,
-  });
-
-  const validation = (response.masterValidation as CompositionValidation | null) ?? null;
-  const reasons = userFacingReasons(validation);
-  // Canonical master statuses: pending | generating | ready | needsReview | failed
-  // ready = continue stage chain; needsReview = candidate saved, review UI, still usable for stages
-  const validationNeedsReview = Boolean(
-    response.masterNeedsReview ||
-    response.masterValidated === false,
-  );
-
-  const needsReview = forceReview || validationNeedsReview;
-
-  const status: "ready" | "needsReview" =
-    needsReview ? "needsReview" : "ready";
-
-  if (response.masterValidation) {
-    console.warn("[progression] master validation", JSON.stringify(response.masterValidation));
-  }
-
-  // Show the candidate immediately (object URL) while Storage upload runs.
-  try {
-    const previewUrl = URL.createObjectURL(dataUrlToBlob(response.master.dataUrl));
-    onMasterCandidate?.({ previewUrl, status, reasons, validation });
-  } catch (e) {
-    console.error("[progression] could not create master preview", e);
-  }
-
-  // For needsReview, persist status + reasons immediately so Accept/Regenerate
-  // appear at once; the image shows via previewUrl until Storage URL lands.
-  if (needsReview) {
-    await persist(
-      uid,
-      projectId,
-      {
-        masterStatus: "needsReview",
-        masterError: null,
-        masterPrompt: response.master.prompt ?? null,
-        masterValidation: validation,
-        masterReviewReasons: reasons,
-      },
-      true,
+    const validation = (response.masterValidation as CompositionValidation | null) ?? null;
+    const reasons = userFacingReasons(validation);
+    const validationNeedsReview = Boolean(
+      response.masterNeedsReview ||
+      response.masterValidated === false,
     );
-  }
+    const needsReview = forceReview || validationNeedsReview;
+    const status: "ready" | "needsReview" = needsReview ? "needsReview" : "ready";
 
-  let masterImageUrl: string;
-  try {
-    masterImageUrl = await uploadDataUrl(uid, projectId, "master", response.master.dataUrl);
-  } catch (e) {
-    console.error("[progression] master upload failed", e);
-    await persist(
-      uid,
-      projectId,
-      {
+    if (response.masterValidation) {
+      console.warn("[progression] master validation", JSON.stringify(response.masterValidation));
+    }
+
+    try {
+      const previewUrl = URL.createObjectURL(dataUrlToBlob(response.master.dataUrl));
+      onMasterCandidate?.({ previewUrl, status, reasons, validation });
+    } catch (e) {
+      console.error(
+        "[progression] could not create master preview",
+        sanitizeProgressionLogObject(
+          normalizeProgressionError(e, {
+            operation: "master-preview-blob",
+            projectId,
+          }),
+        ),
+      );
+    }
+
+    if (needsReview) {
+      await persist(
+        uid,
+        projectId,
+        {
+          masterStatus: "needsReview",
+          masterError: null,
+          masterPrompt: response.master.prompt ?? null,
+          masterValidation: validation,
+          masterReviewReasons: reasons,
+        },
+        true,
+      );
+    }
+
+    let masterImageUrl: string;
+    let uploadMs = 0;
+    try {
+      const uploadStarted = Date.now();
+      masterImageUrl = await uploadDataUrl(uid, projectId, "master", response.master.dataUrl);
+      uploadMs = Date.now() - uploadStarted;
+    } catch (e) {
+      const normalized = normalizeProgressionError(e, {
+        operation: "upload-master",
+        projectId,
+        stageId: "master",
+      });
+      // uploadDataUrl already logged the Storage failure details.
+      if (!(e && typeof e === "object" && "uploadDetails" in e)) {
+        console.error(
+          "[progression] master upload failed",
+          sanitizeProgressionLogObject({ ...normalized }),
+        );
+      }
+      if (priorMasterUrl) {
+        await persist(
+          uid,
+          projectId,
+          {
+            masterImageUrl: priorMasterUrl,
+            masterStatus: "ready",
+            masterError: null,
+          },
+          true,
+        );
+        return {
+          ...docData,
+          masterImageUrl: priorMasterUrl,
+          masterStatus: "ready",
+          masterError: null,
+        };
+      }
+      await persist(
+        uid,
+        projectId,
+        {
+          masterStatus: "failed",
+          masterError: ERR_MASTER_SAVE,
+          masterValidation: validation,
+          masterReviewReasons: reasons,
+        },
+        true,
+      );
+      return {
+        ...docData,
         masterStatus: "failed",
         masterError: ERR_MASTER_SAVE,
         masterValidation: validation,
         masterReviewReasons: reasons,
+      };
+    }
+
+    const masterPrompt = response.master.prompt ?? null;
+    await persist(
+      uid,
+      projectId,
+      {
+        masterImageUrl,
+        masterPrompt,
+        masterStatus: status,
+        masterError: null,
+        masterValidation: validation,
+        masterReviewReasons: reasons,
       },
       true,
     );
+
+    logProgression("master_persisted", {
+      projectId,
+      masterStatus: status,
+      hasMasterImageUrl: true,
+    });
+    logProgression("master_generation_timing", {
+      projectId,
+      apiMs,
+      uploadMs,
+      totalMs: Date.now() - clientStartedAt,
+      serverTiming: (response as ApiResponse & { timing?: unknown }).timing ?? null,
+    });
+
     return {
       ...docData,
-      masterStatus: "failed",
-      masterError: ERR_MASTER_SAVE,
-      masterValidation: validation,
-      masterReviewReasons: reasons,
-    };
-  }
-
-  const masterPrompt = response.master.prompt ?? null;
-  await persist(
-    uid,
-    projectId,
-    {
       masterImageUrl,
       masterPrompt,
       masterStatus: status,
       masterError: null,
       masterValidation: validation,
       masterReviewReasons: reasons,
-    },
-    true,
-  );
-
-  logProgression("master_persisted", {
-    projectId,
-    masterStatus: status,
-    hasMasterImageUrl: true,
+    };
   });
-
-  return {
-    ...docData,
-    masterImageUrl,
-    masterPrompt,
-    masterStatus: status,
-    masterError: null,
-    masterValidation: validation,
-    masterReviewReasons: reasons,
-  };
 }
 
 /**
@@ -898,8 +1783,12 @@ export async function orchestrateProgression(params: {
   referenceImageUrl: string;
   size?: ImageSize;
   onMasterCandidate?: MasterCandidateHandler;
-}): Promise<void> {
-  const { uid, projectId, tutorial, medium, referenceImageUrl, onMasterCandidate } = params;
+  /** Explicit user regeneration — allows replacing an existing master. */
+  forceRegenerate?: boolean;
+  /** In-memory master URL from UI (blob preview or prior snapshot). */
+  inMemoryMasterUrl?: string | null;
+}): Promise<"ran" | "skipped_inflight" | "skipped_prereq" | "skipped_complete" | "skipped_lease" | "skipped_review"> {
+  const { uid, projectId, tutorial, medium, referenceImageUrl } = params;
   const key = progressionKey(uid, projectId);
 
   logProgression("trigger_evaluated", {
@@ -907,6 +1796,7 @@ export async function orchestrateProgression(params: {
     hasTutorial: Boolean(tutorial),
     hasMedium: Boolean(medium),
     hasReferenceUrl: Boolean(referenceImageUrl),
+    forceRegenerate: Boolean(params.forceRegenerate),
   });
 
   if (!tutorial || !medium || !referenceImageUrl) {
@@ -914,13 +1804,14 @@ export async function orchestrateProgression(params: {
       projectId,
       reason: "missing_tutorial_medium_or_referenceUrl",
     });
-    return;
+    return "skipped_prereq";
   }
 
   const existing = orchestrationInflight.get(key);
   if (existing) {
-    logProgression("generation_skipped", { projectId, reason: "already_in_flight" });
-    return existing;
+    logProgression("master_generation_already_in_flight", { projectId, scope: "orchestration" });
+    await existing;
+    return "skipped_inflight";
   }
 
   const run = orchestrateProgressionInner(params).finally(() => {
@@ -938,8 +1829,13 @@ async function orchestrateProgressionInner(params: {
   referenceImageUrl: string;
   size?: ImageSize;
   onMasterCandidate?: MasterCandidateHandler;
-}): Promise<void> {
+  forceRegenerate?: boolean;
+  inMemoryMasterUrl?: string | null;
+}): Promise<"ran" | "skipped_complete" | "skipped_lease" | "skipped_review"> {
   const { uid, projectId, tutorial, medium, referenceImageUrl, onMasterCandidate } = params;
+  const forceRegenerate = Boolean(params.forceRegenerate);
+
+  logProgression("progression_hydration_started", { projectId });
   const base = await ensureProgression(
     uid,
     projectId,
@@ -948,52 +1844,69 @@ async function orchestrateProgressionInner(params: {
     referenceImageUrl,
     params.size ?? "1024x1024",
   );
+  // Re-read after ensure so we never treat a racey create as "no master".
+  const hydrated = (await getProgressionDoc(uid, projectId)) ?? base;
+  logProgression("progression_hydration_resolved", {
+    projectId,
+    masterStatus: hydrated.masterStatus,
+    hasMasterImageUrl: Boolean(hydrated.masterImageUrl),
+  });
 
-  if (base.masterStatus === "failed") {
-    logProgression("generation_skipped", { projectId, reason: "master_status_failed" });
-    return;
+  // Failed master without an image: still allow deterministic fallbacks / retry path.
+  // Failed master WITH an image should not block (treat as available).
+  if (hydrated.masterStatus === "failed" && !hydrated.masterImageUrl && !forceRegenerate) {
+    // Continue into fallback seeding below rather than hard-return, so the lesson stays usable.
+    logProgression("master_generation_failed", {
+      projectId,
+      reason: "persisted_failed_without_master",
+    });
   }
 
-  const needsDeterministic = stagesNeedDeterministicWork(base.stages);
-  const needsAi = ENABLE_AI_STAGE_REFINEMENT && base.stages.some(needsAiRefine);
-  const masterUsable = masterUsableForStages(base);
+  const needsDeterministic = stagesNeedDeterministicWork(hydrated.stages);
+  const needsAi = ENABLE_AI_STAGE_REFINEMENT && hydrated.stages.some(needsAiRefine);
+  const masterUsable = masterUsableForStages(hydrated);
 
-  // needsReview with a saved master still runs stage derivation when stages are incomplete.
-  if (base.masterStatus === "needsReview" && masterUsable && !needsDeterministic && !needsAi) {
+  if (hydrated.masterStatus === "needsReview" && masterUsable && !needsDeterministic && !needsAi) {
     logProgression("generation_skipped", {
       projectId,
       reason: "master_needs_review_stages_already_complete",
     });
-    return;
+    return "skipped_review";
   }
-  if (base.masterStatus === "needsReview" && !base.masterImageUrl) {
+  if (hydrated.masterStatus === "needsReview" && !hydrated.masterImageUrl) {
     logProgression("generation_skipped", { projectId, reason: "master_needs_review_without_image" });
-    return;
+    return "skipped_review";
   }
 
-  if (masterUsable && !needsDeterministic && !needsAi) {
-    logProgression("generation_skipped", {
+  if (masterUsable && !needsDeterministic && !needsAi && !forceRegenerate) {
+    logProgression("master_generation_skipped_existing", {
       projectId,
       reason: "master_and_stages_already_complete",
     });
-    return;
+    return "skipped_complete";
   }
 
   if (!(await acquireLease(uid, projectId))) {
     logProgression("generation_skipped", { projectId, reason: "lease_held_by_another_client" });
-    return;
+    return "skipped_lease";
   }
 
   try {
-    let docData = (await getProgressionDoc(uid, projectId)) ?? base;
-    // Do not re-run master when status is ready/needsReview and image exists.
-    const needsMaster =
-      !docData.masterImageUrl ||
-      docData.masterStatus === "pending" ||
-      docData.masterStatus === "generating";
+    let docData = (await getProgressionDoc(uid, projectId)) ?? hydrated;
 
-    // Master first / in parallel: the API fetches the Firebase Storage URL itself.
-    // Do NOT await reference seed (image-proxy + canvas) before POSTing master.
+    const needsMaster = shouldGenerateMaster(docData, {
+      forceRegenerate,
+      inMemoryMasterUrl: params.inMemoryMasterUrl ?? null,
+    });
+
+    if (!needsMaster) {
+      logProgression("master_generation_skipped_existing", {
+        projectId,
+        hasMasterImageUrl: Boolean(docData.masterImageUrl),
+        inMemoryMasterUrl: Boolean(params.inMemoryMasterUrl),
+      });
+    }
+
     const masterWork: Promise<ProgressionDoc> = needsMaster
       ? runMaster(uid, projectId, docData, tutorial, medium, referenceImageUrl, onMasterCandidate)
       : Promise.resolve(docData);
@@ -1005,29 +1918,42 @@ async function orchestrateProgressionInner(params: {
       referenceImageUrl,
       "reference",
     ).catch((e) => {
-      console.error("[progression] reference seed failed (non-blocking for master)", e);
+      console.error(
+        "[progression] reference seed failed (non-blocking for master)",
+        sanitizeProgressionLogObject(
+          normalizeProgressionError(e, {
+            operation: "seed-stage-preview",
+            projectId,
+            source: "reference",
+          }),
+        ),
+      );
       return docData.stages;
     });
 
     docData = await masterWork;
 
     if (!masterUsableForStages(docData)) {
-      logProgression("generation_skipped", {
-        projectId,
-        reason: `master_not_usable_after_run:${docData.masterStatus}`,
-        hasMasterImageUrl: Boolean(docData.masterImageUrl),
-      });
-      // Still await seed so provisional reference previews can land.
-      await seedWork;
-      logProgression("orchestration_complete", {
-        projectId,
-        outcome: "stopped_after_master",
-        masterStatus: docData.masterStatus,
-      });
-      return;
+      // Safety / generate failure with no master: keep deterministic reference previews
+      // so the lesson exits loading and remains usable.
+      const stages = await seedWork;
+      docData = { ...docData, stages };
+      if (docData.masterError === MSG_IMAGE_SAFETY_REVIEW || docData.masterStatus === "failed") {
+        logProgression("master_generation_fallback_ready", {
+          projectId,
+          masterStatus: docData.masterStatus,
+          stagePreviewCount: stages.filter((s) => s.targetImageUrl).length,
+        });
+      } else {
+        logProgression("orchestration_complete", {
+          projectId,
+          outcome: "stopped_after_master",
+          masterStatus: docData.masterStatus,
+        });
+      }
+      return "ran";
     }
 
-    // Let reference seed finish (or no-op) before replacing with master-derived targets.
     await seedWork;
 
     const stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl!, "master");
@@ -1040,7 +1966,7 @@ async function orchestrateProgressionInner(params: {
         masterStatus: docData.masterStatus,
         aiRefinement: false,
       });
-      return;
+      return "ran";
     }
 
     logProgression("refinement_chain_started", {
@@ -1090,12 +2016,17 @@ async function orchestrateProgressionInner(params: {
           precedingUrl = updated.targetImageUrl;
         }
       } catch (e) {
-        const reason = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        const normalized = normalizeProgressionError(e, {
+          operation: "stage-refinement-loop",
+          projectId,
+          stageId: s.stageId,
+        });
         logProgression("stage_refinement_failed", {
           projectId,
           stageId: s.stageId,
-          reason,
-          stack: e instanceof Error ? e.stack ?? null : null,
+          code: normalized.code,
+          message: normalized.message,
+          retryable: normalized.retryable,
         });
         // Keep provisional; continue the chain.
         if (s.targetImageUrl) precedingUrl = s.targetImageUrl;
@@ -1108,12 +2039,31 @@ async function orchestrateProgressionInner(params: {
       masterStatus: docData.masterStatus,
       aiRefinement: true,
     });
+    return "ran";
+  } catch (error) {
+    const normalized = normalizeProgressionError(error, {
+      operation: "orchestrate-progression",
+      projectId,
+    });
+    console.error(
+      "[progression] orchestration failed",
+      sanitizeProgressionLogObject({ ...normalized }),
+    );
+    throw createProgressionThrownError(normalized.message, {
+      name: normalized.name ?? "ProgressionOrchestrationError",
+      code: normalized.code ?? "ERR_PROGRESSION",
+      retryable: normalized.retryable,
+      cause: error,
+      progressionDetails: normalized,
+    });
   } finally {
     await releaseLease(uid, projectId);
   }
 }
 
-/** Reset every target + the master, then re-run the resumable pipeline. */
+/** Reset every target + the master, then re-run the resumable pipeline.
+ * Keeps the prior master image visible until a new candidate uploads successfully.
+ */
 export async function regenerateAllTargets(params: {
   uid: string;
   projectId: string;
@@ -1127,6 +2077,7 @@ export async function regenerateAllTargets(params: {
   const existing = await getProgressionDoc(uid, projectId);
   const size = params.size ?? existing?.size ?? "1024x1024";
   const baseDoc = existing ?? (await ensureProgression(uid, projectId, tutorial, medium, referenceImageUrl, size));
+  const priorMasterUrl = baseDoc.masterImageUrl;
   const reset: StageImageRecord[] = baseDoc.stages.map((s) => ({
     ...s,
     targetImageUrl: null,
@@ -1140,9 +2091,10 @@ export async function regenerateAllTargets(params: {
     uid,
     projectId,
     {
-      masterImageUrl: null,
+      // Keep prior master visible during regen — runMaster replaces on success.
+      masterImageUrl: priorMasterUrl,
       masterPrompt: null,
-      masterStatus: "pending",
+      masterStatus: "generating",
       masterError: null,
       masterValidation: null,
       masterReviewReasons: [],
@@ -1151,7 +2103,16 @@ export async function regenerateAllTargets(params: {
     },
     false,
   );
-  await orchestrateProgression({ uid, projectId, tutorial, medium, referenceImageUrl, size, onMasterCandidate });
+  await orchestrateProgression({
+    uid,
+    projectId,
+    tutorial,
+    medium,
+    referenceImageUrl,
+    size,
+    onMasterCandidate,
+    forceRegenerate: true,
+  });
 }
 
 /**
@@ -1172,14 +2133,15 @@ export async function regenerateMasterCandidate(params: {
     await ensureProgression(uid, projectId, tutorial, medium, referenceImageUrl, "1024x1024");
   }
   const docData = (await getProgressionDoc(uid, projectId))!;
+  const priorMasterUrl = docData.masterImageUrl;
 
+  // Do not clear the prior master before attempting regeneration — a failed
+  // attempt must leave the last successful master visible.
   await persist(
     uid,
     projectId,
     {
-      masterImageUrl: null,
-      masterPrompt: null,
-      masterStatus: "pending",
+      masterStatus: "generating",
       masterError: null,
       masterValidation: null,
       masterReviewReasons: [],
@@ -1190,7 +2152,16 @@ export async function regenerateMasterCandidate(params: {
 
   if (!(await acquireLease(uid, projectId))) return;
   try {
-    await runMaster(uid, projectId, { ...docData, masterStatus: "pending", masterImageUrl: null }, tutorial, medium, referenceImageUrl, onMasterCandidate, true);
+    await runMaster(
+      uid,
+      projectId,
+      { ...docData, masterStatus: "pending", masterImageUrl: priorMasterUrl },
+      tutorial,
+      medium,
+      referenceImageUrl,
+      onMasterCandidate,
+      true,
+    );
   } finally {
     await releaseLease(uid, projectId);
   }

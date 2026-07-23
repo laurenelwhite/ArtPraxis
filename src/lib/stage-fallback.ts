@@ -177,16 +177,46 @@ function pencilLines(d: Uint8ClampedArray, w: number, h: number): void {
   d.set(out);
 }
 
-/** Posterize to a few light-neutral value masses (value study). */
-function posterizeGrayLight(d: Uint8ClampedArray, levels: number): void {
-  const step = 255 / (levels - 1);
-  for (let i = 0; i < d.length; i += 4) {
-    const g = lum(d[i], d[i + 1], d[i + 2]);
-    // Bias toward lighter paper — never go darker than ~mid gray.
-    const lifted = g + (255 - g) * 0.35;
-    const q = Math.round(lifted / step) * step;
-    const soft = Math.max(q, 160);
-    d[i] = d[i + 1] = d[i + 2] = soft;
+/**
+ * Light instructional value-study map: soft-blur then 4 light-biased bands.
+ * Darkest band is dark gray (never black); highlights stay white.
+ */
+function lightValueStudyMap(d: Uint8ClampedArray, w: number, h: number): void {
+  const gray = new Float32Array(w * h);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+    gray[p] = lum(d[i], d[i + 1], d[i + 2]);
+  }
+
+  const soft = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = Math.min(w - 1, Math.max(0, x + dx));
+          const yy = Math.min(h - 1, Math.max(0, y + dy));
+          sum += gray[yy * w + xx];
+          n++;
+        }
+      }
+      soft[y * w + x] = sum / n;
+    }
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const g = soft[y * w + x];
+      const lifted = g + (255 - g) * 0.48;
+      let out: number;
+      if (lifted >= 208) out = 252;
+      else if (lifted >= 168) out = 222;
+      else if (lifted >= 118) out = 176;
+      else out = 112;
+      d[i] = d[i + 1] = d[i + 2] = out;
+      d[i + 3] = 255;
+    }
   }
 }
 
@@ -302,18 +332,25 @@ export async function buildStageFallback(
 
   switch (stageId) {
     case "value-study": {
-      // Start from sketch-like foundation when present; else from master.
-      if (!precedingDataUrl) {
-        pencilLines(fd, w, h);
-      }
-      // Soft value masses from master luminances, kept light.
-      const tmp = new Uint8ClampedArray(md);
-      posterizeGrayLight(tmp, 4);
-      for (let i = 0; i < fd.length; i += 4) {
-        const line = lum(fd[i], fd[i + 1], fd[i + 2]);
-        if (line < 210) continue; // keep sketch lines
-        const g = tmp[i];
-        fd[i] = fd[i + 1] = fd[i + 2] = Math.max(line * 0.15 + g * 0.85, 170);
+      // Build a light tonal map from the master (composition lock), optionally
+      // keeping faint sketch lines from the preceding plate.
+      const valuePlate = new Uint8ClampedArray(md);
+      lightValueStudyMap(valuePlate, w, h);
+      if (precedingDataUrl) {
+        for (let i = 0; i < fd.length; i += 4) {
+          const line = lum(fd[i], fd[i + 1], fd[i + 2]);
+          // Keep only the darkest construction lines as faint graphite.
+          if (line < 160) {
+            const g = Math.min(200, 140 + line * 0.35);
+            fd[i] = fd[i + 1] = fd[i + 2] = g;
+          } else {
+            fd[i] = valuePlate[i];
+            fd[i + 1] = valuePlate[i + 1];
+            fd[i + 2] = valuePlate[i + 2];
+          }
+        }
+      } else {
+        fd.set(valuePlate);
       }
       break;
     }

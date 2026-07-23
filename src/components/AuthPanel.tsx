@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
+import { ArtPraxisLogo } from "@/components/brand/ArtPraxisLogo";
 
 export function AuthPanel() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -21,6 +22,9 @@ export function AuthPanel() {
 
   return (
     <section className="card auth">
+      <div className="auth-brand">
+        <ArtPraxisLogo variant="primary" size="primary" />
+      </div>
       <p className="eyebrow">Your studio</p>
       <h2>{mode === "signin" ? "Sign in" : "Create account"}</h2>
       <form className="form" onSubmit={(e) => { e.preventDefault(); emailAuth(); }}>
