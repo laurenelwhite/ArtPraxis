@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   ProgressionStage,
@@ -9,14 +9,20 @@ import type {
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProjectStatus } from "@/lib/lessons";
 import type { CompareMode } from "@/components/progression/StageComparison";
+import {
+  LESSON_COMPLETE_DOM_ID,
+  STAGE_DOM_ID,
+} from "@/lib/stage-icons";
 
-import { DeskStage } from "@/components/progression/DeskStage";
+import { StudyStageSection } from "@/components/progression/StudyStageSection";
 import { StageScrollNav } from "@/components/progression/StageScrollNav";
+import { StageCompletion } from "@/components/progression/StageCompletion";
 import { AtelierRibbon } from "@/components/progression/AtelierRibbon";
+import { useActiveStage } from "@/components/progression/useActiveStage";
 
 /**
- * Guided study: one active stage at a time with a compact stage rail.
- * Does not stack every stage into a single continuous document.
+ * Guided study as one continuous vertical lesson.
+ * All stages stay mounted; navigation scrolls to section anchors.
  */
 export function StudyMode({
   stages,
@@ -46,73 +52,81 @@ export function StudyMode({
   savingStatus?: boolean;
   onOpenMaterials?: (materialId?: string) => void;
 }) {
-  const [active, setActive] = useState(0);
-  const [visitedMax, setVisitedMax] = useState(0);
-
-  const safeActive = Math.max(0, Math.min(active, Math.max(stages.length - 1, 0)));
-  const activeStage = stages[safeActive];
-
-  const selectStage = (index: number) => {
-    if (stages.length === 0) return;
-    const next = Math.max(0, Math.min(index, stages.length - 1));
-    setActive(next);
-    setVisitedMax((current) => Math.max(current, next));
-  };
-
-  const workspaceChrome = (
-    <div className="atelier-chrome atelier-workspace-chrome">
-      <StageScrollNav
-        stages={stages}
-        active={safeActive}
-        visitedMax={visitedMax}
-        onSelect={selectStage}
-      />
-    </div>
+  const domIds = useMemo(
+    () => stages.map((stage) => STAGE_DOM_ID[stage.id]),
+    [stages],
   );
 
-  return (
-    <div className="study-mode study-mode--single studio-mode studio-mode--atelier">
-      <div className="desk-stages studio-stage-host atelier-stage-host">
-        {activeStage ? (
-          <section
-            key={activeStage.id}
-            id={`stage-${activeStage.id}`}
-            className="desk-stage studio-chapter-active"
-            aria-label={`${activeStage.title} — stage ${activeStage.index} of ${stages.length}`}
-          >
-            <DeskStage
-              stage={activeStage}
-              tutorial={tutorial}
-              medium={medium}
-              total={stages.length}
-              isFirst={safeActive === 0}
-              isLast={safeActive === stages.length - 1}
-              nextStage={stages[safeActive + 1]}
-              onPrev={() => selectStage(safeActive - 1)}
-              onNext={() => selectStage(safeActive + 1)}
-              onReviewPrevious={() => selectStage(Math.max(0, safeActive - 1))}
-              onCompareFinished={() => {
-                const finishedIndex = stages.findIndex((s) => s.id === "finished");
-                if (finishedIndex >= 0) selectStage(finishedIndex);
-                onCompareChange?.("target");
-              }}
-              compare={compare}
-              onCompareChange={onCompareChange}
-              referenceUrl={referenceUrl}
-              onRetry={onRetryStage}
-              retrying={retryingStage === activeStage.id}
-              workspaceChrome={workspaceChrome}
-              onOpenMaterials={onOpenMaterials}
-            />
-          </section>
-        ) : null}
-      </div>
+  const { active, scrollTo, setRef } = useActiveStage(domIds);
+  const [visitedMax, setVisitedMax] = useState(0);
 
-      <AtelierRibbon
-        status={projectStatus}
-        onStatusChange={onProjectStatusChange}
-        saving={savingStatus}
+  useEffect(() => {
+    setVisitedMax((current) => Math.max(current, active));
+  }, [active]);
+
+  const scrollToComplete = () => {
+    const el = document.getElementById(LESSON_COMPLETE_DOM_ID);
+    if (!el) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  };
+
+  return (
+    <div className="study-mode study-mode--continuous studio-mode studio-mode--atelier lesson-document">
+      <StageScrollNav
+        stages={stages}
+        active={active}
+        visitedMax={visitedMax}
+        onSelect={scrollTo}
       />
+
+      <div className="lesson-document-stages">
+        {stages.map((stage, index) => (
+          <StudyStageSection
+            key={stage.id}
+            sectionRef={setRef(index)}
+            stage={stage}
+            tutorial={tutorial}
+            medium={medium}
+            total={stages.length}
+            isFirst={index === 0}
+            isLast={index === stages.length - 1}
+            nextStage={stages[index + 1]}
+            onContinue={() => scrollTo(index + 1)}
+            onReviewPrevious={() => scrollTo(0)}
+            onCompareFinished={() => {
+              const finishedIndex = stages.findIndex((s) => s.id === "finished");
+              if (finishedIndex >= 0) scrollTo(finishedIndex);
+              onCompareChange?.("target");
+              requestAnimationFrame(scrollToComplete);
+            }}
+            compare={compare}
+            onCompareChange={onCompareChange}
+            referenceUrl={referenceUrl}
+            onRetry={onRetryStage}
+            retrying={retryingStage === stage.id}
+            onOpenMaterials={onOpenMaterials}
+          />
+        ))}
+
+        <StageCompletion
+          onReviewPrevious={() => scrollTo(0)}
+          onCompareFinished={() => {
+            const finishedIndex = stages.findIndex((s) => s.id === "finished");
+            if (finishedIndex >= 0) scrollTo(finishedIndex);
+            onCompareChange?.("target");
+          }}
+          progressSlot={
+            <AtelierRibbon
+              status={projectStatus}
+              onStatusChange={onProjectStatusChange}
+              saving={savingStatus}
+            />
+          }
+        />
+      </div>
     </div>
   );
 }

@@ -19,7 +19,7 @@ export const MEDIUM_LABEL: Record<Medium, string> = {
   pastel: "Pastel",
   charcoal: "Charcoal",
   pencil: "Pencil",
-  pen: "Pen & Ink",
+  pen: "Pen",
 };
 
 // Medium-specific page heading shown when the user deep-links from the
@@ -31,7 +31,7 @@ export const MEDIUM_HEADING: Record<Medium, string> = {
   pastel: "Start your pastel study",
   charcoal: "Start your charcoal study",
   pencil: "Start your pencil study",
-  pen: "Start your pen & ink study",
+  pen: "Start your pen study",
 };
 
 // Short invitations reused as the email banner call-to-action text.
@@ -42,7 +42,7 @@ export const MEDIUM_INVITATION: Record<Medium, string> = {
   pastel: "Explore pastel",
   charcoal: "Start with charcoal",
   pencil: "Start with pencil",
-  pen: "Draw with pen & ink",
+  pen: "Draw with pen",
 };
 
 /**

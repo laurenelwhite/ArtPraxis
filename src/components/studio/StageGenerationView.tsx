@@ -55,14 +55,14 @@ export function StageGenerationView({
       </figure>
 
       <div className="atelier-studio-note" role="status">
-        <p className="atelier-wait-eyebrow">Building your painting steps</p>
+        <p className="atelier-wait-eyebrow">Building your lesson steps</p>
         <h2 className="atelier-wait-heading">
           {activeStageLabel
             ? `Preparing ${activeStageLabel}`
             : "Preparing your demonstrations"}
         </h2>
         <p className="atelier-wait-body">
-          {readyCount} of {ORDER.length} plates ready. Your accepted painting stays visible while we build each stage.
+          {readyCount} of {ORDER.length} plates ready. Your accepted target stays visible while we build each stage.
         </p>
         <ol className="atelier-pipeline atelier-pipeline--stages" aria-label="Stage progress">
           {ORDER.map((id) => {

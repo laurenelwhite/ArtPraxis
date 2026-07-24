@@ -2,19 +2,15 @@
 
 import type { ProgressionStage } from "@/lib/progression";
 import { STAGE_PROCESS_LABEL } from "@/lib/stage-icons";
-import { StageCompletion } from "@/components/progression/StageCompletion";
 
 /**
- * Quiet end-of-section links — keyboard-friendly, never a prominent bar.
+ * Compact end-of-stage transition — optional scroll cue, not pagination.
+ * Does not render completion UI (StudyMode / DeskStage own that).
  */
 export function StageNavControls({
-  isFirst,
   isLast,
   nextStage,
-  onPrev,
   onNext,
-  onReviewPrevious,
-  onCompareFinished,
 }: {
   stage: ProgressionStage;
   total: number;
@@ -26,38 +22,24 @@ export function StageNavControls({
   onReviewPrevious: () => void;
   onCompareFinished: () => void;
 }) {
-  if (isLast) {
-    return (
-      <div className="lesson-stage-footer">
-        <StageCompletion
-          onReviewPrevious={onReviewPrevious}
-          onCompareFinished={onCompareFinished}
-        />
-      </div>
-    );
-  }
+  if (isLast || !nextStage) return null;
 
-  const nextLabel = nextStage ? STAGE_PROCESS_LABEL[nextStage.id] : null;
+  const nextLabel = STAGE_PROCESS_LABEL[nextStage.id];
 
   return (
-    <nav className="lesson-stage-footer" aria-label="Stage section navigation">
-      {!isFirst ? (
-        <button type="button" className="lesson-stage-link" onClick={onPrev}>
-          Previous stage
-        </button>
-      ) : (
-        <span />
-      )}
-      {nextStage && nextLabel ? (
-        <button
-          type="button"
-          className="lesson-stage-link lesson-stage-link--next"
-          onClick={onNext}
-          aria-label={`Next stage: ${nextLabel}`}
-        >
-          Next: {nextLabel}
-        </button>
-      ) : null}
+    <nav className="study-stage-transition" aria-label="Continue to next stage">
+      <button
+        type="button"
+        className="study-stage-transition-btn"
+        onClick={onNext}
+        aria-label={`Continue to ${nextLabel}`}
+      >
+        <span className="study-stage-transition-kicker">Next</span>
+        <span className="study-stage-transition-name">{nextLabel}</span>
+        <span className="study-stage-transition-arrow" aria-hidden="true">
+          ↓
+        </span>
+      </button>
     </nav>
   );
 }

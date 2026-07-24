@@ -1,0 +1,3 @@
+# Canonical documentation moved
+
+**Use:** [Writing Style Guide.md](./Writing%20Style%20Guide.md)

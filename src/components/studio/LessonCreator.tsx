@@ -14,10 +14,8 @@ import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import { AppImage } from "@/components/ui/AppImage";
 import { getLessonPreview } from "@/lib/lesson-preview";
-import {
-  CREATOR_PIPELINE,
-  LessonLoadingView,
-} from "@/components/studio/LessonLoadingView";
+import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
+import { getCreatorPipeline, getMediumLanguage } from "@/lib/medium-language";
 
 function dataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -140,6 +138,7 @@ export function LessonCreator() {
   }
 
   if (busy) {
+    const lang = getMediumLanguage(medium);
     return (
       <div
         className="creator creator--atelier creator--generating"
@@ -147,12 +146,16 @@ export function LessonCreator() {
       >
         <LessonLoadingView
           mode="creating"
+          medium={medium}
+          skillLevel={skill}
           referenceUrl={preview || null}
-          pipeline={CREATOR_PIPELINE}
+          pipeline={getCreatorPipeline(medium)}
           activeStepIndex={creatorStepIndex(status)}
           eyebrow="Beginning your lesson"
-          headline="Preparing your atelier"
-          detail="We're studying your reference and assembling a guided, stage-by-stage painting lesson."
+          headline={lang.preparationHeading}
+          detail={lang.preparationDescription(
+            skill === "intermediate" || skill === "advanced" ? skill : "beginner",
+          )}
           estimate="Usually takes under a minute."
         />
       </div>

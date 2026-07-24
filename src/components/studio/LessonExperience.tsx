@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProjectStatus } from "@/lib/lessons";
 import {
@@ -19,6 +19,7 @@ import { MasterReviewView } from "@/components/studio/MasterReviewView";
 import { StageGenerationView } from "@/components/studio/StageGenerationView";
 import { AppImage } from "@/components/ui/AppImage";
 import { getLessonTheme } from "@/lib/lesson-theme";
+import { getMediumLanguage } from "@/lib/medium-language";
 
 type Mode = "study" | "paint";
 
@@ -26,6 +27,7 @@ export function LessonExperience({
   tutorial,
   imageUrl,
   medium,
+  entryMode = "study",
   progression,
   progressionHydrated = true,
   masterStatus = "pending",
@@ -51,6 +53,8 @@ export function LessonExperience({
   tutorial: Tutorial;
   imageUrl: string;
   medium: Medium;
+  /** Prefer study (continuous) or paint (one-stage) when entering from Overview. */
+  entryMode?: Mode;
   progression: StageImageRecord[];
   progressionHydrated?: boolean;
   masterStatus?: GenerationStatus;
@@ -78,8 +82,16 @@ export function LessonExperience({
     [tutorial, imageUrl, medium, progression],
   );
 
-  const [mode, setMode] = useState<Mode>("study");
+  const [mode, setMode] = useState<Mode>(entryMode);
   const [compare, setCompare] = useState<CompareMode>("both");
+  const lang = useMemo(() => getMediumLanguage(medium), [medium]);
+  const practiceLabel =
+    lang.actionVerb === "draw" ? "Draw" : lang.actionVerb === "paint" ? "Paint" : "Practice";
+
+  // Sync when Overview CTAs request a mode change.
+  useEffect(() => {
+    setMode(entryMode);
+  }, [entryMode]);
 
   const ui = useMemo(
     () =>
@@ -264,25 +276,29 @@ export function LessonExperience({
             className={mode === "paint" ? "mode-tab active" : "mode-tab"}
             onClick={() => setMode("paint")}
           >
-            Paint
+            {practiceLabel}
           </button>
         </div>
 
-        {onRegenerate && (
+        {onRegenerate ? (
           <button
             type="button"
-            className="secondary regenerate-targets"
+            className="secondary regenerate-targets atelier-regen-action"
             onClick={onRegenerate}
             disabled={regenerateBusy}
           >
-            {regenerating ? "Painting another option…" : "Try another painting"}
+            {regenerating
+              ? `Preparing another option…`
+              : `Try another ${lang.completedWorkNoun}`}
           </button>
-        )}
+        ) : null}
       </div>
 
       {regenerating ? (
         <div className="atelier-regen-banner" role="status">
-          <p className="atelier-regen-whisper">Painting another option… Your current lesson stays visible.</p>
+          <p className="atelier-regen-whisper">
+            Preparing another option… Your current lesson stays visible.
+          </p>
         </div>
       ) : null}
 

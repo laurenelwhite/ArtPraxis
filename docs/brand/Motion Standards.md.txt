@@ -1,0 +1,5 @@
+# Canonical Motion Standards
+
+**Use:** [Motion Standards.md](./Motion%20Standards.md)
+
+Short notes also live in [design/motion-guidelines.md.txt](../design/motion-guidelines.md.txt).

@@ -11,6 +11,7 @@ import { StageCheckpoint } from "@/components/progression/StageCheckpoint";
 import { StageMistake } from "@/components/progression/StageMistake";
 import { StageInstructorNote } from "@/components/progression/StageInstructorNote";
 import { StageNavControls } from "@/components/progression/StageNavControls";
+import { StageCompletion } from "@/components/progression/StageCompletion";
 import { LessonSummaryGrid } from "@/components/progression/LessonSummaryGrid";
 import { PaletteSuppliesPreview } from "@/components/progression/PaletteSuppliesPreview";
 import { StageMaterialsChips } from "@/components/progression/StageMaterialsChips";
@@ -173,17 +174,24 @@ export function DeskStage({
         </div>
 
         <div className="atelier-next">
-          <StageNavControls
-            stage={stage}
-            total={total}
-            isFirst={isFirst}
-            isLast={isLast}
-            nextStage={nextStage}
-            onPrev={onPrev}
-            onNext={onNext}
-            onReviewPrevious={onReviewPrevious}
-            onCompareFinished={onCompareFinished}
-          />
+          {isLast ? (
+            <StageCompletion
+              onReviewPrevious={onReviewPrevious}
+              onCompareFinished={onCompareFinished}
+            />
+          ) : (
+            <StageNavControls
+              stage={stage}
+              total={total}
+              isFirst={isFirst}
+              isLast={isLast}
+              nextStage={nextStage}
+              onPrev={onPrev}
+              onNext={onNext}
+              onReviewPrevious={onReviewPrevious}
+              onCompareFinished={onCompareFinished}
+            />
+          )}
         </div>
       </div>
     </div>

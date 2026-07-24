@@ -52,9 +52,18 @@ function TargetPanel({
         ? `${stage.title} — pencil sketch target for this lesson`
         : `${stage.title} — target for this stage`;
     return (
-      <div className={`cmp-target-live${statusLabel ? " is-refining" : ""}${preparingFinished ? " is-preparing-finished" : ""}`}>
+      <div
+        className={[
+          "cmp-target-live",
+          isSketch ? "cmp-target-live--sketch" : null,
+          statusLabel ? "is-refining" : null,
+          preparingFinished ? "is-preparing-finished" : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <AppImage
-          className="cmp-frame-img"
+          className={isSketch ? "cmp-frame-img cmp-frame-img--sketch" : "cmp-frame-img"}
           src={visual.url}
           alt={alt}
           width={1600}

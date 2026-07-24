@@ -75,7 +75,7 @@ const INTRINSIC: Record<ArtPraxisLogoVariant, { w: number; h: number }> = {
 /** Visual height in px for height-driven variants (nav / primary / icon) */
 const SIZE_HEIGHT: Record<ArtPraxisLogoSize, number> = {
   primary: 64,
-  navigationDesktop: 44,
+  navigationDesktop: 48,
   navigationMobile: 36,
   /** Hint only — sidebar CSS is width-driven (min(100%, 198px), height:auto) */
   sidebar: 74,

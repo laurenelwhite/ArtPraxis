@@ -24,7 +24,7 @@ export function StageMaterialsChips({
   return (
     <ul className="stage-material-chips" aria-label="Materials for this stage">
       {colors.map((color) => {
-        const id = `paint-${color.name}`;
+        const id = `paint:${color.name.trim().toLowerCase()}`;
         return (
           <li key={id}>
             <button

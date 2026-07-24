@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/image-proxy": {},
+    "/api/generate-tutorial": {
+      "maxDuration": 60
+    },
+    "/api/generate-stage-images": {
+      "maxDuration": 300
+    }
+  }
+}

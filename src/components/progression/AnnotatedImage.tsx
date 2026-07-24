@@ -8,9 +8,12 @@ import { AppImage } from "@/components/ui/AppImage";
 export type OverlayMode = "composition" | "values" | "temperature" | "none";
 
 const regionColors: Record<string, string> = {
-  "major-shape": "rgba(49,91,138,.24)", shadow: "rgba(23,23,23,.42)",
-  midtone: "rgba(163,95,56,.24)", highlight: "rgba(255,246,214,.5)",
-  warm: "rgba(163,95,56,.3)", cool: "rgba(49,91,138,.3)",
+  "major-shape": "rgba(49,91,138,.22)",
+  shadow: "rgba(23,23,23,.38)",
+  midtone: "rgba(163,95,56,.22)",
+  highlight: "rgba(255,246,214,.42)",
+  warm: "rgba(163,95,56,.28)",
+  cool: "rgba(49,91,138,.28)",
 };
 
 function showRegion(type: string, mode: OverlayMode) {
@@ -20,6 +23,12 @@ function showRegion(type: string, mode: OverlayMode) {
   return false;
 }
 
+function shortLabel(label: string, max = 18): string {
+  const trimmed = label.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1).replace(/\s+\S*$/, "").trim()}…`;
+}
+
 const ALL_MODES: [OverlayMode, string][] = [
   ["composition", "Shapes"],
   ["values", "Values"],
@@ -27,8 +36,10 @@ const ALL_MODES: [OverlayMode, string][] = [
   ["none", "Original"],
 ];
 
-// Reference image with toggleable analytical overlays. Shared by the Paint Mode
-// workbench and available (independently) inside the Study Mode atelier.
+/**
+ * Reference image with toggleable analytical overlays.
+ * Overlay geometry is clipped to the displayed image bounds.
+ */
 export function AnnotatedImage({
   tutorial,
   imageUrl,
@@ -61,36 +72,74 @@ export function AnnotatedImage({
 
   const imageBlock = (
     <div className="annotated-image">
-      <AppImage
-        src={imageUrl}
-        alt="Reference"
-        width={1600}
-        height={1200}
-        sizes="(max-width: 1100px) 100vw, 560px"
-        className="annotated-image-photo"
-        style={{ width: "100%", height: "auto" }}
-      />
-      {overlayMode !== "none" && (
-        <svg className="analysis-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {visualGuides.regions.filter((r) => showRegion(r.type, overlayMode)).map((r, i) => (
-            <g key={i}>
-              <rect x={r.x} y={r.y} width={r.width} height={r.height} rx="1.5" fill={regionColors[r.type]} stroke="white" strokeWidth=".45" vectorEffect="non-scaling-stroke" />
-              <text x={r.x + 1.5} y={r.y + 4} className="overlay-label">{r.label}</text>
-            </g>
-          ))}
-          {overlayMode === "composition" && (
-            <>
-              <circle cx={visualGuides.focalPoint.x} cy={visualGuides.focalPoint.y} r="3.2" fill="none" stroke="white" strokeWidth=".75" vectorEffect="non-scaling-stroke" />
-              <text x={visualGuides.focalPoint.x + 4} y={visualGuides.focalPoint.y} className="overlay-label">{visualGuides.focalPoint.label}</text>
-            </>
-          )}
-        </svg>
-      )}
+      <div className="annotated-image-media">
+        <AppImage
+          src={imageUrl}
+          alt="Reference"
+          width={1600}
+          height={1200}
+          sizes="(max-width: 1100px) 100vw, 560px"
+          className="annotated-image-photo"
+          style={{ width: "100%", height: "auto" }}
+        />
+        {overlayMode !== "none" && (
+          <svg
+            className="analysis-overlay"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {visualGuides.regions
+              .filter((r) => showRegion(r.type, overlayMode))
+              .map((r, i) => (
+                <g key={i}>
+                  <rect
+                    x={r.x}
+                    y={r.y}
+                    width={r.width}
+                    height={r.height}
+                    rx="1.2"
+                    fill={regionColors[r.type]}
+                    stroke="rgba(255,255,255,0.55)"
+                    strokeWidth=".35"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <text
+                    x={r.x + Math.min(r.width * 0.5, 1.8)}
+                    y={r.y + Math.min(r.height * 0.45, 3.6)}
+                    className="overlay-label"
+                  >
+                    {shortLabel(r.label)}
+                  </text>
+                </g>
+              ))}
+            {overlayMode === "composition" && (
+              <>
+                <circle
+                  cx={visualGuides.focalPoint.x}
+                  cy={visualGuides.focalPoint.y}
+                  r="2.4"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.85)"
+                  strokeWidth=".6"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <text
+                  x={Math.min(visualGuides.focalPoint.x + 3.2, 88)}
+                  y={visualGuides.focalPoint.y + 0.8}
+                  className="overlay-label"
+                >
+                  {shortLabel(visualGuides.focalPoint.label, 16)}
+                </text>
+              </>
+            )}
+          </svg>
+        )}
+      </div>
     </div>
   );
 
   if (inComparison) {
-    // Analysis chips sit under the reference image — never between panels.
     return (
       <div className="annotated annotated-compare">
         <ComparisonFrame>{imageBlock}</ComparisonFrame>

@@ -54,6 +54,7 @@ export function LessonView({ id }: { id: string }) {
   const [state, setState] = useState<LessonDetail | null | undefined>(undefined);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<TabId>("overview");
+  const [lessonEntryMode, setLessonEntryMode] = useState<"study" | "paint">("study");
   const [status, setStatus] = useState<ProjectStatus>("not-started");
   const [savingStatus, setSavingStatus] = useState(false);
   const [highlightMaterialId, setHighlightMaterialId] = useState<string | null>(null);
@@ -610,7 +611,7 @@ export function LessonView({ id }: { id: string }) {
       data-lesson-medium={summary.medium}
     >
       <div id="lesson-overview-top" className="lesson-anchor" aria-hidden="true" />
-      <header className="dashboard-header lesson-header">
+      <div className="dashboard-header lesson-header">
         <div className="lesson-header-text">
           <p className="lesson-breadcrumb">
             <Link href="/studio">Studio</Link>
@@ -637,15 +638,22 @@ export function LessonView({ id }: { id: string }) {
           <h1 className="dashboard-title lesson-title">{summary.title}</h1>
         </div>
         <div className="lesson-header-actions">
-          <button type="button" className="secondary lesson-pdf" disabled title="PDF export coming soon">
+          <button
+            type="button"
+            className="secondary lesson-pdf"
+            disabled
+            aria-disabled="true"
+            title="PDF export coming soon"
+          >
             Download PDF
+            <span className="visually-hidden"> (unavailable)</span>
           </button>
           <Link href="/studio" className="secondary">
             <Icon name="arrow-left" size={17} />
             Back to Studio
           </Link>
         </div>
-      </header>
+      </div>
 
       <nav
         id="lesson-section-tabs"
@@ -704,6 +712,14 @@ export function LessonView({ id }: { id: string }) {
           status={status}
           onStatusChange={changeStatus}
           saving={savingStatus}
+          onBeginStudy={() => {
+            setLessonEntryMode("study");
+            selectTab("lesson");
+          }}
+          onStartPractice={() => {
+            setLessonEntryMode("paint");
+            selectTab("lesson");
+          }}
         />
       </div>
 
@@ -719,6 +735,7 @@ export function LessonView({ id }: { id: string }) {
             tutorial={tutorial}
             imageUrl={summary.imageUrl}
             medium={summary.medium}
+            entryMode={lessonEntryMode}
             progression={progression}
             progressionHydrated={progressionHydrated}
             masterStatus={masterStatus}
@@ -768,7 +785,11 @@ export function LessonView({ id }: { id: string }) {
         className="project-panel"
       >
         <ProjectMaterials
+          key={id}
           tutorial={tutorial}
+          medium={summary.medium}
+          lessonId={id}
+          uid={user?.uid ?? null}
           highlightId={highlightMaterialId}
           onHighlightConsumed={() => setHighlightMaterialId(null)}
         />

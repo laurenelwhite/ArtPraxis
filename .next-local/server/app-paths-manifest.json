@@ -1,0 +1,16 @@
+{
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/image-proxy/route": "app/api/image-proxy/route.js",
+  "/api/generate-tutorial/route": "app/api/generate-tutorial/route.js",
+  "/api/generate-stage-images/route": "app/api/generate-stage-images/route.js",
+  "/page": "app/page.js",
+  "/(app)/studio/favorites/page": "app/(app)/studio/favorites/page.js",
+  "/(app)/studio/coach/page": "app/(app)/studio/coach/page.js",
+  "/(app)/studio/collections/page": "app/(app)/studio/collections/page.js",
+  "/(app)/studio/lessons/[id]/page": "app/(app)/studio/lessons/[id]/page.js",
+  "/(app)/studio/practice/page": "app/(app)/studio/practice/page.js",
+  "/(app)/studio/search/page": "app/(app)/studio/search/page.js",
+  "/(app)/studio/page": "app/(app)/studio/page.js",
+  "/(app)/studio/new/page": "app/(app)/studio/new/page.js"
+}

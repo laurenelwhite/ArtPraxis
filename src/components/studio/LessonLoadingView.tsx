@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import { ArtPraxisDotLoader } from "@/components/ui/ArtPraxisDotLoader";
+import {
+  formatMediumLevelEyebrow,
+  getCreatorPipeline,
+  getMediumLanguage,
+  getMediumTips,
+  parseSkill,
+} from "@/lib/medium-language";
 
 type LoadingMode = "creating" | "masterGenerating" | "generic";
 
@@ -22,50 +29,13 @@ type Props = {
   activeStepIndex?: number;
   eyebrow?: string;
   estimate?: string;
+  /** Drives medium-aware copy, tips, and pipeline labels. */
+  medium?: string | null;
+  skillLevel?: string | null;
 };
 
-const PIPELINE: PipelineStep[] = [
-  { id: "composition", label: "Studying composition" },
-  { id: "master", label: "Creating master painting" },
-  { id: "stages", label: "Building your painting steps" },
-  { id: "studio", label: "Preparing your studio" },
-];
-
-export const CREATOR_PIPELINE: PipelineStep[] = [
-  { id: "composition", label: "Studying composition" },
-  { id: "planning", label: "Planning lesson" },
-  { id: "demos", label: "Preparing demonstrations" },
-  { id: "studio", label: "Building your studio" },
-];
-
-const STUDIO_TIPS = [
-  {
-    title: "Preserve your whites",
-    body: "Leave the brightest lights as untouched paper — once covered, that sparkle is hard to reclaim.",
-  },
-  {
-    title: "Work light to dark",
-    body: "Lay pale washes first, then deepen values gradually. Watercolor rewards patience more than force.",
-  },
-  {
-    title: "Control your water",
-    body: "The ratio of pigment to water decides whether a wash blooms softly or sits with crisp edges.",
-  },
-  {
-    title: "Let washes dry",
-    body: "Layering over damp paint invites mud. Give each wash time to settle before the next pass.",
-  },
-  {
-    title: "Keep edges intentional",
-    body: "Soft edges recede; hard edges advance. Decide which before the brush touches the paper.",
-  },
-  {
-    title: "Plan the light path",
-    body: "Squint at your reference. The largest light and dark shapes matter more than early detail.",
-  },
-] as const;
-
-const TIP_INTERVAL_MS = 9000;
+/** @deprecated Prefer getCreatorPipeline(medium) — kept for call-site compatibility. */
+export const CREATOR_PIPELINE: PipelineStep[] = getCreatorPipeline("watercolor");
 
 /**
  * Presentation-only pipeline index from elapsed time.
@@ -77,7 +47,6 @@ function activePipelineIndex(elapsedSec: number, mode: LoadingMode): number {
     if (elapsedSec < 20) return 1;
     return 1;
   }
-  // masterGenerating / generic — linger on master for the long wait
   if (elapsedSec < 12) return 0;
   return 1;
 }
@@ -103,7 +72,19 @@ export function LessonLoadingView({
   detail: detailProp,
   eyebrow: eyebrowProp,
   estimate: estimateProp,
+  medium,
+  skillLevel,
 }: Props) {
+  const lang = useMemo(() => getMediumLanguage(medium), [medium]);
+  const tips = useMemo(
+    () => getMediumTips(medium, skillLevel),
+    [medium, skillLevel],
+  );
+  const defaultPipeline = useMemo(
+    () => getCreatorPipeline(medium),
+    [medium],
+  );
+
   const [elapsedSec, setElapsedSec] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -116,13 +97,18 @@ export function LessonLoadingView({
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      setTipIndex((i) => (i + 1) % STUDIO_TIPS.length);
-    }, TIP_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, []);
+    setTipIndex(0);
+  }, [medium, skillLevel]);
 
-  const steps = pipeline ?? PIPELINE;
+  useEffect(() => {
+    if (tips.length === 0) return;
+    const id = window.setInterval(() => {
+      setTipIndex((i) => (i + 1) % tips.length);
+    }, 9000);
+    return () => window.clearInterval(id);
+  }, [tips]);
+
+  const steps = pipeline ?? defaultPipeline;
   const isMaster = mode === "masterGenerating";
   const isCreating = mode === "creating";
   const timedIndex = activePipelineIndex(elapsedSec, mode);
@@ -130,17 +116,27 @@ export function LessonLoadingView({
     typeof activeStepIndex === "number"
       ? Math.max(0, Math.min(steps.length - 1, activeStepIndex))
       : timedIndex;
-  const tip = STUDIO_TIPS[tipIndex] ?? STUDIO_TIPS[0];
+  const tip = tips[tipIndex] ?? tips[0];
+  const level = parseSkill(skillLevel);
 
-  const eyebrow = eyebrowProp ?? "Creating your lesson";
+  const mediumEyebrow =
+    medium != null && medium !== ""
+      ? formatMediumLevelEyebrow(medium, skillLevel)
+      : null;
+
+  const eyebrow =
+    eyebrowProp ??
+    (isCreating ? "Beginning your lesson" : "Creating your lesson");
   const heading =
     headlineProp ??
-    (isCreating ? "Building your painting lesson" : "Painting your finished inspiration");
+    (isCreating
+      ? lang.preparationHeading
+      : `Preparing your ${lang.completedWorkNoun}`);
   const body =
     detailProp ??
     (isCreating
-      ? "We're analyzing your reference and preparing a stage-by-stage painting lesson."
-      : "We're translating your reference into a finished painting while preserving composition, perspective and subject placement.");
+      ? lang.preparationDescription(level)
+      : `We're translating your reference into a finished ${lang.completedWorkNoun} while preserving composition, perspective, and subject placement.`);
   const estimate =
     estimateProp ??
     (isMaster
@@ -161,6 +157,7 @@ export function LessonLoadingView({
         .join(" ")}
       aria-live="polite"
       aria-labelledby="atelier-wait-heading"
+      data-lesson-medium={medium ?? undefined}
     >
       {referenceUrl ? (
         <figure className="atelier-wait-frame">
@@ -178,6 +175,9 @@ export function LessonLoadingView({
       ) : null}
 
       <div className="atelier-wait-panel" role="status">
+        {mediumEyebrow ? (
+          <p className="atelier-wait-medium">{mediumEyebrow}</p>
+        ) : null}
         <p className="atelier-wait-eyebrow">{eyebrow}</p>
         <h2 className="atelier-wait-heading" id="atelier-wait-heading">
           {heading}
@@ -219,15 +219,17 @@ export function LessonLoadingView({
           })}
         </ol>
 
-        <aside
-          className="atelier-studio-tip"
-          key={tipIndex}
-          aria-label="Studio tip"
-        >
-          <p className="atelier-studio-tip-kicker">Studio tip</p>
-          <p className="atelier-studio-tip-title">{tip.title}</p>
-          <p className="atelier-studio-tip-body">{tip.body}</p>
-        </aside>
+        {tip ? (
+          <aside
+            className="atelier-studio-tip"
+            key={`${medium}-${skillLevel}-${tipIndex}`}
+            aria-label="Studio tip"
+          >
+            <p className="atelier-studio-tip-kicker">Studio tip</p>
+            <p className="atelier-studio-tip-title">{tip.title}</p>
+            <p className="atelier-studio-tip-body">{tip.body}</p>
+          </aside>
+        ) : null}
 
         <p className="atelier-wait-reassure">
           You can safely keep this tab open while we prepare your lesson.

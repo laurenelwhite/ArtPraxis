@@ -35,7 +35,7 @@ export default function Home() {
           <a href="#how">How it works</a>
           <a href="#inspiration">Inspiration</a>
           <Link href="/studio" className="masthead-signin">Sign in</Link>
-          <Link href="/studio" className="btn-solid btn-branded">Start a painting</Link>
+          <Link href="/studio" className="btn-solid btn-branded">Create a lesson</Link>
         </nav>
       </header>
 
@@ -43,16 +43,16 @@ export default function Home() {
         <div className="home-hero-brand" aria-hidden="true">
           <ArtPraxisLogo variant="primary" size="primary" decorative />
         </div>
-        <p className="eyebrow">Personalized painting instruction</p>
-        <h1 className="display">Turn any photo into a painting you can actually make.</h1>
+        <p className="eyebrow">Personalized atelier instruction</p>
+        <h1 className="display">Turn any photo into a lesson you can actually make.</h1>
         <p className="home-lede">
           Upload a reference, choose your medium, and ArtPraxis composes a visual, stage-by-stage
-          lesson — pencil sketch, <Term id="value">value</Term>, <Term id="wash">washes</Term>, and finish —
-          the way a good instruction book would. Tap any term to learn the language of painting as you go.
+          lesson — observation, <Term id="value">value</Term>, guided passes, and finish —
+          the way a good instruction book would. Tap any term to learn the language of your medium as you go.
         </p>
         <div className="home-cta">
           <Link className="btn-solid btn-lg btn-branded" href="/studio">
-            <Icon name="sparkles" size={18} />Start a painting
+            <Icon name="sparkles" size={18} />Create a lesson
           </Link>
           <Link className="btn-ghost" href="#how">See how it works</Link>
         </div>
@@ -62,13 +62,13 @@ export default function Home() {
         <div className="home-demo-hero">
           <AppImage
             src={demoSeed}
-            alt="Reference photo being turned into a painting lesson"
+            alt="Reference photo being turned into a guided atelier lesson"
             width={900}
             height={506}
             sizes="(max-width: 900px) 100vw, 900px"
             priority
           />
-          <figcaption>From one reference to a finished painting, in six guided stages.</figcaption>
+          <figcaption>From one reference to a finished study, in six guided stages.</figcaption>
         </div>
         <ol className="home-demo-strip" aria-label="The six stages">
           {demoStages.map((s, i) => (
@@ -94,7 +94,7 @@ export default function Home() {
       <section className="home-strip" id="inspiration">
         <div className="home-strip-head">
           <p className="eyebrow">Inspiration</p>
-          <h2 className="display-sm">Ideas worth painting</h2>
+          <h2 className="display-sm">Ideas worth studying</h2>
         </div>
         <ul className="home-strip-track">
           {inspirationGallery.map((item) => (
@@ -123,7 +123,7 @@ export default function Home() {
       <section className="home-close">
         <h2 className="display-sm">Start with the reference on your desk right now.</h2>
         <Link className="btn-solid btn-lg btn-branded" href="/studio">
-          <Icon name="plus" size={18} />Start a painting
+          <Icon name="plus" size={18} />Create a lesson
         </Link>
       </section>
 

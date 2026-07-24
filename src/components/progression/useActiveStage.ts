@@ -14,7 +14,7 @@ function prefersReducedMotion(): boolean {
  * Scroll-linked chapter navigation for the six lesson stages.
  *
  * - `domIds` are the stable element ids of each stage section (e.g.
- *   "stage-observation"). They double as URL hashes for deep-linking.
+ *   "lesson-stage-sketch"). They double as URL hashes for deep-linking.
  * - The active stage is whichever section is crossing the vertical centre of
  *   the viewport (IntersectionObserver — no scroll hijacking, no snap).
  * - `scrollTo` scrolls the window to a stage. Offset beneath the sticky project
@@ -69,11 +69,23 @@ export function useActiveStage(domIds: string[]) {
   const scrollTo = useCallback((i: number) => scrollToIndex(i), [scrollToIndex]);
 
   // Deep-link from an incoming hash on first mount, and keep browser
-  // back/forward in sync via popstate.
+  // back/forward in sync via popstate. Also accept legacy `stage-*` hashes.
   useEffect(() => {
+    const resolveHashIndex = (hash: string) => {
+      if (!hash) return -1;
+      const direct = domIds.indexOf(hash);
+      if (direct >= 0) return direct;
+      // Legacy hashes: stage-pencil-sketch → match by stage id suffix
+      if (hash.startsWith("stage-")) {
+        const legacyId = hash.slice("stage-".length);
+        return domIds.findIndex((id) => id.endsWith(legacyId) || id.includes(legacyId));
+      }
+      return -1;
+    };
+
     const goToHash = (smooth: boolean) => {
       const hash = window.location.hash.replace(/^#/, "");
-      const idx = hash ? domIds.indexOf(hash) : -1;
+      const idx = resolveHashIndex(hash);
       if (idx < 0) return;
       setActive(idx);
       // Wait a frame so layout is ready before measuring the scroll target.

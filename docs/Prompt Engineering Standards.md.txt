@@ -1,0 +1,3 @@
+# Canonical documentation moved
+
+**Use:** [Prompt Engineering Standards.md](./Prompt%20Engineering%20Standards.md)
