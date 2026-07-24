@@ -227,5 +227,3 @@ export function ArtPraxisLogo({
   );
 }
 
-export const ART_PRAXIS_LOGO_ASSETS = ASSETS;
-export const ART_PRAXIS_LOGO_SIZES = SIZE_HEIGHT;

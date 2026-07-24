@@ -41,8 +41,8 @@ export function AuthPanel() {
           />
         </label>
         {error && <p className="status error" role="alert">{error}</p>}
-        <button className="primary" type="submit">{mode === "signin" ? "Sign in" : "Create account"}</button>
-        <button type="button" onClick={() => signInWithPopup(auth, googleProvider)}>Continue with Google</button>
+        <button className="primary btn-branded" type="submit">{mode === "signin" ? "Sign in" : "Create account"}</button>
+        <button className="secondary" type="button" onClick={() => signInWithPopup(auth, googleProvider)}>Continue with Google</button>
         <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>

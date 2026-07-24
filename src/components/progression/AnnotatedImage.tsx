@@ -39,47 +39,57 @@ const ALL_MODES: [OverlayMode, string][] = [
 /**
  * Reference image with toggleable analytical overlays.
  * Overlay geometry is clipped to the displayed image bounds.
+ * When `hideTabs`, overlays are still applied; controls live elsewhere (Study Tools).
  */
 export function AnnotatedImage({
   tutorial,
   imageUrl,
   defaultMode = "composition",
   inComparison = false,
+  hideTabs = false,
+  mode: controlledMode,
+  onModeChange,
 }: {
   tutorial: Tutorial;
   imageUrl: string;
   defaultMode?: OverlayMode;
   inComparison?: boolean;
+  hideTabs?: boolean;
+  mode?: OverlayMode;
+  onModeChange?: (mode: OverlayMode) => void;
 }) {
-  const [overlayMode, setOverlayMode] = useState<OverlayMode>(defaultMode);
+  const [internalMode, setInternalMode] = useState<OverlayMode>(defaultMode);
+  const overlayMode = controlledMode ?? internalMode;
+  const setOverlayMode = onModeChange ?? setInternalMode;
   const { visualGuides } = tutorial;
 
-  const overlayTabs = (
-    <div className="overlay-tabs" role="group" aria-label="Image overlays">
-      {ALL_MODES.map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={overlayMode === value}
-          className={overlayMode === value ? "overlay-tab active" : "overlay-tab"}
-          onClick={() => setOverlayMode(value)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  const overlayTabs =
+    hideTabs ? null : (
+      <div className="overlay-tabs" role="group" aria-label="Image overlays">
+        {ALL_MODES.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={overlayMode === value}
+            className={overlayMode === value ? "overlay-tab active" : "overlay-tab"}
+            onClick={() => setOverlayMode(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    );
 
   const imageBlock = (
-    <div className="annotated-image">
+    <div className="annotated-image annotated-image--museum">
       <div className="annotated-image-media">
         <AppImage
           src={imageUrl}
           alt="Reference"
           width={1600}
           height={1200}
-          sizes="(max-width: 1100px) 100vw, 560px"
-          className="annotated-image-photo"
+          sizes="(max-width: 1100px) 100vw, 720px"
+          className="annotated-image-photo cmp-frame-img--reference"
           style={{ width: "100%", height: "auto" }}
         />
         {overlayMode !== "none" && (
@@ -142,7 +152,7 @@ export function AnnotatedImage({
   if (inComparison) {
     return (
       <div className="annotated annotated-compare">
-        <ComparisonFrame>{imageBlock}</ComparisonFrame>
+        <ComparisonFrame variant="reference">{imageBlock}</ComparisonFrame>
         {overlayTabs}
       </div>
     );
@@ -151,7 +161,7 @@ export function AnnotatedImage({
   return (
     <div className="annotated">
       {overlayTabs}
-      {imageBlock}
+      <ComparisonFrame variant="reference">{imageBlock}</ComparisonFrame>
     </div>
   );
 }

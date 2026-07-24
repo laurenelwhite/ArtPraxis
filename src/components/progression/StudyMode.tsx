@@ -2,27 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type {
-  ProgressionStage,
-  StageId,
-} from "@/lib/progression";
-import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProjectStatus } from "@/lib/lessons";
-import type { CompareMode } from "@/components/progression/StageComparison";
-import {
-  LESSON_COMPLETE_DOM_ID,
-  STAGE_DOM_ID,
-} from "@/lib/stage-icons";
+import { STAGE_DOM_ID } from "@/lib/stage-icons";
 
 import { StudyStageSection } from "@/components/progression/StudyStageSection";
 import { StageScrollNav } from "@/components/progression/StageScrollNav";
 import { StageCompletion } from "@/components/progression/StageCompletion";
 import { AtelierRibbon } from "@/components/progression/AtelierRibbon";
 import { useActiveStage } from "@/components/progression/useActiveStage";
+import type { StageModeBaseProps } from "@/components/progression/stage-shell-props";
 
 /**
- * Guided study as one continuous vertical lesson.
- * All stages stay mounted; navigation scrolls to section anchors.
+ * Guided study as one continuous vertical atelier journey.
+ * Stages stay mounted; the sticky indicator scrolls to anchors.
  */
 export function StudyMode({
   stages,
@@ -37,20 +29,10 @@ export function StudyMode({
   onProjectStatusChange,
   savingStatus = false,
   onOpenMaterials,
-}: {
-  stages: ProgressionStage[];
-  tutorial: Tutorial;
-  imageUrl: string;
-  medium: Medium;
-  compare: CompareMode;
-  onCompareChange?: (mode: CompareMode) => void;
-  referenceUrl: string;
-  onRetryStage?: (stageId: StageId) => void;
-  retryingStage?: StageId | null;
+}: StageModeBaseProps & {
   projectStatus: ProjectStatus;
   onProjectStatusChange: (next: ProjectStatus) => void;
   savingStatus?: boolean;
-  onOpenMaterials?: (materialId?: string) => void;
 }) {
   const domIds = useMemo(
     () => stages.map((stage) => STAGE_DOM_ID[stage.id]),
@@ -63,15 +45,6 @@ export function StudyMode({
   useEffect(() => {
     setVisitedMax((current) => Math.max(current, active));
   }, [active]);
-
-  const scrollToComplete = () => {
-    const el = document.getElementById(LESSON_COMPLETE_DOM_ID);
-    if (!el) return;
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-  };
 
   return (
     <div className="study-mode study-mode--continuous studio-mode studio-mode--atelier lesson-document">
@@ -91,17 +64,10 @@ export function StudyMode({
             tutorial={tutorial}
             medium={medium}
             total={stages.length}
-            isFirst={index === 0}
-            isLast={index === stages.length - 1}
             nextStage={stages[index + 1]}
-            onContinue={() => scrollTo(index + 1)}
-            onReviewPrevious={() => scrollTo(0)}
-            onCompareFinished={() => {
-              const finishedIndex = stages.findIndex((s) => s.id === "finished");
-              if (finishedIndex >= 0) scrollTo(finishedIndex);
-              onCompareChange?.("target");
-              requestAnimationFrame(scrollToComplete);
-            }}
+            onContinue={
+              index < stages.length - 1 ? () => scrollTo(index + 1) : undefined
+            }
             compare={compare}
             onCompareChange={onCompareChange}
             referenceUrl={referenceUrl}

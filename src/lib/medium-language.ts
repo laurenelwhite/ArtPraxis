@@ -134,23 +134,23 @@ const WATERCOLOR_TIPS: MediumLanguage["tipsByLevel"] = {
     },
     {
       title: "Work light to dark",
-      body: "Lay pale washes first, then deepen values gradually. Watercolor rewards patience more than force.",
+      body: "Lay pale washes first, then deepen values gradually. Patience beats force.",
     },
     {
       title: "Control your water",
-      body: "The ratio of pigment to water decides whether a wash blooms softly or sits with crisp edges.",
+      body: "Pigment-to-water ratio decides soft blooms versus crisp edges.",
     },
     {
       title: "Let washes dry",
-      body: "Layering over damp paint invites mud. Give each wash time to settle before the next pass.",
+      body: "Layering over damp paint invites mud. Give each wash time to settle.",
     },
     {
       title: "Keep edges intentional",
-      body: "Soft edges recede; hard edges advance. Decide which before the brush touches the paper.",
+      body: "Soft edges recede; hard edges advance. Decide before the brush lands.",
     },
     {
       title: "Plan the light path",
-      body: "Squint at your reference. The largest light and dark shapes matter more than early detail.",
+      body: "Squint at your reference — large light and dark shapes matter more than early detail.",
     },
   ],
   intermediate: [

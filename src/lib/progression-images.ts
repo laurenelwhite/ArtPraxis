@@ -31,20 +31,17 @@ import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 // ============================================================================
 // Composition-locked, RESUMABLE two-image stage model (client orchestration).
 //
-// Generation is split into independent, short requests so no single HTTP call
-// stays open for the whole sequence:
-//   1. Immediately seed provisional previews from the REFERENCE photo
-//      (previewSource: "reference") so targets appear before the master exists.
-//   2. One request generates + validates the MASTER painting. Pass and warning
-//      both persist as ready and continue. Hard-fail after retries persists the
-//      candidate as needsReview (Accept / Regenerate) — never a terminal 502
-//      that discards progress. The client uploads and persists it. Stage
-//      derivation still runs when a masterImageUrl exists (ready OR needsReview).
-//   3. Replace reference previews with master-derived previews
-//      (previewSource: "master"). Finished uses the master — never the photo.
-//   4. Then one request PER stage derives that stage from the master (+ the
-//      preceding stage). Each result is persisted immediately, so the Firestore
-//      subscription updates the lesson UI as each stage lands.
+// Perceived-wait pipeline (master first, stages after accept):
+//   1. Generate + validate the MASTER painting only. Every successful candidate
+//      lands as needsReview (Accept Lesson / Regenerate) — including pass and
+//      warning. Hard-fail after retries still persists the best candidate for
+//      review — never a terminal 502 that discards progress.
+//   2. Do NOT seed or AI-refine stage images until the user accepts.
+//   3. On accept → masterStatus ready, reset stages, open the atelier, and
+//      derive stages in the background. Each stage is persisted immediately so
+//      the Firestore subscription can fade targets in as they land.
+//   4. Optional AI refine (feature flag) still runs one request per unfinished
+//      stage after acceptance, chained from the preceding plate.
 //
 // Resumability & idempotency:
 //   - Per-item status: pending | generating | ready | failed | needsReview.
@@ -1484,9 +1481,9 @@ function stagesNeedDeterministicWork(stages: StageImageRecord[]): boolean {
 }
 
 // Generate + validate + upload + persist the MASTER in its own request.
-// Warnings and passes → ready (continue stages). Final hard_fail → needsReview
-// (candidate is saved; user Accept / Regenerate). Never discards a prior valid master
-// merely because a later attempt fails.
+// Every successful candidate → needsReview (user must Accept Lesson before
+// stages run). Validation still runs; hard_fail reasons surface in review.
+// Never discards a prior valid master merely because a later attempt fails.
 async function runMaster(
   uid: string,
   projectId: string,
@@ -1558,13 +1555,15 @@ async function runMaster(
       }
 
       // Preserve a previously successful master — never clear it on failure.
+      // forceReview (review-screen regen) restores to needsReview so Accept stays required.
       if (priorMasterUrl) {
+        const restoreStatus: GenerationStatus = forceReview ? "needsReview" : "ready";
         await persist(
           uid,
           projectId,
           {
             masterImageUrl: priorMasterUrl,
-            masterStatus: "ready",
+            masterStatus: restoreStatus,
             masterError: null,
           },
           true,
@@ -1572,7 +1571,7 @@ async function runMaster(
         return {
           ...docData,
           masterImageUrl: priorMasterUrl,
-          masterStatus: "ready",
+          masterStatus: restoreStatus,
           masterError: null,
         };
       }
@@ -1606,13 +1605,14 @@ async function runMaster(
         reason: "missing_master_dataUrl",
       });
       if (priorMasterUrl) {
+        const restoreStatus: GenerationStatus = forceReview ? "needsReview" : "ready";
         await persist(
           uid,
           projectId,
-          { masterImageUrl: priorMasterUrl, masterStatus: "ready", masterError: null },
+          { masterImageUrl: priorMasterUrl, masterStatus: restoreStatus, masterError: null },
           true,
         );
-        return { ...docData, masterImageUrl: priorMasterUrl, masterStatus: "ready", masterError: null };
+        return { ...docData, masterImageUrl: priorMasterUrl, masterStatus: restoreStatus, masterError: null };
       }
       await persist(uid, projectId, { masterStatus: "pending" }, true);
       return { ...docData, masterStatus: "pending" };
@@ -1626,13 +1626,9 @@ async function runMaster(
     });
 
     const validation = (response.masterValidation as CompositionValidation | null) ?? null;
+    // Surface composition hard-fail reasons in review; pass/warning still require Accept.
     const reasons = userFacingReasons(validation);
-    const validationNeedsReview = Boolean(
-      response.masterNeedsReview ||
-      response.masterValidated === false,
-    );
-    const needsReview = forceReview || validationNeedsReview;
-    const status: "ready" | "needsReview" = needsReview ? "needsReview" : "ready";
+    const status: "ready" | "needsReview" = "needsReview";
 
     if (response.masterValidation) {
       console.warn("[progression] master validation", JSON.stringify(response.masterValidation));
@@ -1653,20 +1649,19 @@ async function runMaster(
       );
     }
 
-    if (needsReview) {
-      await persist(
-        uid,
-        projectId,
-        {
-          masterStatus: "needsReview",
-          masterError: null,
-          masterPrompt: response.master.prompt ?? null,
-          masterValidation: validation,
-          masterReviewReasons: reasons,
-        },
-        true,
-      );
-    }
+    // Persist review state before upload so the UI can reveal the candidate early.
+    await persist(
+      uid,
+      projectId,
+      {
+        masterStatus: "needsReview",
+        masterError: null,
+        masterPrompt: response.master.prompt ?? null,
+        masterValidation: validation,
+        masterReviewReasons: reasons,
+      },
+      true,
+    );
 
     let masterImageUrl: string;
     let uploadMs = 0;
@@ -1688,12 +1683,13 @@ async function runMaster(
         );
       }
       if (priorMasterUrl) {
+        const restoreStatus: GenerationStatus = forceReview ? "needsReview" : "ready";
         await persist(
           uid,
           projectId,
           {
             masterImageUrl: priorMasterUrl,
-            masterStatus: "ready",
+            masterStatus: restoreStatus,
             masterError: null,
           },
           true,
@@ -1701,7 +1697,7 @@ async function runMaster(
         return {
           ...docData,
           masterImageUrl: priorMasterUrl,
-          masterStatus: "ready",
+          masterStatus: restoreStatus,
           masterError: null,
         };
       }
@@ -1767,13 +1763,11 @@ async function runMaster(
 
 /**
  * Resumable client runner:
- *  1. Start master generation immediately (API fetches the Firebase image URL).
- *  2. Seed provisional reference-derived previews in parallel (may use image-proxy;
- *     must not block the master POST).
- *  3. After master is ready OR needsReview (image saved), replace with master-derived previews.
- *  4. Optional AI refine per unfinished stage when the flag is on.
- *  5. Lease + in-flight map prevent duplicate jobs across reloads/tabs.
- *     In-flight wraps the FULL orchestration (master + stages), not master alone.
+ *  1. Generate the master only (no stage images until Accept).
+ *  2. Stop at needsReview so the user can Accept Lesson / Regenerate.
+ *  3. After accept (masterStatus ready), seed master-derived stage previews
+ *     and optionally AI-refine — each stage persisted as it finishes.
+ *  4. Lease + in-flight map prevent duplicate jobs across reloads/tabs.
  */
 export async function orchestrateProgression(params: {
   uid: string;
@@ -1866,10 +1860,11 @@ async function orchestrateProgressionInner(params: {
   const needsAi = ENABLE_AI_STAGE_REFINEMENT && hydrated.stages.some(needsAiRefine);
   const masterUsable = masterUsableForStages(hydrated);
 
-  if (hydrated.masterStatus === "needsReview" && masterUsable && !needsDeterministic && !needsAi) {
+  // Awaiting Accept Lesson — never generate stages before the user confirms.
+  if (hydrated.masterStatus === "needsReview" && masterUsable && !forceRegenerate) {
     logProgression("generation_skipped", {
       projectId,
-      reason: "master_needs_review_stages_already_complete",
+      reason: "master_needs_review_awaiting_acceptance",
     });
     return "skipped_review";
   }
@@ -1878,7 +1873,7 @@ async function orchestrateProgressionInner(params: {
     return "skipped_review";
   }
 
-  if (masterUsable && !needsDeterministic && !needsAi && !forceRegenerate) {
+  if (masterUsable && hydrated.masterStatus === "ready" && !needsDeterministic && !needsAi && !forceRegenerate) {
     logProgression("master_generation_skipped_existing", {
       projectId,
       reason: "master_and_stages_already_complete",
@@ -1907,54 +1902,37 @@ async function orchestrateProgressionInner(params: {
       });
     }
 
-    const masterWork: Promise<ProgressionDoc> = needsMaster
-      ? runMaster(uid, projectId, docData, tutorial, medium, referenceImageUrl, onMasterCandidate)
-      : Promise.resolve(docData);
-
-    const seedWork: Promise<StageImageRecord[]> = seedStagePreviews(
-      uid,
-      projectId,
-      docData,
-      referenceImageUrl,
-      "reference",
-    ).catch((e) => {
-      console.error(
-        "[progression] reference seed failed (non-blocking for master)",
-        sanitizeProgressionLogObject(
-          normalizeProgressionError(e, {
-            operation: "seed-stage-preview",
-            projectId,
-            source: "reference",
-          }),
-        ),
+    if (needsMaster) {
+      docData = await runMaster(
+        uid,
+        projectId,
+        docData,
+        tutorial,
+        medium,
+        referenceImageUrl,
+        onMasterCandidate,
       );
-      return docData.stages;
-    });
+    }
 
-    docData = await masterWork;
-
-    if (!masterUsableForStages(docData)) {
-      // Safety / generate failure with no master: keep deterministic reference previews
-      // so the lesson exits loading and remains usable.
-      const stages = await seedWork;
-      docData = { ...docData, stages };
-      if (docData.masterError === MSG_IMAGE_SAFETY_REVIEW || docData.masterStatus === "failed") {
-        logProgression("master_generation_fallback_ready", {
-          projectId,
-          masterStatus: docData.masterStatus,
-          stagePreviewCount: stages.filter((s) => s.targetImageUrl).length,
-        });
-      } else {
-        logProgression("orchestration_complete", {
-          projectId,
-          outcome: "stopped_after_master",
-          masterStatus: docData.masterStatus,
-        });
-      }
+    // Stop after master until Accept Lesson — no stage images yet.
+    if (docData.masterStatus === "needsReview") {
+      logProgression("orchestration_complete", {
+        projectId,
+        outcome: "awaiting_master_acceptance",
+        masterStatus: docData.masterStatus,
+        hasMasterImageUrl: Boolean(docData.masterImageUrl),
+      });
       return "ran";
     }
 
-    await seedWork;
+    if (!masterUsableForStages(docData) || docData.masterStatus !== "ready") {
+      logProgression("orchestration_complete", {
+        projectId,
+        outcome: "stopped_after_master",
+        masterStatus: docData.masterStatus,
+      });
+      return "ran";
+    }
 
     const stages = await seedStagePreviews(uid, projectId, docData, docData.masterImageUrl!, "master");
     docData = { ...docData, stages };
@@ -2168,8 +2146,8 @@ export async function regenerateMasterCandidate(params: {
 }
 
 /**
- * User accepted a needsReview master. Reset stages and continue from the first
- * unfinished item without regenerating the master.
+ * User accepted the master. Mark ready, reset stages, and kick off background
+ * stage generation without blocking the Accept Lesson UI.
  */
 export async function acceptMaster(params: {
   uid: string;
@@ -2207,13 +2185,24 @@ export async function acceptMaster(params: {
     false,
   );
 
-  await orchestrateProgression({
+  // Background — atelier unlocks from the ready persist above; stages fade in live.
+  void orchestrateProgression({
     uid,
     projectId,
     tutorial,
     medium,
     referenceImageUrl,
     size: docData.size,
+  }).catch((e) => {
+    console.error(
+      "[progression] post-accept stage orchestration failed",
+      sanitizeProgressionLogObject(
+        normalizeProgressionError(e, {
+          operation: "accept-master-orchestrate",
+          projectId,
+        }),
+      ),
+    );
   });
 }
 

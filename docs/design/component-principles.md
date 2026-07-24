@@ -21,11 +21,11 @@ Frontend UI work.
 
 ## Last Reviewed
 
-2026-07-23
+2026-07-24
 
 ## Future Improvements
 
-Split logo section into Brand-only doc once Brand Bible is complete; keep anti-patterns here.
+Split logo section into Brand-only doc once Brand Bible is complete; keep anti-patterns here. See also [Component Architecture Improvements](../COMPONENT_ARCHITECTURE.md).
 
 ---
 
@@ -104,6 +104,10 @@ Current SVGs in `public/brand/` are temporary approximations until final exports
 ❌ Scaling the primary logo for navbar use
 
 ❌ Treating approximation SVGs as approved merely because they compile
+
+❌ BrushStroke / BrushProgress / PaintedCheckmark / ArtworkBrandAccent (use ArtPraxisLogo / ArtPraxisLoadingMark)
+
+❌ LearningCard / learning-note (use GuideNoteCard / studio-guide-card)
 
 ## Preferred Patterns
 

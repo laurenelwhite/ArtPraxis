@@ -18,7 +18,8 @@ export function StageImageView({
   if (visual.url) {
     return (
       <AppImage
-        className="stage-img"
+        key={visual.url}
+        className="stage-img stage-img--fade stage-img--museum"
         src={visual.url}
         alt={alt}
         width={thumb ? 240 : 1200}
@@ -31,9 +32,9 @@ export function StageImageView({
 
   if (visual.referenceUrl) {
     return (
-      <span className="stage-placeholder">
+      <span className="stage-placeholder stage-placeholder--awaiting">
         <AppImage
-          className="stage-img"
+          className="stage-img stage-img--museum"
           src={visual.referenceUrl}
           alt={alt}
           width={thumb ? 240 : 1200}
@@ -42,10 +43,34 @@ export function StageImageView({
           style={{ filter: visual.filter }}
           loading="lazy"
         />
-        {!thumb && <span className="stage-placeholder-tag" aria-hidden="true">Placeholder · in development</span>}
+        {!thumb && (
+          <span
+            className="stage-placeholder-tag stage-placeholder-tag--live"
+            aria-hidden="true"
+          >
+            <span className="stage-placeholder-tag-dot" />
+            Preparing…
+          </span>
+        )}
       </span>
     );
   }
 
-  return <span className="stage-placeholder empty" role="img" aria-label={alt} />;
+  return (
+    <span
+      className="stage-placeholder empty stage-placeholder--awaiting stage-placeholder--compact"
+      role="img"
+      aria-label={alt || "Demonstration arriving"}
+    >
+      {!thumb ? (
+        <span
+          className="stage-placeholder-tag stage-placeholder-tag--live"
+          aria-hidden="true"
+        >
+          <span className="stage-placeholder-tag-dot" />
+          Arriving…
+        </span>
+      ) : null}
+    </span>
+  );
 }

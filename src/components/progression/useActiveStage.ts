@@ -17,11 +17,11 @@ function prefersReducedMotion(): boolean {
  *   "lesson-stage-sketch"). They double as URL hashes for deep-linking.
  * - The active stage is whichever section is crossing the vertical centre of
  *   the viewport (IntersectionObserver — no scroll hijacking, no snap).
- * - `scrollTo` scrolls the window to a stage. Offset beneath the sticky project
- *   tabs + stage nav is handled by each section's CSS `scroll-margin-top`, so
- *   headings are never hidden. Clicking pushes a history entry (so browser
- *   back/forward step through visited stages); scrolling only updates the
- *   highlight.
+ * - `scrollTo` scrolls the nearest scrollport (`.app-main`) to a stage. Offset
+ *   beneath sticky project tabs + stage nav is handled by each section's CSS
+ *   `scroll-margin-top`, so headings are never hidden. Clicking pushes a history
+ *   entry (so browser back/forward step through visited stages); scrolling only
+ *   updates the highlight.
  * - On mount, an incoming `#stage-…` hash deep-links to that stage; `popstate`
  *   keeps back/forward in sync.
  */
@@ -122,8 +122,13 @@ export function useActiveStage(domIds: string[]) {
           const idx = domIds.indexOf((top.target as HTMLElement).id);
           if (idx >= 0) setActive(idx);
         },
-        // Bias toward the upper workspace beneath sticky chrome
-        { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.15, 0.35, 0.6, 1] },
+        // Bias toward the upper workspace beneath sticky chrome.
+        // Prefer the app shell scrollport when present.
+        {
+          root: typeof document !== "undefined" ? document.getElementById("app-main") : null,
+          rootMargin: "-30% 0px -55% 0px",
+          threshold: [0, 0.15, 0.35, 0.6, 1],
+        },
       );
       els.forEach((el) => observer!.observe(el));
     };

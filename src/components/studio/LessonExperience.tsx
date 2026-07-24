@@ -16,7 +16,6 @@ import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
 import type { CompareMode } from "@/components/progression/StageComparison";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
 import { MasterReviewView } from "@/components/studio/MasterReviewView";
-import { StageGenerationView } from "@/components/studio/StageGenerationView";
 import { AppImage } from "@/components/ui/AppImage";
 import { getLessonTheme } from "@/lib/lesson-theme";
 import { getMediumLanguage } from "@/lib/medium-language";
@@ -137,7 +136,7 @@ export function LessonExperience({
   const regenerateBusy = Boolean(regenerating || acceptingMaster);
   const lessonMedium = getLessonTheme(medium).dataAttribute;
 
-  // —— Finite views: never mount atelier until ready ——
+  // —— Finite views: atelier mounts after Accept; stages may still be landing ——
   if (ui.state === "creating" || ui.state === "masterGenerating") {
     return (
       <div
@@ -149,6 +148,7 @@ export function LessonExperience({
           detail={ui.detail}
           referenceUrl={imageUrl}
           mode={ui.state === "creating" ? "creating" : "masterGenerating"}
+          medium={medium}
         />
       </div>
     );
@@ -210,7 +210,7 @@ export function LessonExperience({
   if (ui.state === "masterReview") {
     return (
       <div
-        className="lesson-experience lesson-experience--atelier lesson-experience--state"
+        className="lesson-experience lesson-experience--atelier lesson-experience--state lesson-experience--review"
         data-lesson-medium={lessonMedium}
       >
         <MasterReviewView
@@ -229,25 +229,7 @@ export function LessonExperience({
     );
   }
 
-  if (ui.state === "stageGenerating") {
-    return (
-      <div
-        className="lesson-experience lesson-experience--atelier lesson-experience--state"
-        data-lesson-medium={lessonMedium}
-      >
-        <StageGenerationView
-          masterImageUrl={masterImageUrl || imageUrl}
-          stages={progression}
-          headline={ui.headline}
-          detail={ui.detail}
-          progress={ui.progress}
-          activeStageLabel={ui.activeStageLabel}
-        />
-      </div>
-    );
-  }
-
-  // —— Lesson ready: atelier ——
+  // —— Lesson open: atelier (stages may still generate in the background) ——
   return (
     <div
       className={`lesson-experience mode-${mode} lesson-experience--atelier`}
@@ -302,12 +284,50 @@ export function LessonExperience({
         </div>
       ) : null}
 
+      {ui.stagesGeneratingInBackground && !regenerating ? (
+        <div className="atelier-stages-live-banner" role="status" aria-live="polite">
+          <span className="atelier-stages-live-pulse" aria-hidden="true" />
+          <div className="atelier-stages-live-copy">
+            <p className="atelier-stages-live-now">
+              {ui.activeStageLabel
+                ? <>Preparing <strong>{ui.activeStageLabel}</strong></>
+                : "Preparing stage demonstrations"}
+            </p>
+            <p className="atelier-stages-live-meta">
+              <span className="atelier-stages-live-count">
+                {ui.stagesReadyCount} of {ui.stagesTotal} ready
+              </span>
+              <span className="atelier-stages-live-keep">
+                Your lesson stays open while plates arrive.
+              </span>
+            </p>
+            <div
+              className="atelier-stages-live-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={ui.stagesTotal}
+              aria-valuenow={ui.stagesReadyCount}
+              aria-label="Stage demonstrations ready"
+            >
+              <span
+                className="atelier-stages-live-track-fill"
+                style={{
+                  width: `${Math.round(
+                    (ui.stagesReadyCount / Math.max(1, ui.stagesTotal)) * 100,
+                  )}%`,
+                }}
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {mode === "study" ? (
         <TermBudgetProvider>
           <StudyMode
             stages={stages}
             tutorial={tutorial}
-            imageUrl={imageUrl}
             medium={medium}
             projectStatus={projectStatus}
             onProjectStatusChange={onProjectStatusChange}
@@ -321,7 +341,6 @@ export function LessonExperience({
             stages={stages}
             tutorial={tutorial}
             medium={medium}
-            masterImageUrl={masterImageUrl}
             {...shared}
           />
         </TermBudgetProvider>

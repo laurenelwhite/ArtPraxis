@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Medium, Tutorial } from "@/lib/tutorial-schema";
-import type { ProgressionStage, StageId } from "@/lib/progression";
-import { StageNav } from "@/components/progression/StageNav";
+import { StageProcessRail } from "@/components/progression/StageProcessRail";
 import { DeskStage } from "@/components/progression/DeskStage";
-import type { CompareMode } from "@/components/progression/StageComparison";
+import type { StageModeBaseProps } from "@/components/progression/stage-shell-props";
 
 export function PaintMode({
   stages,
@@ -14,22 +12,10 @@ export function PaintMode({
   compare,
   onCompareChange,
   referenceUrl,
-  masterImageUrl,
   onRetryStage,
   retryingStage,
   onOpenMaterials,
-}: {
-  stages: ProgressionStage[];
-  tutorial: Tutorial;
-  medium: Medium;
-  compare: CompareMode;
-  onCompareChange?: (mode: CompareMode) => void;
-  referenceUrl: string;
-  masterImageUrl?: string | null;
-  onRetryStage?: (stageId: StageId) => void;
-  retryingStage?: StageId | null;
-  onOpenMaterials?: (materialId?: string) => void;
-}) {
+}: StageModeBaseProps) {
   const [active, setActive] = useState(0);
   const [visitedMax, setVisitedMax] = useState(0);
 
@@ -42,18 +28,6 @@ export function PaintMode({
     setActive(next);
     setVisitedMax((current) => Math.max(current, next));
   };
-
-  const workspaceChrome = (
-    <div className="atelier-chrome atelier-workspace-chrome">
-      <StageNav
-        stages={stages}
-        active={safeActive}
-        visitedMax={visitedMax}
-        onSelect={selectStage}
-        masterImageUrl={masterImageUrl}
-      />
-    </div>
-  );
 
   return (
     <div className="paint-mode desk studio-mode studio-mode--atelier">
@@ -70,11 +44,9 @@ export function PaintMode({
               tutorial={tutorial}
               medium={medium}
               total={stages.length}
-              isFirst={safeActive === 0}
               isLast={safeActive === stages.length - 1}
               nextStage={stages[safeActive + 1]}
-              onPrev={() => selectStage(safeActive - 1)}
-              onNext={() => selectStage(safeActive + 1)}
+              onNext={() => selectStage(Math.min(stages.length - 1, safeActive + 1))}
               onReviewPrevious={() => selectStage(Math.max(0, safeActive - 1))}
               onCompareFinished={() => {
                 const finishedIndex = stages.findIndex((s) => s.id === "finished");
@@ -86,7 +58,17 @@ export function PaintMode({
               referenceUrl={referenceUrl}
               onRetry={onRetryStage}
               retrying={retryingStage === activeStage.id}
-              workspaceChrome={workspaceChrome}
+              workspaceChrome={
+                <div className="atelier-chrome atelier-workspace-chrome">
+                  <StageProcessRail
+                    className="desk-nav"
+                    stages={stages}
+                    active={safeActive}
+                    visitedMax={visitedMax}
+                    onSelect={selectStage}
+                  />
+                </div>
+              }
               onOpenMaterials={onOpenMaterials}
             />
           </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProgressionStage } from "@/lib/progression";
+import { paintMaterialId } from "@/lib/paint-material-id";
 
 /**
  * Compact stage-only material chips — not the full lesson materials list.
@@ -24,7 +25,7 @@ export function StageMaterialsChips({
   return (
     <ul className="stage-material-chips" aria-label="Materials for this stage">
       {colors.map((color) => {
-        const id = `paint:${color.name.trim().toLowerCase()}`;
+        const id = paintMaterialId(color.name);
         return (
           <li key={id}>
             <button

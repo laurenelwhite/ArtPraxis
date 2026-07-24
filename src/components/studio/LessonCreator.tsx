@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { useAuth } from "@/providers/AuthProvider";
-import { Icon } from "@/components/Icon";
 import { attachLessonImage, createLesson } from "@/lib/lessons";
 import { ensureProgression, orchestrateProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
 import { MEDIA, MEDIUM_HEADING, MEDIUM_LABEL, parseMedium } from "@/lib/media";
@@ -29,8 +27,8 @@ function dataUrl(file: File) {
 /** Map existing status strings to the creator checklist (presentation only). */
 function creatorStepIndex(status: string): number {
   const s = status.toLowerCase();
-  if (s.includes("building your studio") || s.includes("opening")) return 3;
-  if (s.includes("preparing stage") || s.includes("demonstration")) return 2;
+  if (s.includes("opening") || s.includes("building your studio")) return 3;
+  if (s.includes("preparing your studio") || s.includes("preparing stage")) return 2;
   if (s.includes("saving")) return 1;
   return 0;
 }
@@ -97,15 +95,14 @@ export function LessonCreator() {
       await attachLessonImage(user.uid, lessonId, referenceUrl);
 
       // Two-image progression: create the target-image doc now (all stages
-      // pending). Generation is driven from the lesson page as resumable, per-
-      // item requests, so it survives navigation, refresh, and timeouts and can
-      // report visible progress. Never let this block or fail lesson creation.
+      // pending). Master generation starts immediately; stage images wait until
+      // Accept Lesson. Never let this block or fail lesson creation.
       try {
-        setStatus("Preparing stage demonstrations…");
+        setStatus("Preparing your studio…");
         const size = pickSizeForRatio(await ratioForFile(file));
         await ensureProgression(user.uid, lessonId, tutorial, medium, referenceUrl, size);
-        // Kick off master/target generation immediately — do not wait for navigation
-        // or image-proxy. In-flight guard dedupes with LessonView on arrival.
+        // Kick off master generation immediately — do not wait for navigation.
+        // In-flight guard dedupes with LessonView on arrival. Stages wait for Accept.
         console.warn(JSON.stringify({
           scope: "LessonCreator",
           event: "generation_request_started",
@@ -123,7 +120,7 @@ export function LessonCreator() {
         console.error("Could not initialize the stage progression", genError);
       }
 
-      setStatus("Building your studio…");
+      setStatus("Opening your studio…");
       router.push(`/studio/lessons/${lessonId}`);
     } catch (e) {
       setBusy(false);
@@ -156,7 +153,7 @@ export function LessonCreator() {
           detail={lang.preparationDescription(
             skill === "intermediate" || skill === "advanced" ? skill : "beginner",
           )}
-          estimate="Usually takes under a minute."
+          estimate="Usually 12–45 seconds"
         />
       </div>
     );
@@ -164,7 +161,7 @@ export function LessonCreator() {
 
   return (
     <div className="creator creator--atelier" data-lesson-medium={medium}>
-      <header className="creator-header">
+      <div className="creator-header page-masthead">
         <div className="creator-header-copy">
           <p className="eyebrow">New lesson</p>
           <h1 className="dashboard-title creator-title">
@@ -175,11 +172,7 @@ export function LessonCreator() {
             stage by stage, from observation to finish.
           </p>
         </div>
-        <Link href="/studio" className="creator-back">
-          <Icon name="arrow-left" size={16} />
-          Dashboard
-        </Link>
-      </header>
+      </div>
 
       <div className="creator-layout">
         <section className="creator-stage" aria-label="Reference and lesson settings">

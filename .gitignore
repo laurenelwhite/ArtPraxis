@@ -21,3 +21,5 @@ public/tmp-stage-qa/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+.next-local/

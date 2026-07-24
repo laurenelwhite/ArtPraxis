@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { AppImage } from "@/components/ui/AppImage";
-import { Icon } from "@/components/Icon";
 import {
   formatFullDate,
   formatLessonDate,
@@ -71,16 +69,6 @@ export function ProjectOverview({
               {lang.primaryPracticeCta}
             </button>
           </div>
-          <p className="overview-entry-tertiary">
-            <Link href="/studio" className="overview-tertiary-link">
-              <Icon name="arrow-left" size={15} />
-              Back to Studio
-            </Link>
-            <span aria-hidden="true"> · </span>
-            <span className="overview-tertiary-muted" title="PDF export coming soon">
-              Download PDF
-            </span>
-          </p>
         </div>
 
         {tutorial?.overview && (

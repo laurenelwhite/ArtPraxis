@@ -1,0 +1,330 @@
+/* ============================================================
+   Application shell — definitive architecture (2026)
+   Header is outside the scrollport; only .app-main scrolls.
+   Sticky offsets are relative to .app-main (not the viewport).
+   ============================================================ */
+
+:root{
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:24px;
+  --space-6:32px;
+  --space-7:48px;
+  --space-8:64px;
+  --app-main-pad-x:clamp(16px, 3vw, 36px);
+  --app-main-pad-top:var(--space-5);
+  --app-main-pad-bottom:var(--space-8);
+  /* Relative to .app-main scrollport (header lives outside it) */
+  --proj-tabs-h:48px;
+  --stage-nav-h:48px;
+  --lesson-sticky:calc(var(--proj-tabs-h) + var(--stage-nav-h));
+}
+
+.app-shell{
+  display:flex !important;
+  flex-direction:column !important;
+  height:100dvh !important;
+  max-height:100dvh !important;
+  min-height:100dvh !important;
+  overflow:hidden !important;
+  background:var(--color-paper-white) !important;
+}
+
+.app-shell:has(.lesson-experience--generating) .app-header-nav,
+.app-shell:has(.lesson-experience--generating) .app-header-account{
+  opacity:0.48;
+  transition:opacity 0.45s ease;
+}
+
+.app-header{
+  position:relative !important;
+  z-index:50;
+  flex:0 0 auto !important;
+  align-self:stretch;
+  width:100%;
+  box-sizing:border-box;
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  grid-template-areas:"brand nav account";
+  align-items:center;
+  column-gap:20px;
+  row-gap:0;
+  height:var(--app-topbar-h) !important;
+  min-height:var(--app-topbar-h) !important;
+  max-height:var(--app-topbar-h) !important;
+  padding:0 clamp(16px, 2.5vw, 28px) !important;
+  background:var(--color-paper-white);
+  border-bottom:1px solid var(--border-subtle);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.app-header-brand{
+  grid-area:brand;
+  display:flex;
+  align-items:center;
+  flex:none;
+  overflow:visible;
+  text-decoration:none;
+}
+.app-header-logo,
+.app-header-logo .ap-logo-img,
+.app-header-logo .ap-logo-adaptive-svg{
+  display:block;
+  height:42px;
+  width:auto;
+  max-width:190px;
+  max-height:48px;
+  object-fit:contain;
+  object-position:left center;
+}
+.app-header-nav{
+  grid-area:nav;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  min-width:0;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.app-header-nav::-webkit-scrollbar{display:none}
+.app-header-link{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  min-height:40px;
+  border-radius:8px;
+  font-size:var(--text-ui);
+  font-weight:var(--weight-medium);
+  color:var(--brand-warm-gray);
+  transition:color .16s var(--ease), background .16s var(--ease);
+  white-space:nowrap;
+}
+.app-header-link:hover{color:var(--brand-navy); background:rgba(13,27,42,0.03)}
+.app-header-link.is-active{
+  color:var(--action-primary);
+  font-weight:var(--weight-semibold);
+  box-shadow:inset 0 -2px 0 var(--action-primary);
+  border-radius:8px 8px 0 0;
+}
+.app-header-cta{
+  color:var(--brand-navy);
+  font-weight:var(--weight-semibold);
+}
+.app-header-cta:not(.is-active){
+  background:transparent;
+  border:1px solid rgba(13,27,42,0.14);
+  border-radius:var(--r);
+  padding:8px 14px;
+}
+.app-header-cta:hover{background:rgba(13,27,42,0.04)}
+.app-header-account{
+  grid-area:account;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:none;
+  min-width:0;
+  justify-self:end;
+}
+.app-header-user{
+  max-width:12rem;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:0.8125rem;
+  font-weight:var(--weight-medium);
+  color:var(--brand-warm-gray);
+}
+.app-header-signout{
+  appearance:none;
+  border:0;
+  background:transparent;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 4px;
+  min-height:40px;
+  font:inherit;
+  font-size:0.8125rem;
+  font-weight:var(--weight-medium);
+  color:var(--brand-navy);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.app-header-signout:hover{color:var(--action-primary)}
+
+@media(max-width:900px){
+  .app-header{
+    grid-template-columns:auto minmax(0, 1fr) auto !important;
+    grid-template-areas:"brand nav account" !important;
+    height:var(--app-topbar-h) !important;
+    min-height:var(--app-topbar-h) !important;
+    max-height:var(--app-topbar-h) !important;
+    padding-block:0 !important;
+  }
+  .app-header-user{display:none}
+  .app-header-logo,
+  .app-header-logo .ap-logo-img,
+  .app-header-logo .ap-logo-adaptive-svg{
+    height:32px;
+    max-height:36px;
+  }
+}
+
+.app-main{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  width:min(1280px, 100%);
+  margin:0 auto;
+  padding:var(--app-main-pad-top) var(--app-main-pad-x) var(--app-main-pad-bottom) !important;
+  box-sizing:border-box;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  background:var(--color-paper-white);
+}
+.app-main--lesson,
+.app-main:has(.lesson-view),
+.app-main:has(.lesson-shell){
+  width:min(var(--lesson-shell-max), 100%) !important;
+  max-width:var(--lesson-shell-max) !important;
+  padding-top:var(--space-4) !important;
+  padding-bottom:var(--space-7) !important;
+}
+
+.lesson-shell{
+  display:grid;
+  gap:var(--space-3);
+  width:100%;
+  min-width:0;
+  background:var(--color-paper-white);
+  color:var(--text-primary);
+}
+.lesson-shell-head{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:var(--space-3) var(--space-5);
+  padding-bottom:var(--space-1);
+  margin:0;
+}
+.lesson-shell-copy{
+  flex:1 1 18rem;
+  min-width:0;
+  display:grid;
+  gap:var(--space-2);
+}
+.lesson-shell-copy .lesson-breadcrumb{margin:0}
+.lesson-shell-copy .project-eyebrow{
+  margin:0;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+}
+.lesson-shell-title{
+  margin:0;
+  font-family:var(--serif);
+  font-size:clamp(1.65rem, 2.6vw, 2.35rem);
+  font-weight:var(--weight-medium);
+  line-height:var(--lh-display, 1.2);
+  letter-spacing:-0.02em;
+  color:var(--brand-navy);
+}
+.lesson-shell-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--space-2);
+  align-items:center;
+  margin:0;
+}
+.lesson-shell-body{
+  display:grid;
+  gap:0;
+  min-width:0;
+}
+
+.lesson-shell .project-tabs,
+.lesson-view .project-tabs,
+.lesson-shell-tabs{
+  position:sticky !important;
+  top:0 !important;
+  z-index:30 !important;
+  display:flex !important;
+  flex-wrap:nowrap;
+  gap:2px 4px;
+  margin:0 !important;
+  padding:0 !important;
+  min-height:var(--proj-tabs-h) !important;
+  height:var(--proj-tabs-h);
+  align-items:stretch;
+  background:var(--color-paper-white) !important;
+  border-bottom:1px solid var(--border-subtle);
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+}
+.lesson-shell .project-tab,
+.lesson-view .project-tab{
+  font-size:0.8125rem;
+  font-weight:var(--weight-medium);
+  padding:0 12px;
+  min-height:var(--proj-tabs-h);
+  height:100%;
+  color:var(--text-muted);
+  border:0;
+  background:transparent;
+  border-radius:0;
+  flex:none;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+}
+.lesson-shell .project-tab.active,
+.lesson-view .project-tab.active{
+  color:var(--action-primary);
+  font-weight:var(--weight-semibold);
+  box-shadow:inset 0 -2px 0 var(--color-yellow-ochre);
+  background:transparent;
+}
+
+.stage-scroll-nav,
+.study-mode--single .stage-scroll-nav,
+.study-mode--continuous .stage-scroll-nav{
+  position:sticky !important;
+  top:var(--proj-tabs-h) !important;
+  z-index:20 !important;
+}
+.study-index{top:var(--proj-tabs-h) !important}
+.desk-nav{top:var(--proj-tabs-h) !important}
+
+.page-masthead.studio-masthead{
+  padding-bottom:var(--space-5);
+  border-bottom:1px solid var(--hairline);
+  margin-bottom:0;
+}
+.page-masthead.creator-header{
+  margin-bottom:var(--space-6);
+}
+.creator-back{display:none !important}
+
+.studio-home{
+  display:grid;
+  gap:var(--space-6);
+}
+
+@media(max-width:699px){
+  :root{--app-topbar-h:56px}
+  .app-main{padding-inline:var(--space-4) !important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .app-header-link{transition:none}
+}

@@ -5,8 +5,9 @@ import type { CompareMode } from "@/components/progression/StageComparison";
 
 const OPTIONS: { value: CompareMode; label: string }[] = [
   { value: "both", label: "Side by side" },
-  { value: "target", label: "Target only" },
-  { value: "reference", label: "Reference only" },
+  { value: "overlay", label: "Overlay" },
+  { value: "target", label: "Target" },
+  { value: "reference", label: "Reference" },
 ];
 
 /**

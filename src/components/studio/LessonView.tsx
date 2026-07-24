@@ -27,9 +27,10 @@ import type { GenerationStatus, StageId, StageImageRecord } from "@/lib/progress
 import {
   hasValidGeneratedMaster,
   resolveLessonUiState,
-  shouldStartMasterGeneration,
+  shouldContinueProgression,
 } from "@/lib/lesson-ui-state";
 import { LessonExperience } from "@/components/studio/LessonExperience";
+import { LessonShell } from "@/components/shell";
 import { StatusPill } from "@/components/project/StatusPill";
 import { ProjectOverview } from "@/components/project/ProjectOverview";
 import { ProjectReference } from "@/components/project/ProjectReference";
@@ -242,13 +243,13 @@ export function LessonView({ id }: { id: string }) {
       });
 
       // Lease / incomplete skips must release the guard so a later attempt can run.
+      // Also release after a successful master-only run so post-accept stage work
+      // can resume if the accept fire-and-forget is interrupted (refresh, etc.).
       if (outcome === "skipped_lease") {
         startedProjectRef.current = null;
         setGenerationError(
           "Another session is generating this lesson. Retry in a moment.",
         );
-      } else if (outcome === "ran" || outcome === "skipped_complete" || outcome === "skipped_review") {
-        // Keep project key so Strict Mode / effect re-entry does not double-POST.
       } else {
         startedProjectRef.current = null;
       }
@@ -276,7 +277,7 @@ export function LessonView({ id }: { id: string }) {
       masterStatus,
       masterImageUrl: masterUrlRef.current || masterImageUrl,
     });
-    const shouldStart = shouldStartMasterGeneration({
+    const shouldStart = shouldContinueProgression({
       hasTutorial: Boolean(tutorial),
       hasReferenceUrl: Boolean(imageUrl),
       progressionHydrated,
@@ -284,6 +285,7 @@ export function LessonView({ id }: { id: string }) {
       masterImageUrl: masterUrlRef.current || masterImageUrl,
       masterRequestInFlight,
       generationError,
+      stages: progression,
     });
 
     console.info("[lesson-generation]", {
@@ -310,6 +312,7 @@ export function LessonView({ id }: { id: string }) {
     masterImageUrl,
     masterRequestInFlight,
     generationError,
+    progression,
     startMasterGeneration,
   ]);
 
@@ -498,14 +501,12 @@ export function LessonView({ id }: { id: string }) {
 
   /**
    * Adaptive logo only after a usable master exists and the lesson has left
-   * creation/loading — review, stage build, or atelier all qualify.
+   * creation/loading — review or atelier both qualify.
    */
   const brandingEligible =
     Boolean(state?.summary) &&
     hasValidGeneratedMaster({ masterStatus, masterImageUrl }) &&
-    (lessonUi.state === "masterReview" ||
-      lessonUi.state === "stageGenerating" ||
-      lessonUi.state === "ready");
+    (lessonUi.state === "masterReview" || lessonUi.state === "ready");
 
   useEffect(() => {
     if (!user || !state?.summary || !brandingEligible || !masterImageUrl) {
@@ -561,21 +562,11 @@ export function LessonView({ id }: { id: string }) {
 
   function selectTab(next: TabId) {
     setTab(next);
-    if (next === "overview") {
-      requestAnimationFrame(() => {
-        document.getElementById("lesson-overview-top")?.scrollIntoView({
-          block: "start",
-          behavior: "smooth",
-        });
-      });
-    } else {
-      requestAnimationFrame(() => {
-        document.getElementById("lesson-section-tabs")?.scrollIntoView({
-          block: "nearest",
-          behavior: "smooth",
-        });
-      });
-    }
+    // Keep the sticky tab bar still — only reset the shell scrollport.
+    requestAnimationFrame(() => {
+      const root = document.getElementById("app-main");
+      if (root) root.scrollTo({ top: 0 });
+    });
   }
 
   function openMaterials(materialId?: string) {
@@ -601,24 +592,23 @@ export function LessonView({ id }: { id: string }) {
   const { summary, tutorial } = state;
 
   return (
-    <div
-      className={[
-        "lesson-view",
-        tabsLocked ? "lesson-view--generating" : null,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      data-lesson-medium={summary.medium}
-    >
-      <div id="lesson-overview-top" className="lesson-anchor" aria-hidden="true" />
-      <div className="dashboard-header lesson-header">
-        <div className="lesson-header-text">
-          <p className="lesson-breadcrumb">
+    <div data-lesson-medium={summary.medium}>
+      <LessonShell
+        title={summary.title}
+        generating={tabsLocked}
+        tabsLocked={tabsLocked}
+        tabs={TABS}
+        activeTab={tab}
+        onTabChange={(id) => selectTab(id as TabId)}
+        breadcrumb={
+          <>
             <Link href="/studio">Studio</Link>
             <span aria-hidden="true"> / </span>
             <span>Lesson</span>
-          </p>
-          <p className="eyebrow project-eyebrow">
+          </>
+        }
+        eyebrow={
+          <>
             <span className="capitalize">{summary.medium}</span>
             {tutorial ? (
               <>
@@ -634,10 +624,9 @@ export function LessonView({ id }: { id: string }) {
               </>
             )}
             <StatusPill status={status} />
-          </p>
-          <h1 className="dashboard-title lesson-title">{summary.title}</h1>
-        </div>
-        <div className="lesson-header-actions">
+          </>
+        }
+        actions={
           <button
             type="button"
             className="secondary lesson-pdf"
@@ -648,180 +637,133 @@ export function LessonView({ id }: { id: string }) {
             Download PDF
             <span className="visually-hidden"> (unavailable)</span>
           </button>
-          <Link href="/studio" className="secondary">
-            <Icon name="arrow-left" size={17} />
-            Back to Studio
-          </Link>
-        </div>
-      </div>
-
-      <nav
-        id="lesson-section-tabs"
-        className="project-tabs"
-        role="tablist"
-        aria-label="Project sections"
+        }
       >
-        {TABS.map((t) => {
-          const locked = tabsLocked && t.id !== "overview" && t.id !== "lesson";
-          const selected = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`lesson-tab-${t.id}`}
-              aria-controls={`lesson-panel-${t.id}`}
-              aria-selected={selected}
-              aria-disabled={locked || undefined}
-              disabled={locked}
-              tabIndex={selected ? 0 : -1}
-              className={[
-                "project-tab",
-                selected ? "active" : null,
-                locked ? "is-locked" : null,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => {
-                if (locked) return;
-                selectTab(t.id);
-              }}
-              title={
-                locked
-                  ? "Available when your lesson is ready"
-                  : undefined
-              }
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Keep panels mounted (hidden) so tab changes do not remount LessonExperience. */}
-      <div
-        id="lesson-panel-overview"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-overview"
-        hidden={tab !== "overview"}
-        className="project-panel"
-      >
-        <ProjectOverview
-          summary={summary}
-          tutorial={tutorial}
-          status={status}
-          onStatusChange={changeStatus}
-          saving={savingStatus}
-          onBeginStudy={() => {
-            setLessonEntryMode("study");
-            selectTab("lesson");
-          }}
-          onStartPractice={() => {
-            setLessonEntryMode("paint");
-            selectTab("lesson");
-          }}
-        />
-      </div>
-
-      <div
-        id="lesson-panel-lesson"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-lesson"
-        hidden={tab !== "lesson"}
-        className="project-panel"
-      >
-        {tutorial ? (
-          <LessonExperience
+        {/* Keep panels mounted (hidden) so tab changes do not remount LessonExperience. */}
+        <div
+          id="lesson-panel-overview"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-overview"
+          hidden={tab !== "overview"}
+          className="project-panel"
+        >
+          <ProjectOverview
+            summary={summary}
             tutorial={tutorial}
-            imageUrl={summary.imageUrl}
-            medium={summary.medium}
-            entryMode={lessonEntryMode}
-            progression={progression}
-            progressionHydrated={progressionHydrated}
-            masterStatus={masterStatus}
-            masterImageUrl={masterImageUrl}
-            masterError={masterError}
-            masterReviewReasons={masterReviewReasons}
-            masterRequestInFlight={masterRequestInFlight}
-            generationError={generationError}
-            onRetryGeneration={onRetryGeneration}
-            onRetryStage={onRetryStage}
-            retryingStage={retryingStage}
-            onRegenerate={onRegenerate}
-            regenerating={regenerating}
-            onAcceptMaster={onAcceptMaster}
-            acceptingMaster={acceptingMaster}
-            onRegenerateMaster={onRegenerateMaster}
-            masterReadyToAccept={masterReadyToAccept}
-            projectStatus={status}
-            onProjectStatusChange={changeStatus}
-            savingStatus={savingStatus}
-            onOpenMaterials={openMaterials}
+            status={status}
+            onStatusChange={changeStatus}
+            saving={savingStatus}
+            onBeginStudy={() => {
+              setLessonEntryMode("study");
+              selectTab("lesson");
+            }}
+            onStartPractice={() => {
+              setLessonEntryMode("paint");
+              selectTab("lesson");
+            }}
           />
-        ) : (
-          <p className="status error">This project has no lesson content.</p>
-        )}
-      </div>
+        </div>
 
-      <div
-        id="lesson-panel-reference"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-reference"
-        hidden={tab !== "reference"}
-        className="project-panel"
-      >
-        <ProjectReference
-          summary={summary}
-          masterImageUrl={masterImageUrl}
-          masterStatus={masterStatus}
-        />
-      </div>
+        <div
+          id="lesson-panel-lesson"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-lesson"
+          hidden={tab !== "lesson"}
+          className="project-panel"
+        >
+          {tutorial ? (
+            <LessonExperience
+              tutorial={tutorial}
+              imageUrl={summary.imageUrl}
+              medium={summary.medium}
+              entryMode={lessonEntryMode}
+              progression={progression}
+              progressionHydrated={progressionHydrated}
+              masterStatus={masterStatus}
+              masterImageUrl={masterImageUrl}
+              masterError={masterError}
+              masterReviewReasons={masterReviewReasons}
+              masterRequestInFlight={masterRequestInFlight}
+              generationError={generationError}
+              onRetryGeneration={onRetryGeneration}
+              onRetryStage={onRetryStage}
+              retryingStage={retryingStage}
+              onRegenerate={onRegenerate}
+              regenerating={regenerating}
+              onAcceptMaster={onAcceptMaster}
+              acceptingMaster={acceptingMaster}
+              onRegenerateMaster={onRegenerateMaster}
+              masterReadyToAccept={masterReadyToAccept}
+              projectStatus={status}
+              onProjectStatusChange={changeStatus}
+              savingStatus={savingStatus}
+              onOpenMaterials={openMaterials}
+            />
+          ) : (
+            <p className="status error">This project has no lesson content.</p>
+          )}
+        </div>
 
-      <div
-        id="lesson-panel-materials"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-materials"
-        hidden={tab !== "materials"}
-        className="project-panel"
-      >
-        <ProjectMaterials
-          key={id}
-          tutorial={tutorial}
-          medium={summary.medium}
-          lessonId={id}
-          uid={user?.uid ?? null}
-          highlightId={highlightMaterialId}
-          onHighlightConsumed={() => setHighlightMaterialId(null)}
-        />
-      </div>
+        <div
+          id="lesson-panel-reference"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-reference"
+          hidden={tab !== "reference"}
+          className="project-panel"
+        >
+          <ProjectReference
+            summary={summary}
+            masterImageUrl={masterImageUrl}
+            masterStatus={masterStatus}
+          />
+        </div>
 
-      <div
-        id="lesson-panel-notes"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-notes"
-        hidden={tab !== "notes"}
-        className="project-panel"
-      >
-        <ProjectPlaceholder
-          icon="message"
-          title="Notes"
-          description="Jot down observations, reminders, and what to try next on this project."
-        />
-      </div>
+        <div
+          id="lesson-panel-materials"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-materials"
+          hidden={tab !== "materials"}
+          className="project-panel"
+        >
+          <ProjectMaterials
+            key={id}
+            tutorial={tutorial}
+            medium={summary.medium}
+            lessonId={id}
+            uid={user?.uid ?? null}
+            highlightId={highlightMaterialId}
+            onHighlightConsumed={() => setHighlightMaterialId(null)}
+          />
+        </div>
 
-      <div
-        id="lesson-panel-progress"
-        role="tabpanel"
-        aria-labelledby="lesson-tab-progress"
-        hidden={tab !== "progress"}
-        className="project-panel"
-      >
-        <ProgressUpload
-          status={status}
-          onStatusChange={changeStatus}
-          saving={savingStatus}
-        />
-      </div>
+        <div
+          id="lesson-panel-notes"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-notes"
+          hidden={tab !== "notes"}
+          className="project-panel"
+        >
+          <ProjectPlaceholder
+            icon="message"
+            title="Notes"
+            description="Jot down observations, reminders, and what to try next on this project."
+          />
+        </div>
+
+        <div
+          id="lesson-panel-progress"
+          role="tabpanel"
+          aria-labelledby="lesson-tab-progress"
+          hidden={tab !== "progress"}
+          className="project-panel"
+        >
+          <ProgressUpload
+            status={status}
+            onStatusChange={changeStatus}
+            saving={savingStatus}
+          />
+        </div>
+      </LessonShell>
     </div>
   );
 }

@@ -6,7 +6,9 @@ import {
   isSketchReady,
   isUsableStageTarget,
   resolveLessonUiState,
+  shouldContinueProgression,
   shouldStartMasterGeneration,
+  stagesNeedGeneration,
 } from "../src/lib/lesson-ui-state";
 
 function stage(
@@ -81,6 +83,7 @@ describe("resolveLessonUiState", () => {
       ],
     });
     assert.equal(snap.state, "masterReview");
+    assert.equal(snap.headline, "Your atelier interpretation");
   });
 
   it("does not treat reference previews as usable stage art", () => {
@@ -95,7 +98,7 @@ describe("resolveLessonUiState", () => {
     assert.equal(isSketchReady([provisional]), false);
   });
 
-  it("waits in stageGenerating until sketch is ready", () => {
+  it("opens atelier immediately after accept even when stages are pending", () => {
     const snap = resolveLessonUiState({
       hasTutorial: true,
       progressionHydrated: true,
@@ -110,10 +113,11 @@ describe("resolveLessonUiState", () => {
         }),
       ],
     });
-    assert.equal(snap.state, "stageGenerating");
+    assert.equal(snap.state, "ready");
+    assert.equal(snap.stagesGeneratingInBackground, true);
   });
 
-  it("reaches ready only when all stages are usable", () => {
+  it("reaches ready with background flag cleared when all stages are usable", () => {
     const stages: StageImageRecord[] = [
       stage({ stageId: "pencil-sketch", index: 1, targetImageUrl: "s1.jpg", generationStatus: "ready", previewSource: null }),
       stage({ stageId: "value-study", index: 2, targetImageUrl: "s2.jpg", generationStatus: "ready", previewSource: null }),
@@ -131,6 +135,7 @@ describe("resolveLessonUiState", () => {
     });
     assert.equal(snap.state, "ready");
     assert.equal(snap.progress, 1);
+    assert.equal(snap.stagesGeneratingInBackground, false);
   });
 
   it("gates atelier until ready even when master is generating", () => {
@@ -222,6 +227,51 @@ describe("shouldStartMasterGeneration", () => {
         generationError: "boom",
       }),
       false,
+    );
+  });
+});
+
+describe("shouldContinueProgression", () => {
+  it("resumes stage work after accept when stages are still pending", () => {
+    assert.equal(
+      shouldContinueProgression({
+        hasTutorial: true,
+        hasReferenceUrl: true,
+        progressionHydrated: true,
+        masterStatus: "ready",
+        masterImageUrl: "master.jpg",
+        masterRequestInFlight: false,
+        stages: [
+          stage({ stageId: "pencil-sketch", index: 1, generationStatus: "pending" }),
+        ],
+      }),
+      true,
+    );
+  });
+
+  it("does not resume stages while awaiting Accept Lesson", () => {
+    assert.equal(
+      shouldContinueProgression({
+        hasTutorial: true,
+        hasReferenceUrl: true,
+        progressionHydrated: true,
+        masterStatus: "needsReview",
+        masterImageUrl: "master.jpg",
+        masterRequestInFlight: false,
+        stages: [
+          stage({ stageId: "pencil-sketch", index: 1, generationStatus: "pending" }),
+        ],
+      }),
+      false,
+    );
+  });
+
+  it("detects unfinished stage sets", () => {
+    assert.equal(
+      stagesNeedGeneration([
+        stage({ stageId: "pencil-sketch", index: 1, targetImageUrl: "s1.jpg", generationStatus: "ready" }),
+      ]),
+      true,
     );
   });
 });

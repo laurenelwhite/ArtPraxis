@@ -16,6 +16,7 @@ import {
   purgeLegacyMaterialReadinessKeys,
   saveMaterialReadiness,
 } from "@/lib/material-readiness";
+import { paintMaterialId } from "@/lib/paint-material-id";
 
 type FilterId = "all" | "essential" | "optional" | "ready";
 
@@ -64,10 +65,6 @@ function classifyPaletteRole(role: string): PaletteRole {
 }
 
 /** Stable id within a lesson — never an array index. Storage is scoped by lessonId. */
-function paintMaterialId(name: string): string {
-  return `paint:${name.trim().toLowerCase()}`;
-}
-
 function supplyMaterialId(item: string): string {
   return `mat:${item.trim().toLowerCase()}`;
 }

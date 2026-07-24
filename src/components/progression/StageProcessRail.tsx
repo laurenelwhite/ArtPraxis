@@ -18,8 +18,8 @@ function stepState(index: number, active: number, visitedMax: number): StepState
 
 /**
  * Process-led six-step stage navigator.
- * Desktop: horizontal process rail (number + icon + label; current expands with purpose).
- * Mobile: compact “‹ n of 6 · Label ›” controller + stage picker sheet.
+ * Desktop: horizontal process rail (number + label).
+ * Mobile: current-stage indicator + stage picker sheet — no prev/next chevrons.
  * Thumbnails are never the primary identifier.
  */
 export function StageProcessRail({
@@ -33,8 +33,6 @@ export function StageProcessRail({
   active: number;
   visitedMax: number;
   onSelect: (index: number) => void;
-  /** Optional; retained for API compatibility — not used as primary nav art. */
-  masterImageUrl?: string | null;
   className?: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -93,6 +91,11 @@ export function StageProcessRail({
                   "stage-process-step",
                   `is-${state}`,
                   isFinishedStep ? "is-finish" : "",
+                  stage.visual.url &&
+                  (stage.visual.generationStatus === "ready" ||
+                    stage.visual.generationStatus === "failed")
+                    ? "has-target"
+                    : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -110,49 +113,34 @@ export function StageProcessRail({
                   )}
                 </span>
                 <span className="stage-process-step-label">{label}</span>
+                {stage.visual.url &&
+                (stage.visual.generationStatus === "ready" ||
+                  stage.visual.generationStatus === "failed") ? (
+                  <span className="stage-process-ready" aria-hidden="true">
+                    Ready
+                  </span>
+                ) : null}
               </button>
             </li>
           );
         })}
       </ol>
 
-      {/* Mobile compact controller */}
+      {/* Mobile: sticky indicator opens stage picker */}
       <div className="stage-process-mobile">
-        <div className="stage-process-mobile-bar">
-          <button
-            type="button"
-            className="stage-process-mobile-nav"
-            aria-label="Previous stage"
-            disabled={safeActive <= 0}
-            onClick={() => go(safeActive - 1)}
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            className="stage-process-mobile-current"
-            aria-haspopup="dialog"
-            aria-expanded={sheetOpen}
-            onClick={() => setSheetOpen(true)}
-          >
-            <span className="stage-process-mobile-count">
-              {safeActive + 1} of {total}
-            </span>
-            <span className="stage-process-mobile-sep" aria-hidden="true">
-              ·
-            </span>
-            <span className="stage-process-mobile-label">{currentLabel}</span>
-          </button>
-          <button
-            type="button"
-            className="stage-process-mobile-nav"
-            aria-label="Next stage"
-            disabled={safeActive >= total - 1}
-            onClick={() => go(safeActive + 1)}
-          >
-            ›
-          </button>
-        </div>
+        <button
+          type="button"
+          className="stage-process-mobile-current"
+          aria-haspopup="dialog"
+          aria-expanded={sheetOpen}
+          aria-label={`Stage ${safeActive + 1} of ${total}: ${currentLabel}. Open stage list`}
+          onClick={() => setSheetOpen(true)}
+        >
+          <span className="stage-process-mobile-count">
+            Stage {safeActive + 1} of {total}
+          </span>
+          <span className="stage-process-mobile-label">{currentLabel}</span>
+        </button>
 
         <button
           type="button"
@@ -254,11 +242,16 @@ function StagePickerSheet({
             const label = STAGE_PROCESS_LABEL[stage.id];
             const purpose = STAGE_PROCESS_PURPOSE[stage.id];
             const thumb = stage.visual.url;
+            const targetReady = Boolean(
+              thumb &&
+                (stage.visual.generationStatus === "ready" ||
+                  stage.visual.generationStatus === "failed"),
+            );
             return (
               <li key={stage.id}>
                 <button
                   type="button"
-                  className={`stage-picker-item is-${state}`}
+                  className={`stage-picker-item is-${state}${targetReady ? " has-target" : ""}`}
                   aria-current={state === "current" ? "step" : undefined}
                   onClick={() => onSelect(index)}
                 >
@@ -268,13 +261,16 @@ function StagePickerSheet({
                   <span className="stage-picker-copy">
                     <span className="stage-picker-label">{label}</span>
                     <span className="stage-picker-purpose">{purpose}</span>
+                    {targetReady ? (
+                      <span className="stage-picker-ready">Ready</span>
+                    ) : null}
                   </span>
                   {thumb ? (
                     // Secondary only — labels/icons remain primary.
                     <AppImage
                       src={thumb}
                       alt=""
-                      className="stage-picker-thumb"
+                      className="stage-picker-thumb stage-picker-thumb--fade"
                       width={40}
                       height={40}
                       sizes="40px"
