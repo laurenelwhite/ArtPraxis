@@ -4,55 +4,56 @@ type StageTeachingHeaderProps = {
   stageIndex: number;
   total: number;
   processLabel: string;
-  teachingPoint: string;
-  /** Optional id for the teaching-point heading (Study anchors). */
+  /** Concise stage outcome (one sentence). */
+  goal: string;
+  /** Optional id for the process-name heading (Study anchors). */
   titleId?: string;
   /** Visual variant — preserves existing Study vs Paint class trees. */
   variant: "study" | "paint";
 };
 
 /**
- * Stage index · process label · teaching point.
- * Class names stay mode-specific so CSS continues to match.
+ * Stage visual anchor:
+ * Stage N of M
+ * Process label
+ * Goal
  */
 export function StageTeachingHeader({
   stageIndex,
   total,
   processLabel,
-  teachingPoint,
+  goal,
   titleId,
   variant,
 }: StageTeachingHeaderProps) {
-  if (variant === "paint") {
-    return (
-      <header className="atelier-head studio-workspace-head">
-        <p className="studio-workspace-index">
-          Stage {stageIndex}
-          <span className="chapter-index-of"> of {total}</span>
-          <span className="study-stage-meta-sep" aria-hidden="true">
-            ·
-          </span>
-          <span className="study-stage-meta-label">{processLabel}</span>
-        </p>
-        <h2 className="study-stage-teaching-point studio-workspace-teaching">
-          <AutoTerms text={teachingPoint} />
-        </h2>
-      </header>
-    );
-  }
+  const indexClass =
+    variant === "paint" ? "studio-workspace-index" : "study-stage-meta";
+  const titleClass =
+    variant === "paint"
+      ? "study-stage-title studio-workspace-title"
+      : "study-stage-title";
+  const goalClass =
+    variant === "paint"
+      ? "study-stage-goal studio-workspace-goal"
+      : "study-stage-goal";
+  const headClass =
+    variant === "paint"
+      ? "atelier-head studio-workspace-head stage-teaching-header"
+      : "study-stage-head stage-teaching-header";
 
   return (
-    <header className="study-stage-head">
-      <p className="study-stage-meta">
+    <header className={headClass}>
+      <p className={`${indexClass} stage-eyebrow`}>
         Stage {stageIndex} of {total}
-        <span className="study-stage-meta-sep" aria-hidden="true">
-          ·
-        </span>
-        <span className="study-stage-meta-label">{processLabel}</span>
       </p>
-      <h2 id={titleId} className="study-stage-teaching-point">
-        <AutoTerms text={teachingPoint} />
+      <h2 id={titleId} className={titleClass}>
+        {processLabel}
       </h2>
+      {goal ? (
+        <p className={goalClass}>
+          <AutoTerms text={goal} />
+        </p>
+      ) : null}
     </header>
   );
 }

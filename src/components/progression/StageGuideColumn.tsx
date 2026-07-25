@@ -18,6 +18,8 @@ type StageGuideColumnProps = {
   onOpenMaterials?: (materialId?: string) => void;
   /** Visual variant — preserves existing Study vs Paint class trees. */
   variant: "study" | "paint";
+  /** Which guidance block to render — supports staged lesson hierarchy. */
+  section?: "instructions" | "extras" | "all";
 };
 
 /**
@@ -30,6 +32,7 @@ export function StageGuideColumn({
   medium,
   onOpenMaterials,
   variant,
+  section = "all",
 }: StageGuideColumnProps) {
   const hasStageColors = stage.paint.colors.some((c) => c.name.trim());
   const showValuePalette = stage.id === "value-study";
@@ -44,10 +47,10 @@ export function StageGuideColumn({
   const notesBodyClass =
     variant === "paint" ? "stage-materials-body" : "study-stage-notes-body";
 
-  const materialsAndNotes = (
-    <>
-      <LessonSummaryGrid stage={stage} />
+  const instructions = <LessonSummaryGrid stage={stage} />;
 
+  const extras = (
+    <>
       <details className="stage-materials-collapse studio-collapse">
         <summary>Materials</summary>
         <div className="stage-materials-collapse-body">
@@ -72,7 +75,7 @@ export function StageGuideColumn({
       </details>
 
       <details className={notesClass}>
-        <summary>Notes</summary>
+        <summary>Practical tips</summary>
         <div className={notesBodyClass}>
           <StageSetupStrip stage={stage} medium={medium} />
           {noteExplanation ? (
@@ -87,11 +90,18 @@ export function StageGuideColumn({
     </>
   );
 
+  const body = (
+    <>
+      {section === "instructions" || section === "all" ? instructions : null}
+      {section === "extras" || section === "all" ? extras : null}
+    </>
+  );
+
   if (variant === "paint") {
     return (
-      <aside className="atelier-side studio-workspace-side">{materialsAndNotes}</aside>
+      <aside className="atelier-side studio-workspace-side">{body}</aside>
     );
   }
 
-  return <div className="study-stage-guide">{materialsAndNotes}</div>;
+  return <div className="study-stage-guide">{body}</div>;
 }

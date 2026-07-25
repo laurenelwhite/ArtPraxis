@@ -27,6 +27,14 @@ import {
   type CompositionValidation,
 } from "@/lib/composition-validation";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
+import {
+  idleRegenerationFields,
+  isRegenerationBusy,
+  normalizeRegenerationPhase,
+  normalizeRegenerationState,
+  type FinalPaintingRegenerationState,
+  type RegenerationChecklistPhase,
+} from "@/lib/final-painting-regeneration";
 
 // ============================================================================
 // Composition-locked, RESUMABLE two-image stage model (client orchestration).
@@ -43,6 +51,13 @@ import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 //   4. Optional AI refine (feature flag) still runs one request per unfinished
 //      stage after acceptance, chained from the preceding plate.
 //
+// Atelier Final Painting regeneration (non-blocking):
+//   - Accepted masterImageUrl + stages stay visible and unchanged.
+//   - A separate candidate is generated/validated/uploaded (master-candidate).
+//   - Stages reset only after the user accepts the candidate.
+//   - regenerationState tracks queued → generating → validating →
+//     candidateReady | error (never blanks the lesson).
+//
 // Resumability & idempotency:
 //   - Per-item status: pending | generating | ready | failed | needsReview.
 //   - A document-level LEASE ({owner, expiresAt}) prevents two clients/tabs from
@@ -53,7 +68,8 @@ import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 //     closed browser never erases finished work.
 //
 // Storage: image bytes at users/{uid}/projects/{projectId}/stages/{name}.webp
-//   (name = stageId | "master"). The original reference is never overwritten.
+//   (name = stageId | "master" | "master-candidate"). The original reference is
+//   never overwritten.
 // ============================================================================
 
 export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
@@ -85,6 +101,16 @@ export interface ProgressionDoc {
   masterReviewReasons: string[];
   lease: Lease | null;
   stages: StageImageRecord[];
+  /**
+   * Atelier regeneration machine. Accepted master remains in masterImageUrl /
+   * masterStatus until the user applies a candidate.
+   */
+  regenerationState: FinalPaintingRegenerationState;
+  regenerationStartedAt: number | null;
+  regenerationError: string | null;
+  regenerationPhase: RegenerationChecklistPhase | null;
+  /** Validated replacement Final Painting awaiting Use / Keep. */
+  candidateFinalPaintingUrl: string | null;
 }
 
 /** Fired as soon as a master candidate exists (before/during Storage upload). */
@@ -174,6 +200,12 @@ function toDoc(data: Record<string, unknown>): ProgressionDoc | null {
       : userFacingReasons((data.masterValidation as CompositionValidation | null) ?? null),
     lease: (data.lease as Lease | null) ?? null,
     stages: (data.stages as StageImageRecord[]).map(migrateStage),
+    regenerationState: normalizeRegenerationState(data.regenerationState),
+    regenerationStartedAt:
+      typeof data.regenerationStartedAt === "number" ? data.regenerationStartedAt : null,
+    regenerationError: (data.regenerationError as string | null) ?? null,
+    regenerationPhase: normalizeRegenerationPhase(data.regenerationPhase),
+    candidateFinalPaintingUrl: (data.candidateFinalPaintingUrl as string | null) ?? null,
   };
 }
 
@@ -230,6 +262,7 @@ export async function ensureProgression(
     masterReviewReasons: [],
     lease: null,
     stages: initialStages(tutorial, medium, referenceImageUrl),
+    ...idleRegenerationFields(),
   };
   await setDoc(progressionRef(uid, projectId), { ...created, updatedAt: serverTimestamp() });
   return created;
@@ -801,6 +834,15 @@ interface ApiResponse {
   error?: string;
   code?: string;
   retryable?: boolean;
+  imageModel?: string;
+  inputFidelity?: string;
+  timing?: {
+    referenceFetchMs?: number;
+    editMs?: number;
+    validationMs?: number;
+    totalMs?: number;
+    attempts?: number;
+  };
 }
 
 /** User-facing copy — never surface raw validation JSON or HTTP details. */
@@ -1746,7 +1788,26 @@ async function runMaster(
       apiMs,
       uploadMs,
       totalMs: Date.now() - clientStartedAt,
-      serverTiming: (response as ApiResponse & { timing?: unknown }).timing ?? null,
+      serverTiming: response.timing ?? null,
+      model: response.imageModel ?? null,
+      input_fidelity: response.inputFidelity ?? null,
+      retry_count: Math.max(0, (response.timing?.attempts ?? 1) - 1),
+      validation_result: response.masterSeverity ?? (response.masterValidated ? "pass" : null),
+    });
+    // Structured regeneration.* keys (safe — no URLs, prompts, or image bytes).
+    logProgression("regeneration.timing_snapshot", {
+      "regeneration.total_ms": Date.now() - clientStartedAt,
+      "regeneration.master_generation_ms": response.timing?.editMs ?? apiMs,
+      "regeneration.validation_ms": response.timing?.validationMs ?? null,
+      "regeneration.storage_ms": uploadMs,
+      "regeneration.reference_fetch_ms": response.timing?.referenceFetchMs ?? null,
+      "regeneration.retry_count": Math.max(0, (response.timing?.attempts ?? 1) - 1),
+      "regeneration.validation_result":
+        response.masterSeverity ?? (response.masterValidated ? "pass" : null),
+      "regeneration.model": response.imageModel ?? null,
+      "regeneration.input_fidelity": response.inputFidelity ?? null,
+      projectId,
+      scope: forceReview ? "review_regenerate" : "initial_or_orchestrated",
     });
 
     return {
@@ -2039,8 +2100,9 @@ async function orchestrateProgressionInner(params: {
   }
 }
 
-/** Reset every target + the master, then re-run the resumable pipeline.
- * Keeps the prior master image visible until a new candidate uploads successfully.
+/**
+ * Atelier "Try another…" — generate a validated candidate Final Painting without
+ * clearing stages or replacing the accepted master until the user applies it.
  */
 export async function regenerateAllTargets(params: {
   uid: string;
@@ -2051,46 +2113,261 @@ export async function regenerateAllTargets(params: {
   size?: ImageSize;
   onMasterCandidate?: MasterCandidateHandler;
 }): Promise<void> {
-  const { uid, projectId, tutorial, medium, referenceImageUrl, onMasterCandidate } = params;
+  const { uid, projectId, tutorial, medium, referenceImageUrl } = params;
   const existing = await getProgressionDoc(uid, projectId);
   const size = params.size ?? existing?.size ?? "1024x1024";
-  const baseDoc = existing ?? (await ensureProgression(uid, projectId, tutorial, medium, referenceImageUrl, size));
+  const baseDoc =
+    existing ?? (await ensureProgression(uid, projectId, tutorial, medium, referenceImageUrl, size));
+
+  // Active-job guard — remounts / double-clicks must not start a second bill.
+  if (isRegenerationBusy(baseDoc.regenerationState)) {
+    logProgression("regeneration.duplicate_ignored", {
+      projectId,
+      regenerationState: baseDoc.regenerationState,
+      reason: "busy_regeneration_state",
+    });
+    return;
+  }
+  if (baseDoc.regenerationState === "candidateReady" && baseDoc.candidateFinalPaintingUrl) {
+    logProgression("regeneration.duplicate_ignored", {
+      projectId,
+      regenerationState: baseDoc.regenerationState,
+      reason: "candidate_awaiting_decision",
+    });
+    return;
+  }
+
   const priorMasterUrl = baseDoc.masterImageUrl;
-  const reset: StageImageRecord[] = baseDoc.stages.map((s) => ({
-    ...s,
-    targetImageUrl: null,
-    generationStatus: "pending",
-    error: null,
-    validated: false,
-    fallback: false,
-    previewSource: null,
-  }));
+  if (!priorMasterUrl || baseDoc.masterStatus !== "ready") {
+    // Fall back to review-style master replace when there is no accepted lesson.
+    await regenerateMasterCandidate({
+      uid,
+      projectId,
+      tutorial,
+      medium,
+      referenceImageUrl,
+      onMasterCandidate: params.onMasterCandidate,
+    });
+    return;
+  }
+
+  const startedAt = Date.now();
+  const firestoreStarted = Date.now();
   await persist(
     uid,
     projectId,
     {
-      // Keep prior master visible during regen — runMaster replaces on success.
+      // Keep accepted master + stages authoritative and visible.
       masterImageUrl: priorMasterUrl,
-      masterPrompt: null,
-      masterStatus: "generating",
+      masterStatus: "ready",
       masterError: null,
-      masterValidation: null,
-      masterReviewReasons: [],
+      regenerationState: "queued",
+      regenerationStartedAt: startedAt,
+      regenerationError: null,
+      regenerationPhase: "studying",
+      candidateFinalPaintingUrl: null,
       lease: null,
-      stages: reset,
     },
     false,
   );
-  await orchestrateProgression({
-    uid,
+  const firestoreMs = Date.now() - firestoreStarted;
+
+  logProgression("regeneration.started", {
     projectId,
-    tutorial,
-    medium,
-    referenceImageUrl,
-    size,
-    onMasterCandidate,
-    forceRegenerate: true,
+    source: "atelier_try_another",
+    "regeneration.firestore_ms": firestoreMs,
+    reuses_reference: true,
+    clears_stages_before_accept: false,
   });
+
+  if (!(await acquireLease(uid, projectId))) {
+    await persist(
+      uid,
+      projectId,
+      {
+        regenerationState: "error",
+        regenerationError:
+          "Another session is preparing an interpretation. Try again in a moment.",
+        regenerationPhase: null,
+      },
+      false,
+    );
+    logProgression("regeneration.lease_blocked", { projectId });
+    return;
+  }
+
+  try {
+    await persist(
+      uid,
+      projectId,
+      {
+        regenerationState: "generating",
+        regenerationPhase: "creating",
+      },
+      true,
+    );
+
+    let response: ApiResponse;
+    let apiMs = 0;
+    try {
+      const apiStarted = Date.now();
+      response = await callApi({
+        mode: "master",
+        medium,
+        tutorial,
+        size,
+        referenceImageUrl,
+        projectId,
+      });
+      apiMs = Date.now() - apiStarted;
+    } catch (e) {
+      const normalized = normalizeProgressionError(e, {
+        operation: "regenerate-final-painting",
+        projectId,
+        source: "master",
+      });
+      await persist(
+        uid,
+        projectId,
+        {
+          regenerationState: "error",
+          regenerationError:
+            normalized.code === ERR_IMAGE_SAFETY_REVIEW
+              ? MSG_IMAGE_SAFETY_REVIEW
+              : "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+          regenerationPhase: null,
+          candidateFinalPaintingUrl: null,
+        },
+        true,
+      );
+      logProgression("regeneration.failed", {
+        projectId,
+        code: normalized.code,
+        "regeneration.total_ms": Date.now() - startedAt,
+        "regeneration.master_generation_ms": apiMs || null,
+      });
+      return;
+    }
+
+    if (!response.generated || !response.master?.dataUrl) {
+      await persist(
+        uid,
+        projectId,
+        {
+          regenerationState: "error",
+          regenerationError:
+            "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+          regenerationPhase: null,
+          candidateFinalPaintingUrl: null,
+        },
+        true,
+      );
+      logProgression("regeneration.failed", {
+        projectId,
+        reason: "missing_master_dataUrl",
+        "regeneration.total_ms": Date.now() - startedAt,
+      });
+      return;
+    }
+
+    await persist(
+      uid,
+      projectId,
+      {
+        regenerationState: "validating",
+        regenerationPhase: "checking",
+      },
+      true,
+    );
+
+    // Validation already ran on the server; surface the preparing phase for upload.
+    await persist(
+      uid,
+      projectId,
+      {
+        regenerationState: "generating",
+        regenerationPhase: "preparing",
+      },
+      true,
+    );
+
+    let candidateUrl: string;
+    let uploadMs = 0;
+    try {
+      const uploadStarted = Date.now();
+      candidateUrl = await uploadDataUrl(
+        uid,
+        projectId,
+        "master-candidate",
+        response.master.dataUrl,
+      );
+      uploadMs = Date.now() - uploadStarted;
+    } catch (e) {
+      const normalized = normalizeProgressionError(e, {
+        operation: "upload-master-candidate",
+        projectId,
+        stageId: "master",
+      });
+      await persist(
+        uid,
+        projectId,
+        {
+          regenerationState: "error",
+          regenerationError:
+            "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+          regenerationPhase: null,
+          candidateFinalPaintingUrl: null,
+        },
+        true,
+      );
+      logProgression("regeneration.failed", {
+        projectId,
+        code: normalized.code,
+        reason: "candidate_upload_failed",
+        "regeneration.total_ms": Date.now() - startedAt,
+        "regeneration.storage_ms": uploadMs || null,
+      });
+      return;
+    }
+
+    const validation = (response.masterValidation as CompositionValidation | null) ?? null;
+    const reasons = userFacingReasons(validation);
+    const firestoreWriteStarted = Date.now();
+    await persist(
+      uid,
+      projectId,
+      {
+        // Accepted master + stages untouched.
+        masterImageUrl: priorMasterUrl,
+        masterStatus: "ready",
+        candidateFinalPaintingUrl: candidateUrl,
+        regenerationState: "candidateReady",
+        regenerationPhase: "preparing",
+        regenerationError: null,
+        masterValidation: validation,
+        masterReviewReasons: reasons,
+      },
+      true,
+    );
+
+    logProgression("regeneration.candidate_ready", {
+      projectId,
+      "regeneration.total_ms": Date.now() - startedAt,
+      "regeneration.master_generation_ms": response.timing?.editMs ?? apiMs,
+      "regeneration.validation_ms": response.timing?.validationMs ?? null,
+      "regeneration.storage_ms": uploadMs,
+      "regeneration.firestore_ms": Date.now() - firestoreWriteStarted,
+      "regeneration.stage_generation_ms": 0,
+      "regeneration.retry_count": Math.max(0, (response.timing?.attempts ?? 1) - 1),
+      "regeneration.validation_result":
+        response.masterSeverity ?? (response.masterValidated ? "pass" : null),
+      "regeneration.model": response.imageModel ?? null,
+      "regeneration.input_fidelity": response.inputFidelity ?? null,
+      stages_deferred_until_accept: true,
+    });
+  } finally {
+    await releaseLease(uid, projectId);
+  }
 }
 
 /**
@@ -2113,6 +2390,16 @@ export async function regenerateMasterCandidate(params: {
   const docData = (await getProgressionDoc(uid, projectId))!;
   const priorMasterUrl = docData.masterImageUrl;
 
+  if (isRegenerationBusy(docData.regenerationState) && docData.masterStatus === "ready") {
+    logProgression("regeneration.duplicate_ignored", {
+      projectId,
+      source: "review_regenerate",
+      reason: "atelier_regen_busy",
+    });
+    return;
+  }
+
+  const startedAt = Date.now();
   // Do not clear the prior master before attempting regeneration — a failed
   // attempt must leave the last successful master visible.
   await persist(
@@ -2124,6 +2411,11 @@ export async function regenerateMasterCandidate(params: {
       masterValidation: null,
       masterReviewReasons: [],
       lease: null,
+      regenerationState: "generating",
+      regenerationStartedAt: startedAt,
+      regenerationError: null,
+      regenerationPhase: "creating",
+      candidateFinalPaintingUrl: null,
     },
     false,
   );
@@ -2140,9 +2432,154 @@ export async function regenerateMasterCandidate(params: {
       onMasterCandidate,
       true,
     );
+    await persist(
+      uid,
+      projectId,
+      {
+        ...idleRegenerationFields(),
+      },
+      true,
+    );
+  } catch (e) {
+    const normalized = normalizeProgressionError(e, {
+      operation: "regenerate-master-candidate",
+      projectId,
+    });
+    await persist(
+      uid,
+      projectId,
+      {
+        regenerationState: "error",
+        regenerationError:
+          "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+        regenerationPhase: null,
+      },
+      true,
+    );
+    logProgression("regeneration.failed", {
+      projectId,
+      source: "review_regenerate",
+      code: normalized.code,
+      "regeneration.total_ms": Date.now() - startedAt,
+    });
   } finally {
     await releaseLease(uid, projectId);
   }
+}
+
+/**
+ * Apply a validated atelier regeneration candidate as the new accepted master,
+ * then reset and regenerate dependent stage images.
+ */
+export async function acceptRegeneratedCandidate(params: {
+  uid: string;
+  projectId: string;
+  tutorial: Tutorial;
+  medium: Medium;
+  referenceImageUrl: string;
+}): Promise<void> {
+  const { uid, projectId, tutorial, medium, referenceImageUrl } = params;
+  const docData = await getProgressionDoc(uid, projectId);
+  if (!docData?.candidateFinalPaintingUrl) return;
+  if (docData.regenerationState !== "candidateReady") return;
+
+  const candidateUrl = docData.candidateFinalPaintingUrl;
+  const applyStarted = Date.now();
+
+  await persist(
+    uid,
+    projectId,
+    {
+      regenerationState: "applying",
+      regenerationPhase: "preparing",
+      regenerationError: null,
+    },
+    false,
+  );
+
+  const resetStages: StageImageRecord[] = docData.stages.map((s) => ({
+    ...s,
+    targetImageUrl: null,
+    generationStatus: "pending",
+    error: null,
+    validated: false,
+    fallback: false,
+    previewSource: null,
+    createdAt: null,
+  }));
+
+  const firestoreStarted = Date.now();
+  await persist(
+    uid,
+    projectId,
+    {
+      masterImageUrl: candidateUrl,
+      masterStatus: "ready",
+      masterError: null,
+      masterReviewReasons: [],
+      stages: resetStages,
+      lease: null,
+      ...idleRegenerationFields(),
+    },
+    false,
+  );
+
+  logProgression("regeneration.applied", {
+    projectId,
+    "regeneration.firestore_ms": Date.now() - firestoreStarted,
+    "regeneration.apply_ms": Date.now() - applyStarted,
+    stages_reset: true,
+  });
+
+  const stageStarted = Date.now();
+  void orchestrateProgression({
+    uid,
+    projectId,
+    tutorial,
+    medium,
+    referenceImageUrl,
+    size: docData.size,
+  })
+    .then(() => {
+      logProgression("regeneration.stage_generation_settled", {
+        projectId,
+        "regeneration.stage_generation_ms": Date.now() - stageStarted,
+      });
+    })
+    .catch((e) => {
+      console.error(
+        "[progression] post-regen stage orchestration failed",
+        sanitizeProgressionLogObject(
+          normalizeProgressionError(e, {
+            operation: "post-regen-stages",
+            projectId,
+          }),
+        ),
+      );
+    });
+}
+
+/** Discard the regeneration candidate and keep the accepted Final Painting. */
+export async function dismissRegeneratedCandidate(params: {
+  uid: string;
+  projectId: string;
+}): Promise<void> {
+  const { uid, projectId } = params;
+  const docData = await getProgressionDoc(uid, projectId);
+  if (!docData) return;
+
+  await persist(
+    uid,
+    projectId,
+    {
+      ...idleRegenerationFields(),
+      // Preserve accepted master; clear any review reasons left from the candidate.
+      masterReviewReasons:
+        docData.masterStatus === "ready" ? [] : docData.masterReviewReasons,
+    },
+    false,
+  );
+  logProgression("regeneration.dismissed", { projectId, kept_current: true });
 }
 
 /**
@@ -2181,6 +2618,7 @@ export async function acceptMaster(params: {
       masterReviewReasons: [],
       stages: resetStages,
       lease: null,
+      ...idleRegenerationFields(),
     },
     false,
   );

@@ -12,6 +12,7 @@ export function PaintMode({
   compare,
   onCompareChange,
   referenceUrl,
+  masterImageUrl,
   onRetryStage,
   retryingStage,
   onOpenMaterials,
@@ -31,6 +32,15 @@ export function PaintMode({
 
   return (
     <div className="paint-mode desk studio-mode studio-mode--atelier">
+      <StageProcessRail
+        className="desk-nav stage-process--quiet"
+        stages={stages}
+        active={safeActive}
+        visitedMax={visitedMax}
+        onSelect={selectStage}
+        medium={medium}
+      />
+
       <div className="desk-stages studio-stage-host atelier-stage-host">
         {activeStage ? (
           <section
@@ -56,19 +66,9 @@ export function PaintMode({
               compare={compare}
               onCompareChange={onCompareChange}
               referenceUrl={referenceUrl}
+              masterImageUrl={masterImageUrl}
               onRetry={onRetryStage}
               retrying={retryingStage === activeStage.id}
-              workspaceChrome={
-                <div className="atelier-chrome atelier-workspace-chrome">
-                  <StageProcessRail
-                    className="desk-nav"
-                    stages={stages}
-                    active={safeActive}
-                    visitedMax={visitedMax}
-                    onSelect={selectStage}
-                  />
-                </div>
-              }
               onOpenMaterials={onOpenMaterials}
             />
           </section>

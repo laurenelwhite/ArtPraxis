@@ -1,5 +1,6 @@
 import type { ProgressionStage } from "@/lib/progression";
-import { STAGE_STUDY_FRAMING } from "@/lib/stage-icons";
+import type { Medium } from "@/lib/tutorial-schema";
+import { resolveStageFocus } from "@/lib/stage-icons";
 import { stageFocusPrimary } from "@/components/progression/stage-focus";
 
 /** First sentence of text, truncated to `max` characters. */
@@ -12,9 +13,27 @@ export function firstSentence(text: string, max = 120): string {
   return `${sentence.slice(0, max).replace(/\s+\S*$/, "").trim()}…`;
 }
 
-/** Stage teaching point: framing override, else goal / focus excerpt. */
-export function buildTeachingPoint(stage: ProgressionStage, max = 120): string {
-  const framing = STAGE_STUDY_FRAMING[stage.id];
+/**
+ * Stage goal — one concise outcome sentence (not the full focus paragraph).
+ */
+export function buildStageGoal(stage: ProgressionStage, max = 120): string {
+  return firstSentence(
+    stage.paint.goal.trim() ||
+      stage.goals.find((g) => g.trim())?.trim() ||
+      stageFocusPrimary(stage),
+    max,
+  );
+}
+
+/**
+ * Today’s focus — medium-aware framing, else goal / focus excerpt.
+ */
+export function buildTeachingPoint(
+  stage: ProgressionStage,
+  max = 160,
+  medium?: Medium | string | null,
+): string {
+  const framing = resolveStageFocus(stage.id, medium);
   if (framing) return framing;
 
   return firstSentence(

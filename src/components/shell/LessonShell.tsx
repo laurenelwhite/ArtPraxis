@@ -9,6 +9,7 @@ export type LessonTab = {
 
 type LessonShellProps = {
   title: string;
+  /** @deprecated Prefer keeping breadcrumb out of the hero; still accepted for back-compat. */
   breadcrumb?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
@@ -23,7 +24,7 @@ type LessonShellProps = {
 
 /**
  * Unified lesson page chrome under the global AppShell.
- * Renders the page title strip + project tabs once — never a second app header.
+ * Hero: Title → Metadata/Status → Tabs. Secondary actions live in overflow.
  */
 export function LessonShell({
   title,
@@ -45,9 +46,13 @@ export function LessonShell({
     >
       <div className="lesson-shell-head">
         <div className="lesson-shell-copy">
-          {breadcrumb ? <div className="lesson-breadcrumb">{breadcrumb}</div> : null}
-          {eyebrow ? <div className="eyebrow project-eyebrow">{eyebrow}</div> : null}
+          {breadcrumb ? (
+            <div className="lesson-breadcrumb lesson-breadcrumb--secondary">
+              {breadcrumb}
+            </div>
+          ) : null}
           <h1 className="lesson-shell-title lesson-title">{title}</h1>
+          {eyebrow ? <div className="eyebrow project-eyebrow">{eyebrow}</div> : null}
         </div>
         {actions ? <div className="lesson-shell-actions">{actions}</div> : null}
       </div>

@@ -1,5 +1,6 @@
 import type { GenerationStatus, StageId, StageImageRecord } from "@/lib/progression";
-import { STAGE_PROCESS_LABEL } from "@/lib/stage-icons";
+import { resolveStageDisplayLabel } from "@/lib/stage-icons";
+import type { Medium } from "@/lib/tutorial-schema";
 
 /**
  * Top-level lesson UI finite state.
@@ -170,6 +171,8 @@ export function resolveLessonUiState(input: {
   masterRequestInFlight?: boolean;
   /** Local orchestration failure (retryable). */
   generationError?: string | null;
+  /** Medium for display labels (optional; falls back to watercolor map). */
+  medium?: Medium | string | null;
 }): LessonUiSnapshot {
   const {
     hasTutorial,
@@ -181,13 +184,14 @@ export function resolveLessonUiState(input: {
     regenerating = false,
     masterRequestInFlight = false,
     generationError = null,
+    medium,
   } = input;
 
   const stagesTotal = Math.max(stages.length, STAGE_ORDER.length);
   const stagesReadyCount = countReadyStages(stages);
   const activeStageId = findGeneratingStage(stages);
   const activeStageLabel = activeStageId
-    ? STAGE_PROCESS_LABEL[activeStageId]
+    ? resolveStageDisplayLabel(activeStageId, medium)
     : null;
   const validMaster = hasValidGeneratedMaster({ masterStatus, masterImageUrl });
   const stagesGeneratingInBackground =
@@ -229,23 +233,24 @@ export function resolveLessonUiState(input: {
   }
 
   // Keep the current view while a regen is in flight and we still have art to show.
+  // Atelier regen keeps masterStatus "ready"; review regen uses generating/needsReview.
   if (regenerating && masterImageUrl) {
-    if (masterStatus === "needsReview") {
+    if (masterStatus === "ready") {
       return {
-        state: "masterReview",
-        headline: "Your atelier interpretation",
-        detail: "Your current candidate stays visible until a new version is ready.",
-        progress: null,
+        state: "ready",
+        headline: "Generating an alternative…",
+        detail: "Your current lesson stays available while a new target is prepared.",
+        progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
         ...base,
+        stagesGeneratingInBackground,
       };
     }
     return {
-      state: "ready",
-      headline: "Generating an alternative…",
-      detail: "Your current lesson stays available while a new target is prepared.",
-      progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
+      state: "masterReview",
+      headline: "Your atelier interpretation",
+      detail: "Your current candidate stays visible until a new version is ready.",
+      progress: null,
       ...base,
-      stagesGeneratingInBackground,
     };
   }
 

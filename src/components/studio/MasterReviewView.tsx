@@ -1,12 +1,23 @@
 "use client";
 
 import { AppImage } from "@/components/ui/AppImage";
+import { FinalPaintingRegenStatus } from "@/components/studio/FinalPaintingRegenStatus";
+import type {
+  FinalPaintingRegenerationState,
+  RegenerationChecklistPhase,
+} from "@/lib/final-painting-regeneration";
+import type { Medium } from "@/lib/tutorial-schema";
 
 type Props = {
   referenceUrl: string;
   masterImageUrl: string | null;
   reasons?: string[];
   regenerating?: boolean;
+  regenerationState?: FinalPaintingRegenerationState;
+  regenerationStartedAt?: number | null;
+  regenerationError?: string | null;
+  regenerationPhase?: RegenerationChecklistPhase | null;
+  medium?: Medium | null;
   accepting?: boolean;
   canAccept?: boolean;
   onAccept?: () => void;
@@ -18,12 +29,18 @@ type Props = {
 /**
  * Full-viewport master reveal — Accept Lesson or Regenerate.
  * Stage images are never generated until the user accepts.
+ * Prior candidate stays visible under a compact regen status (never blanked).
  */
 export function MasterReviewView({
   referenceUrl,
   masterImageUrl,
   reasons = [],
   regenerating = false,
+  regenerationState = "idle",
+  regenerationStartedAt = null,
+  regenerationError = null,
+  regenerationPhase = null,
+  medium = null,
   accepting = false,
   canAccept = true,
   onAccept,
@@ -32,6 +49,12 @@ export function MasterReviewView({
   detail = "Accept this painting as your lesson target, or regenerate a new one.",
 }: Props) {
   const busy = regenerating || accepting;
+  const showRegen =
+    regenerating ||
+    regenerationState === "queued" ||
+    regenerationState === "generating" ||
+    regenerationState === "validating" ||
+    regenerationState === "error";
 
   return (
     <section
@@ -39,7 +62,7 @@ export function MasterReviewView({
         "lesson-state-view",
         "master-review-view",
         "master-review-view--reveal",
-        regenerating ? "is-regenerating" : null,
+        showRegen ? "is-regenerating" : null,
       ]
         .filter(Boolean)
         .join(" ")}
@@ -66,15 +89,23 @@ export function MasterReviewView({
                   <p>Saving the painting…</p>
                 </div>
               )}
-              {regenerating ? (
-                <div className="master-regen-overlay" role="status" aria-live="polite">
-                  <span className="master-regen-overlay-pulse" aria-hidden="true" />
-                  <div className="master-regen-overlay-copy">
-                    <p className="master-regen-overlay-title">Painting another option…</p>
-                    <p className="master-regen-overlay-keep">
-                      Your current candidate stays visible until the next one is ready.
-                    </p>
-                  </div>
+              {showRegen ? (
+                <div className="master-regen-overlay master-regen-overlay--compact">
+                  <FinalPaintingRegenStatus
+                    state={
+                      regenerationState !== "idle"
+                        ? regenerationState
+                        : regenerating
+                          ? "generating"
+                          : "idle"
+                    }
+                    phase={regenerationPhase}
+                    startedAt={regenerationStartedAt}
+                    error={regenerationError}
+                    medium={medium}
+                    onRetry={onRegenerate}
+                    compact
+                  />
                 </div>
               ) : null}
             </div>

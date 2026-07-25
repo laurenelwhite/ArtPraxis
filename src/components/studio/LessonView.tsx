@@ -17,6 +17,8 @@ import { ensureLessonBrandTheme } from "@/lib/branding/ensure-lesson-brand";
 import { brandThemeFromStored } from "@/lib/branding/brand-theme";
 import {
   acceptMaster,
+  acceptRegeneratedCandidate,
+  dismissRegeneratedCandidate,
   orchestrateProgression,
   regenerateAllTargets,
   regenerateMasterCandidate,
@@ -29,19 +31,30 @@ import {
   resolveLessonUiState,
   shouldContinueProgression,
 } from "@/lib/lesson-ui-state";
+import {
+  isRegenerationBusy,
+  type FinalPaintingRegenerationState,
+  type RegenerationChecklistPhase,
+} from "@/lib/final-painting-regeneration";
 import { LessonExperience } from "@/components/studio/LessonExperience";
-import { LessonShell } from "@/components/shell";
+import { LessonShell, LessonOverflowMenu } from "@/components/shell";
 import { StatusPill } from "@/components/project/StatusPill";
 import { ProjectOverview } from "@/components/project/ProjectOverview";
-import { ProjectReference } from "@/components/project/ProjectReference";
 import { ProjectMaterials } from "@/components/project/ProjectMaterials";
 import { ProjectPlaceholder } from "@/components/project/ProjectPlaceholder";
 import { ProgressUpload } from "@/components/progression/ProgressUpload";
+import {
+  StudioReferenceProvider,
+  LessonReferenceDock,
+  StudioReferencePanel,
+  StudioReferenceFullscreen,
+  StudioReferencePage,
+} from "@/components/studio-reference";
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "lesson", label: "Lesson" },
-  { id: "reference", label: "Reference" },
+  { id: "reference", label: "Studio Reference" },
   { id: "materials", label: "Materials" },
   { id: "notes", label: "Notes" },
   { id: "progress", label: "Progress" },
@@ -67,7 +80,17 @@ export function LessonView({ id }: { id: string }) {
   const [masterReadyToAccept, setMasterReadyToAccept] = useState(false);
   const [retryingStage, setRetryingStage] = useState<StageId | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenerationState, setRegenerationState] =
+    useState<FinalPaintingRegenerationState>("idle");
+  const [regenerationStartedAt, setRegenerationStartedAt] = useState<number | null>(null);
+  const [regenerationError, setRegenerationError] = useState<string | null>(null);
+  const [regenerationPhase, setRegenerationPhase] =
+    useState<RegenerationChecklistPhase | null>(null);
+  const [candidateFinalPaintingUrl, setCandidateFinalPaintingUrl] = useState<string | null>(
+    null,
+  );
   const [acceptingMaster, setAcceptingMaster] = useState(false);
+  const [acceptingCandidate, setAcceptingCandidate] = useState(false);
   /** Progression subscription has resolved at least once for this project. */
   const [progressionHydrated, setProgressionHydrated] = useState(false);
   const [masterRequestInFlight, setMasterRequestInFlight] = useState(false);
@@ -113,6 +136,12 @@ export function LessonView({ id }: { id: string }) {
     setMasterReviewReasons([]);
     setMasterReadyToAccept(false);
     setProgressionHydrated(false);
+    setRegenerationState("idle");
+    setRegenerationStartedAt(null);
+    setRegenerationError(null);
+    setRegenerationPhase(null);
+    setCandidateFinalPaintingUrl(null);
+    setRegenerating(false);
     clearLessonBrand();
     revokePreview();
     return () => {
@@ -157,6 +186,18 @@ export function LessonView({ id }: { id: string }) {
       setMasterError(p?.masterError ?? null);
       setMasterReviewReasons(p?.masterReviewReasons ?? []);
       setMasterReadyToAccept(Boolean(p?.masterImageUrl && p.masterStatus === "needsReview"));
+      const nextRegen = p?.regenerationState ?? "idle";
+      setRegenerationState(nextRegen);
+      setRegenerationStartedAt(p?.regenerationStartedAt ?? null);
+      setRegenerationError(p?.regenerationError ?? null);
+      setRegenerationPhase(p?.regenerationPhase ?? null);
+      setCandidateFinalPaintingUrl(p?.candidateFinalPaintingUrl ?? null);
+      // Restore in-flight UI from Firestore after reload — do not restart the job.
+      if (isRegenerationBusy(nextRegen) || nextRegen === "candidateReady" || nextRegen === "error") {
+        setRegenerating(true);
+      } else if (!regenLockRef.current) {
+        setRegenerating(false);
+      }
       console.warn(JSON.stringify({
         scope: "LessonView",
         event: "progression_hydration_resolved",
@@ -164,6 +205,7 @@ export function LessonView({ id }: { id: string }) {
         hasDoc: Boolean(p),
         masterStatus: p?.masterStatus ?? null,
         hasMasterImageUrl: Boolean(p?.masterImageUrl),
+        regenerationState: nextRegen,
       }));
       // Prefer the persisted Storage URL; keep a local blob preview until it arrives.
       if (p?.masterImageUrl) {
@@ -288,6 +330,17 @@ export function LessonView({ id }: { id: string }) {
       stages: progression,
     });
 
+    // Never auto-start while an explicit Final Painting regen job is active or
+    // awaiting a candidate decision — remount must not bill a second job.
+    if (
+      isRegenerationBusy(regenerationState) ||
+      regenerationState === "candidateReady" ||
+      regenerating ||
+      regenLockRef.current
+    ) {
+      return;
+    }
+
     console.info("[lesson-generation]", {
       projectId: id,
       masterStatus,
@@ -314,17 +367,29 @@ export function LessonView({ id }: { id: string }) {
     generationError,
     progression,
     startMasterGeneration,
+    regenerationState,
+    regenerating,
   ]);
 
   async function onRegenerate() {
     if (!user || !state || !state.tutorial) return;
-    if (regenLockRef.current || regenerating || acceptingMaster || masterRequestInFlight) {
+    const allowRetryFromError = regenerationState === "error";
+    if (
+      regenLockRef.current ||
+      acceptingMaster ||
+      acceptingCandidate ||
+      masterRequestInFlight ||
+      isRegenerationBusy(regenerationState) ||
+      regenerationState === "candidateReady" ||
+      (regenerating && !allowRetryFromError)
+    ) {
       console.warn(
         JSON.stringify({
           scope: "progression",
           event: "master_regeneration_duplicate_ignored",
           projectId: id,
           source: "regenerate_all",
+          regenerationState,
           t: Date.now(),
         }),
       );
@@ -365,21 +430,33 @@ export function LessonView({ id }: { id: string }) {
       setGenerationError(
         e instanceof Error ? e.message : "Couldn’t regenerate the lesson.",
       );
+      setRegenerationState("error");
+      setRegenerationError(
+        "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+      );
     } finally {
       regenLockRef.current = false;
-      setRegenerating(false);
+      // Subscription clears regenerating when regenerationState returns to idle.
     }
   }
 
   async function onRegenerateMaster() {
     if (!user || !state || !state.tutorial) return;
-    if (regenLockRef.current || regenerating || acceptingMaster || masterRequestInFlight) {
+    if (
+      regenLockRef.current ||
+      regenerating ||
+      acceptingMaster ||
+      acceptingCandidate ||
+      masterRequestInFlight ||
+      isRegenerationBusy(regenerationState)
+    ) {
       console.warn(
         JSON.stringify({
           scope: "progression",
           event: "master_regeneration_duplicate_ignored",
           projectId: id,
           source: "regenerate_master",
+          regenerationState,
           t: Date.now(),
         }),
       );
@@ -423,6 +500,69 @@ export function LessonView({ id }: { id: string }) {
     } finally {
       regenLockRef.current = false;
       setRegenerating(false);
+    }
+  }
+
+  async function onAcceptCandidate() {
+    if (!user || !state?.tutorial || acceptingCandidate || acceptingMaster) return;
+    setAcceptingCandidate(true);
+    try {
+      await acceptRegeneratedCandidate({
+        uid: user.uid,
+        projectId: id,
+        tutorial: state.tutorial,
+        medium: state.summary.medium,
+        referenceImageUrl: state.summary.imageUrl,
+      });
+    } catch {
+      // Subscription reflects persisted state.
+    } finally {
+      setAcceptingCandidate(false);
+      setRegenerating(false);
+    }
+  }
+
+  async function onKeepCurrentPainting() {
+    if (!user || acceptingCandidate) return;
+    try {
+      await dismissRegeneratedCandidate({ uid: user.uid, projectId: id });
+    } catch {
+      // Subscription reflects persisted state.
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function onTryAnotherCandidate() {
+    if (!user || !state?.tutorial) return;
+    await onKeepCurrentPainting();
+    regenLockRef.current = false;
+    setRegenerationState("idle");
+    setCandidateFinalPaintingUrl(null);
+    setRegenerationError(null);
+    setRegenerating(false);
+    // Call the pipeline directly — React state from this render still says candidateReady.
+    regenLockRef.current = true;
+    setRegenerating(true);
+    try {
+      await regenerateAllTargets({
+        uid: user.uid,
+        projectId: id,
+        tutorial: state.tutorial,
+        medium: state.summary.medium,
+        referenceImageUrl: state.summary.imageUrl,
+        onMasterCandidate,
+      });
+    } catch (e) {
+      setRegenerationState("error");
+      setRegenerationError(
+        "We couldn’t prepare another interpretation. Your current painting and lesson are unchanged.",
+      );
+      setGenerationError(
+        e instanceof Error ? e.message : "Couldn’t regenerate the lesson.",
+      );
+    } finally {
+      regenLockRef.current = false;
     }
   }
 
@@ -590,180 +730,211 @@ export function LessonView({ id }: { id: string }) {
   );
 
   const { summary, tutorial } = state;
+  // Keep the accepted/prior Final Painting visible during regeneration.
+  // Do not blank the dock when masterStatus briefly reads "generating".
+  const showMaster = Boolean(
+    masterImageUrl &&
+      (masterStatus === "ready" ||
+        masterStatus === "needsReview" ||
+        masterStatus === "generating"),
+  );
+  const finalPaintingUrl = showMaster ? masterImageUrl : null;
+  const regenBusy =
+    isRegenerationBusy(regenerationState) ||
+    regenerationState === "candidateReady" ||
+    regenerationState === "error" ||
+    regenerating;
 
   return (
-    <div data-lesson-medium={summary.medium}>
-      <LessonShell
+    <div
+      data-lesson-medium={summary.medium}
+      className={tab !== "reference" ? "has-ref-dock" : undefined}
+    >
+      <StudioReferenceProvider
+        referenceUrl={summary.imageUrl}
+        finalPaintingUrl={finalPaintingUrl}
         title={summary.title}
-        generating={tabsLocked}
-        tabsLocked={tabsLocked}
-        tabs={TABS}
-        activeTab={tab}
-        onTabChange={(id) => selectTab(id as TabId)}
-        breadcrumb={
-          <>
-            <Link href="/studio">Studio</Link>
-            <span aria-hidden="true"> / </span>
-            <span>Lesson</span>
-          </>
-        }
-        eyebrow={
-          <>
-            <span className="capitalize">{summary.medium}</span>
-            {tutorial ? (
-              <>
-                {" · "}
-                <span className="capitalize">{tutorial.difficulty}</span>
-                {" · "}
-                <span>~{tutorial.estimatedMinutes} min</span>
-              </>
-            ) : (
-              <>
-                {" · "}
-                <span className="capitalize">{summary.skillLevel}</span>
-              </>
-            )}
-            <StatusPill status={status} />
-          </>
-        }
-        actions={
-          <button
-            type="button"
-            className="secondary lesson-pdf"
-            disabled
-            aria-disabled="true"
-            title="PDF export coming soon"
-          >
-            Download PDF
-            <span className="visually-hidden"> (unavailable)</span>
-          </button>
-        }
+        regenerationState={regenerationState}
+        regenerationStartedAt={regenerationStartedAt}
+        regenerationError={regenerationError}
+        regenerationPhase={regenerationPhase}
+        candidateFinalPaintingUrl={candidateFinalPaintingUrl}
+        medium={summary.medium}
+        onRetryRegeneration={onRegenerate}
       >
-        {/* Keep panels mounted (hidden) so tab changes do not remount LessonExperience. */}
-        <div
-          id="lesson-panel-overview"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-overview"
-          hidden={tab !== "overview"}
-          className="project-panel"
+        <LessonShell
+          title={summary.title}
+          generating={tabsLocked}
+          tabsLocked={tabsLocked}
+          tabs={TABS}
+          activeTab={tab}
+          onTabChange={(id) => selectTab(id as TabId)}
+          eyebrow={
+            <>
+              <span className="capitalize">{summary.medium}</span>
+              {tutorial ? (
+                <>
+                  {" · "}
+                  <span className="capitalize">{tutorial.difficulty}</span>
+                  {" · "}
+                  <span>~{tutorial.estimatedMinutes} min</span>
+                </>
+              ) : (
+                <>
+                  {" · "}
+                  <span className="capitalize">{summary.skillLevel}</span>
+                </>
+              )}
+              <StatusPill status={status} />
+            </>
+          }
+          actions={<LessonOverflowMenu pdfDisabled />}
         >
-          <ProjectOverview
-            summary={summary}
-            tutorial={tutorial}
-            status={status}
-            onStatusChange={changeStatus}
-            saving={savingStatus}
-            onBeginStudy={() => {
-              setLessonEntryMode("study");
-              selectTab("lesson");
-            }}
-            onStartPractice={() => {
-              setLessonEntryMode("paint");
-              selectTab("lesson");
-            }}
-          />
-        </div>
-
-        <div
-          id="lesson-panel-lesson"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-lesson"
-          hidden={tab !== "lesson"}
-          className="project-panel"
-        >
-          {tutorial ? (
-            <LessonExperience
+          {/* Keep panels mounted (hidden) so tab changes do not remount LessonExperience. */}
+          <div
+            id="lesson-panel-overview"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-overview"
+            hidden={tab !== "overview"}
+            className="project-panel"
+          >
+            <ProjectOverview
+              summary={summary}
               tutorial={tutorial}
-              imageUrl={summary.imageUrl}
-              medium={summary.medium}
-              entryMode={lessonEntryMode}
-              progression={progression}
-              progressionHydrated={progressionHydrated}
-              masterStatus={masterStatus}
-              masterImageUrl={masterImageUrl}
-              masterError={masterError}
-              masterReviewReasons={masterReviewReasons}
-              masterRequestInFlight={masterRequestInFlight}
-              generationError={generationError}
-              onRetryGeneration={onRetryGeneration}
-              onRetryStage={onRetryStage}
-              retryingStage={retryingStage}
-              onRegenerate={onRegenerate}
-              regenerating={regenerating}
-              onAcceptMaster={onAcceptMaster}
-              acceptingMaster={acceptingMaster}
-              onRegenerateMaster={onRegenerateMaster}
-              masterReadyToAccept={masterReadyToAccept}
-              projectStatus={status}
-              onProjectStatusChange={changeStatus}
-              savingStatus={savingStatus}
-              onOpenMaterials={openMaterials}
+              status={status}
+              onStatusChange={changeStatus}
+              saving={savingStatus}
+              masterImageUrl={finalPaintingUrl}
+              onBeginStudy={() => {
+                setLessonEntryMode("study");
+                selectTab("lesson");
+              }}
+              onStartPractice={() => {
+                setLessonEntryMode("paint");
+                selectTab("lesson");
+              }}
             />
-          ) : (
-            <p className="status error">This project has no lesson content.</p>
-          )}
-        </div>
+          </div>
 
-        <div
-          id="lesson-panel-reference"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-reference"
-          hidden={tab !== "reference"}
-          className="project-panel"
-        >
-          <ProjectReference
-            summary={summary}
-            masterImageUrl={masterImageUrl}
-            masterStatus={masterStatus}
-          />
-        </div>
+          <div
+            id="lesson-panel-lesson"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-lesson"
+            hidden={tab !== "lesson"}
+            className="project-panel"
+          >
+            {tutorial ? (
+              <LessonExperience
+                tutorial={tutorial}
+                imageUrl={summary.imageUrl}
+                medium={summary.medium}
+                entryMode={lessonEntryMode}
+                progression={progression}
+                progressionHydrated={progressionHydrated}
+                masterStatus={masterStatus}
+                masterImageUrl={masterImageUrl}
+                masterError={masterError}
+                masterReviewReasons={masterReviewReasons}
+                masterRequestInFlight={masterRequestInFlight}
+                generationError={generationError}
+                onRetryGeneration={onRetryGeneration}
+                onRetryStage={onRetryStage}
+                retryingStage={retryingStage}
+                onRegenerate={onRegenerate}
+                regenerating={regenBusy}
+                regenerationState={regenerationState}
+                regenerationStartedAt={regenerationStartedAt}
+                regenerationError={regenerationError}
+                regenerationPhase={regenerationPhase}
+                candidateFinalPaintingUrl={candidateFinalPaintingUrl}
+                onAcceptCandidate={onAcceptCandidate}
+                onKeepCurrentPainting={onKeepCurrentPainting}
+                onTryAnotherCandidate={onTryAnotherCandidate}
+                acceptingCandidate={acceptingCandidate}
+                onAcceptMaster={onAcceptMaster}
+                acceptingMaster={acceptingMaster}
+                onRegenerateMaster={onRegenerateMaster}
+                masterReadyToAccept={masterReadyToAccept}
+                projectStatus={status}
+                onProjectStatusChange={changeStatus}
+                savingStatus={savingStatus}
+                onOpenMaterials={openMaterials}
+              />
+            ) : (
+              <p className="status error">This project has no lesson content.</p>
+            )}
+          </div>
 
-        <div
-          id="lesson-panel-materials"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-materials"
-          hidden={tab !== "materials"}
-          className="project-panel"
-        >
-          <ProjectMaterials
-            key={id}
-            tutorial={tutorial}
-            medium={summary.medium}
-            lessonId={id}
-            uid={user?.uid ?? null}
-            highlightId={highlightMaterialId}
-            onHighlightConsumed={() => setHighlightMaterialId(null)}
-          />
-        </div>
+          <div
+            id="lesson-panel-reference"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-reference"
+            hidden={tab !== "reference"}
+            className="project-panel"
+          >
+            <StudioReferencePage
+              referenceUrl={summary.imageUrl}
+              finalPaintingUrl={finalPaintingUrl}
+              title={summary.title}
+              notes={
+                tutorial?.composition?.valuePlan
+                  ? `Value plan: ${tutorial.composition.valuePlan}`
+                  : null
+              }
+            />
+          </div>
 
-        <div
-          id="lesson-panel-notes"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-notes"
-          hidden={tab !== "notes"}
-          className="project-panel"
-        >
-          <ProjectPlaceholder
-            icon="message"
-            title="Notes"
-            description="Jot down observations, reminders, and what to try next on this project."
-          />
-        </div>
+          <div
+            id="lesson-panel-materials"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-materials"
+            hidden={tab !== "materials"}
+            className="project-panel"
+          >
+            <ProjectMaterials
+              key={id}
+              tutorial={tutorial}
+              medium={summary.medium}
+              lessonId={id}
+              uid={user?.uid ?? null}
+              highlightId={highlightMaterialId}
+              onHighlightConsumed={() => setHighlightMaterialId(null)}
+            />
+          </div>
 
-        <div
-          id="lesson-panel-progress"
-          role="tabpanel"
-          aria-labelledby="lesson-tab-progress"
-          hidden={tab !== "progress"}
-          className="project-panel"
-        >
-          <ProgressUpload
-            status={status}
-            onStatusChange={changeStatus}
-            saving={savingStatus}
-          />
-        </div>
-      </LessonShell>
+          <div
+            id="lesson-panel-notes"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-notes"
+            hidden={tab !== "notes"}
+            className="project-panel"
+          >
+            <ProjectPlaceholder
+              icon="message"
+              title="Notes"
+              description="Jot down observations, reminders, and what to try next on this project."
+            />
+          </div>
+
+          <div
+            id="lesson-panel-progress"
+            role="tabpanel"
+            aria-labelledby="lesson-tab-progress"
+            hidden={tab !== "progress"}
+            className="project-panel"
+          >
+            <ProgressUpload
+              status={status}
+              onStatusChange={changeStatus}
+              saving={savingStatus}
+            />
+          </div>
+        </LessonShell>
+
+        <LessonReferenceDock hidden={tab === "reference"} />
+        <StudioReferencePanel />
+        <StudioReferenceFullscreen />
+      </StudioReferenceProvider>
     </div>
   );
 }

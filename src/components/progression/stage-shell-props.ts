@@ -13,6 +13,8 @@ export type StageShellBaseProps = {
   compare: CompareMode;
   onCompareChange?: (mode: CompareMode) => void;
   referenceUrl: string;
+  /** Accepted final painting — always available as teaching companion. */
+  masterImageUrl?: string | null;
   onRetry?: (stageId: StageId) => void;
   retrying?: boolean;
   onOpenMaterials?: (materialId?: string) => void;
@@ -25,6 +27,7 @@ export type StageModeBaseProps = {
   compare: CompareMode;
   onCompareChange?: (mode: CompareMode) => void;
   referenceUrl: string;
+  masterImageUrl?: string | null;
   onRetryStage?: (stageId: StageId) => void;
   retryingStage?: StageId | null;
   onOpenMaterials?: (materialId?: string) => void;

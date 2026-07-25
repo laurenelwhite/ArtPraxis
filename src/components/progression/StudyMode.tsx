@@ -23,6 +23,7 @@ export function StudyMode({
   compare,
   onCompareChange,
   referenceUrl,
+  masterImageUrl,
   onRetryStage,
   retryingStage,
   projectStatus,
@@ -49,10 +50,12 @@ export function StudyMode({
   return (
     <div className="study-mode study-mode--continuous studio-mode studio-mode--atelier lesson-document">
       <StageScrollNav
+        className="stage-scroll-nav--quiet"
         stages={stages}
         active={active}
         visitedMax={visitedMax}
         onSelect={scrollTo}
+        medium={medium}
       />
 
       <div className="lesson-document-stages">
@@ -71,6 +74,7 @@ export function StudyMode({
             compare={compare}
             onCompareChange={onCompareChange}
             referenceUrl={referenceUrl}
+            masterImageUrl={masterImageUrl}
             onRetry={onRetryStage}
             retrying={retryingStage === stage.id}
             onOpenMaterials={onOpenMaterials}

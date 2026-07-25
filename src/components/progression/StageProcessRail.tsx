@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ProgressionStage } from "@/lib/progression";
 import {
-  STAGE_PROCESS_LABEL,
   STAGE_PROCESS_PURPOSE,
+  resolveStageDisplayLabel,
 } from "@/lib/stage-icons";
+import type { Medium } from "@/lib/tutorial-schema";
 import { AppImage } from "@/components/ui/AppImage";
 
 type StepState = "current" | "completed" | "future";
@@ -27,12 +28,14 @@ export function StageProcessRail({
   active,
   visitedMax,
   onSelect,
+  medium,
   className,
 }: {
   stages: ProgressionStage[];
   active: number;
   visitedMax: number;
   onSelect: (index: number) => void;
+  medium: Medium;
   className?: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -41,7 +44,9 @@ export function StageProcessRail({
   const total = stages.length;
   const safeActive = Math.max(0, Math.min(active, total - 1));
   const current = stages[safeActive];
-  const currentLabel = current ? STAGE_PROCESS_LABEL[current.id] : "";
+  const currentLabel = current
+    ? resolveStageDisplayLabel(current.id, medium, current.title)
+    : "";
 
   function go(index: number) {
     if (index < 0 || index >= total) return;
@@ -58,7 +63,7 @@ export function StageProcessRail({
       <ol className="stage-process-rail">
         {stages.map((stage, index) => {
           const state = stepState(index, safeActive, visitedMax);
-          const label = STAGE_PROCESS_LABEL[stage.id];
+          const label = resolveStageDisplayLabel(stage.id, medium, stage.title);
           const purpose = STAGE_PROCESS_PURPOSE[stage.id];
           const isCurrent = state === "current";
           const isFinishedStep = stage.id === "finished";
@@ -166,6 +171,7 @@ export function StageProcessRail({
           stages={stages}
           active={safeActive}
           visitedMax={visitedMax}
+          medium={medium}
           onSelect={go}
           onClose={closeSheet}
         />
@@ -178,12 +184,14 @@ function StagePickerSheet({
   stages,
   active,
   visitedMax,
+  medium,
   onSelect,
   onClose,
 }: {
   stages: ProgressionStage[];
   active: number;
   visitedMax: number;
+  medium: Medium;
   onSelect: (index: number) => void;
   onClose: () => void;
 }) {
@@ -239,7 +247,7 @@ function StagePickerSheet({
         <ol className="stage-picker-list">
           {stages.map((stage, index) => {
             const state = stepState(index, active, visitedMax);
-            const label = STAGE_PROCESS_LABEL[stage.id];
+            const label = resolveStageDisplayLabel(stage.id, medium, stage.title);
             const purpose = STAGE_PROCESS_PURPOSE[stage.id];
             const thumb = stage.visual.url;
             const targetReady = Boolean(

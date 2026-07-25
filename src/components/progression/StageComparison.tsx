@@ -18,7 +18,7 @@ import { ComparisonFrame } from "@/components/progression/ComparisonFrame";
 import { StudyTools } from "@/components/progression/StudyTools";
 import { AppImage } from "@/components/ui/AppImage";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
-import { STAGE_PROCESS_LABEL } from "@/lib/stage-icons";
+import { resolveStageDisplayLabel } from "@/lib/stage-icons";
 
 /** Visible panels / blend modes for the two-image comparison. */
 export type CompareMode = "both" | "target" | "reference" | "overlay";
@@ -281,6 +281,7 @@ function targetVariant(stage: ProgressionStage) {
 export function StageComparison({
   stage,
   tutorial,
+  medium,
   referenceUrl,
   compare,
   onCompareChange,
@@ -357,7 +358,8 @@ export function StageComparison({
   );
 
   const targetLabel =
-    STAGE_PROCESS_LABEL[stage.id] || (isSketch ? "Sketch" : "Stage");
+    resolveStageDisplayLabel(stage.id, medium, stage.title) ||
+    (isSketch ? "Drawing" : "Stage");
   const variant = targetVariant(stage);
   const showOverlay = compare === "overlay";
   const showReference =

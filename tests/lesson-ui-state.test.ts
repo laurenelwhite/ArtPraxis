@@ -117,6 +117,38 @@ describe("resolveLessonUiState", () => {
     assert.equal(snap.stagesGeneratingInBackground, true);
   });
 
+  it("keeps atelier ready while regenerating an accepted master", () => {
+    const snap = resolveLessonUiState({
+      hasTutorial: true,
+      progressionHydrated: true,
+      masterStatus: "ready",
+      masterImageUrl: "master.jpg",
+      regenerating: true,
+      stages: [
+        stage({
+          stageId: "pencil-sketch",
+          index: 1,
+          targetImageUrl: "s1.jpg",
+          generationStatus: "ready",
+          previewSource: null,
+        }),
+      ],
+    });
+    assert.equal(snap.state, "ready");
+  });
+
+  it("keeps review visible while regenerating a review candidate", () => {
+    const snap = resolveLessonUiState({
+      hasTutorial: true,
+      progressionHydrated: true,
+      masterStatus: "generating",
+      masterImageUrl: "master.jpg",
+      regenerating: true,
+      stages: [],
+    });
+    assert.equal(snap.state, "masterReview");
+  });
+
   it("reaches ready with background flag cleared when all stages are usable", () => {
     const stages: StageImageRecord[] = [
       stage({ stageId: "pencil-sketch", index: 1, targetImageUrl: "s1.jpg", generationStatus: "ready", previewSource: null }),

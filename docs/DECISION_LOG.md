@@ -109,6 +109,8 @@ CSS/SVG motion only; respects `prefers-reduced-motion`; no fake percentages.
 - Duplicate regen clicks are ignored via sync lock + `masterInflight`; log `master_regeneration_*` events.
 - API logs `master_generation_timing` (reference fetch / edit / validation / total); request-local URL buffer cache; client logs uploadMs.
 
+**Superseded in part (2026-07-24)** by non-blocking Final Painting regeneration: atelier “Try another” keeps `masterStatus: ready`, stages intact, and writes a separate `candidateFinalPaintingUrl` until Use new painting / Keep current. Stages regenerate only after accept. Explicit `regenerationState` machine + dock-attached status. See [ui-patterns.md](./design/ui-patterns.md).
+
 **Reason**
 
 Clipped logo and empty/duplicated loading UI made a working pipeline feel broken; regen blanking and possible double-clicks eroded trust.

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "brand": {
+    "status": {
+      "value": "approved",
+      "type": "other"
+    },
+    "approvedDate": {
+      "value": "2026-07-25",
+      "type": "other"
+    },
+    "color": {
+      "indigo": {
+        "value": "#2C3E56",
+        "type": "color",
+        "description": "Ink, depth, headings, and primary actions."
+      },
+      "yellowOchre": {
+        "value": "#DAA35A",
+        "type": "color",
+        "description": "Warmth, light, and progress accents."
+      },
+      "redEarth": {
+        "value": "#A24A3A",
+        "type": "color",
+        "description": "Earth, vitality, and expressive accents."
+      },
+      "warmWhite": {
+        "value": "#F2ECE3",
+        "type": "color",
+        "description": "Canvas, paper surfaces, and light backgrounds."
+      }
+    },
+    "font": {
+      "display": {
+        "value": "Fraunces",
+        "type": "fontFamily"
+      },
+      "ui": {
+        "value": "Source Sans 3",
+        "type": "fontFamily"
+      }
+    },
+    "principles": {
+      "value": [
+        "Handcrafted",
+        "Simple",
+        "Timeless"
+      ],
+      "type": "other"
+    },
+    "message": {
+      "value": "Practice. Progress. Master.",
+      "type": "other"
+    }
+  }
+}

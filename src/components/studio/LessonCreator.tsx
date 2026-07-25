@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { useAuth } from "@/providers/AuthProvider";
 import { attachLessonImage, createLesson } from "@/lib/lessons";
 import { ensureProgression, orchestrateProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
-import { MEDIA, MEDIUM_HEADING, MEDIUM_LABEL, parseMedium } from "@/lib/media";
+import { MEDIA, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import { AppImage } from "@/components/ui/AppImage";
+import { Icon } from "@/components/Icon";
 import { getLessonPreview } from "@/lib/lesson-preview";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
 import { getCreatorPipeline, getMediumLanguage } from "@/lib/medium-language";
+
+const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_BYTES = 10 * 1024 * 1024;
 
 function dataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -33,16 +37,27 @@ function creatorStepIndex(status: string): number {
   return 0;
 }
 
+function validateImageFile(next: File | null): string | null {
+  if (!next) return "Choose an image file to continue.";
+  if (!ACCEPTED_TYPES.has(next.type)) {
+    return "Use a JPEG, PNG, or WebP image.";
+  }
+  if (next.size > MAX_BYTES) {
+    return "Keep the reference under 10 MB.";
+  }
+  return null;
+}
+
 export function LessonCreator() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
 
   // Deep link from the Day 0 welcome email, e.g. /studio/new?medium=charcoal.
-  // Invalid values are ignored; a valid value preselects the medium and drives
-  // a medium-specific heading. Captured once at mount so a later manual change
-  // to the dropdown is never overwritten.
+  // Invalid values are ignored; a valid value preselects the medium.
+  // Captured once at mount so a later manual change is never overwritten.
   const deepLinkMedium = parseMedium(searchParams.get("medium"));
   const [emailMedium] = useState<Medium | null>(deepLinkMedium);
 
@@ -52,13 +67,16 @@ export function LessonCreator() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
   const lessonPreview = useMemo(() => getLessonPreview(medium, skill), [medium, skill]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => {
+    setPreviewReady(false);
+  }, [preview]);
 
-  // Record which welcome-email banner drove the visit, without storing any
-  // personal data. Fires once, only when arriving via a valid medium link.
   const trackedRef = useRef(false);
   useEffect(() => {
     if (trackedRef.current || !emailMedium) return;
@@ -94,15 +112,10 @@ export function LessonCreator() {
       const referenceUrl = await getDownloadURL(object);
       await attachLessonImage(user.uid, lessonId, referenceUrl);
 
-      // Two-image progression: create the target-image doc now (all stages
-      // pending). Master generation starts immediately; stage images wait until
-      // Accept Lesson. Never let this block or fail lesson creation.
       try {
         setStatus("Preparing your studio…");
         const size = pickSizeForRatio(await ratioForFile(file));
         await ensureProgression(user.uid, lessonId, tutorial, medium, referenceUrl, size);
-        // Kick off master generation immediately — do not wait for navigation.
-        // In-flight guard dedupes with LessonView on arrival. Stages wait for Accept.
         console.warn(JSON.stringify({
           scope: "LessonCreator",
           event: "generation_request_started",
@@ -130,8 +143,48 @@ export function LessonCreator() {
   }
 
   function onFileChange(next: File | null) {
+    const validationError = validateImageFile(next);
+    if (validationError) {
+      setFile(null);
+      setError(validationError);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setFile(next);
     setError("");
+  }
+
+  function openPicker() {
+    fileInputRef.current?.click();
+  }
+
+  function onDragEnter(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    if (e.dataTransfer.types.includes("Files")) setDragging(true);
+  }
+
+  function onDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  }
+
+  function onDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragging(false);
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = 0;
+    setDragging(false);
+    const next = e.dataTransfer.files?.[0] ?? null;
+    onFileChange(next);
   }
 
   if (busy) {
@@ -159,99 +212,149 @@ export function LessonCreator() {
     );
   }
 
+  const filled = Boolean(preview);
+
   return (
     <div className="creator creator--atelier" data-lesson-medium={medium}>
-      <div className="creator-header page-masthead">
+      <header className="creator-header page-masthead">
         <div className="creator-header-copy">
           <p className="eyebrow">New lesson</p>
-          <h1 className="dashboard-title creator-title">
-            {emailMedium ? MEDIUM_HEADING[emailMedium] : "Choose your reference"}
-          </h1>
+          <h1 className="dashboard-title creator-title">Choose your reference</h1>
           <p className="meta creator-lead">
-            Upload a reference to begin a professionally guided atelier lesson —
-            stage by stage, from observation to finish.
+            {emailMedium
+              ? `Upload a photograph or artwork. ArtPraxis will turn it into a personalized ${MEDIUM_LABEL[emailMedium].toLowerCase()} atelier lesson.`
+              : "Upload a photograph or artwork. ArtPraxis will turn it into a personalized atelier lesson."}
           </p>
         </div>
-      </div>
+      </header>
 
       <div className="creator-layout">
         <section className="creator-stage" aria-label="Reference and lesson settings">
-          <div className={preview ? "creator-upload is-filled" : "creator-upload"}>
+          <div
+            className={[
+              "creator-upload",
+              filled ? "is-filled" : "is-empty",
+              dragging ? "is-dragging" : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onDragEnter={onDragEnter}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+          >
             <input
               ref={fileInputRef}
-              hidden
+              id="creator-reference-input"
+              className="visually-hidden"
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              aria-describedby={filled ? "creator-ref-label" : "creator-empty-hint"}
+              aria-label="Upload a reference photo"
               onChange={(e) => onFileChange(e.target.files?.[0] || null)}
             />
 
-            {preview ? (
-              <>
+            {/* Stable frame — same structure for empty and uploaded states */}
+            <div
+              className={[
+                "creator-frame",
+                filled && !previewReady ? "is-decoding" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {filled ? (
                 <figure className="creator-preview-frame">
                   <AppImage
                     src={preview}
-                    alt="Selected reference"
+                    alt="Selected reference photo"
                     width={1600}
                     height={1200}
-                    sizes="(max-width: 900px) 100vw, 720px"
+                    sizes="(max-width: 900px) 100vw, 640px"
                     className="creator-preview-img"
                     unoptimized
+                    onLoad={() => setPreviewReady(true)}
+                    onError={() => setPreviewReady(true)}
                   />
                 </figure>
-                <div className="creator-upload-actions">
-                  <button
-                    type="button"
-                    className="creator-change-image"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Change image
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="creator-drop"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <span className="creator-drop-title">Upload a reference</span>
-                <span className="creator-drop-hint">JPEG, PNG, or WebP · up to 10 MB</span>
-              </button>
-            )}
+              ) : (
+                <label
+                  className="creator-empty"
+                  htmlFor="creator-reference-input"
+                >
+                  <span className="creator-empty-icon" aria-hidden="true">
+                    <Icon name="image" size={22} />
+                  </span>
+                  <span className="creator-empty-title">Upload a reference</span>
+                  <span className="creator-empty-support" id="creator-empty-hint">
+                    Choose a photograph or artwork to begin.
+                  </span>
+                  <span className="creator-browse">Browse files</span>
+                  <span className="creator-empty-drop">or drop an image here</span>
+                </label>
+              )}
+            </div>
+
+            {filled ? (
+              <div className="creator-upload-meta">
+                <p className="creator-ref-label" id="creator-ref-label">Reference photo</p>
+                <button
+                  type="button"
+                  className="creator-change-image"
+                  onClick={openPicker}
+                >
+                  Change image
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          <div className="creator-fields">
-            <label className="creator-field">
-              Medium
-              <select
-                value={medium}
-                onChange={(e) => setMedium(e.target.value as Medium)}
-              >
-                {MEDIA.map((m) => (
-                  <option key={m} value={m}>{MEDIUM_LABEL[m]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="creator-field">
-              Experience
-              <select value={skill} onChange={(e) => setSkill(e.target.value)}>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </label>
+          <div className="creator-prepare">
+            <header className="creator-prepare-head">
+              <p className="eyebrow">About this lesson</p>
+              <p className="creator-prepare-lead">
+                Choose a medium and experience level. Your lesson plan updates beside the reference.
+              </p>
+            </header>
+
+            <div className="creator-fields">
+              <label className="creator-field" htmlFor="creator-medium">
+                Medium
+                <select
+                  id="creator-medium"
+                  value={medium}
+                  onChange={(e) => setMedium(e.target.value as Medium)}
+                >
+                  {MEDIA.map((m) => (
+                    <option key={m} value={m}>{MEDIUM_LABEL[m]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="creator-field" htmlFor="creator-skill">
+                Experience
+                <select
+                  id="creator-skill"
+                  value={skill}
+                  onChange={(e) => setSkill(e.target.value)}
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </label>
+            </div>
+
+            {error ? <p className="status error" role="alert">{error}</p> : null}
+
+            <button
+              type="button"
+              className="primary creator-submit"
+              disabled={!file || busy}
+              onClick={generate}
+            >
+              Begin your lesson
+            </button>
           </div>
-
-          {error ? <p className="status error" role="alert">{error}</p> : null}
-
-          <button
-            type="button"
-            className="primary creator-submit"
-            disabled={!file || busy}
-            onClick={generate}
-          >
-            Begin your lesson
-          </button>
         </section>
 
         <aside className="creator-plan" aria-label="Lesson preview">

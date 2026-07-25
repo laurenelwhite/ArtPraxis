@@ -1,58 +1,96 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { ProgressionStage } from "@/lib/progression";
+import type { Medium } from "@/lib/tutorial-schema";
 import {
-  STAGE_PROCESS_LABEL,
-  STAGE_PROCESS_SHORT,
+  resolveStageDisplayLabel,
+  resolveStageShortLabel,
 } from "@/lib/stage-icons";
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
 
 /**
  * Sticky stage indicator for the continuous Study journey.
- * Progress track + quiet marks — tap scrolls to a stage.
+ * Desktop: six compact equal markers within page width.
+ * Mobile: horizontally scrollable rail with active centering.
  */
 export function StageScrollNav({
   stages,
   active,
   visitedMax,
   onSelect,
+  medium,
+  className,
 }: {
   stages: ProgressionStage[];
   active: number;
   visitedMax: number;
   onSelect: (index: number) => void;
+  medium: Medium;
+  className?: string;
 }) {
   const railRef = useRef<HTMLOListElement>(null);
   const safeActive = Math.max(0, Math.min(active, Math.max(stages.length - 1, 0)));
-  const progress =
-    stages.length > 1 ? safeActive / (stages.length - 1) : stages.length === 1 ? 1 : 0;
 
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
     const btn = rail.querySelector<HTMLElement>(`[data-stage-index="${safeActive}"]`);
-    btn?.scrollIntoView({
-      behavior: "smooth",
-      inline: "nearest",
+    if (!btn) return;
+    const reduced = prefersReducedMotion();
+    // Center active item on narrow rails; desktop grid needs no scroll.
+    if (rail.scrollWidth <= rail.clientWidth + 2) return;
+    btn.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth",
+      inline: "center",
       block: "nearest",
     });
   }, [safeActive]);
 
   if (stages.length === 0) return null;
 
+  function onKeyDown(e: KeyboardEvent<HTMLOListElement>) {
+    if (stages.length === 0) return;
+    let next = safeActive;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      next = Math.min(stages.length - 1, safeActive + 1);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      next = Math.max(0, safeActive - 1);
+    } else if (e.key === "Home") {
+      next = 0;
+    } else if (e.key === "End") {
+      next = stages.length - 1;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    onSelect(next);
+    const btn = railRef.current?.querySelector<HTMLButtonElement>(
+      `[data-stage-index="${next}"]`,
+    );
+    btn?.focus();
+  }
+
   return (
-    <nav className="stage-scroll-nav" aria-label="Lesson stages">
-      <div
-        className="stage-scroll-nav-track"
-        aria-hidden="true"
-        style={{ ["--stage-progress" as string]: String(progress) }}
+    <nav
+      className={["stage-scroll-nav", className].filter(Boolean).join(" ")}
+      aria-label="Lesson stages"
+    >
+      <ol
+        ref={railRef}
+        className="stage-scroll-nav-list"
+        onKeyDown={onKeyDown}
       >
-        <span className="stage-scroll-nav-track-fill" />
-      </div>
-      <ol ref={railRef} className="stage-scroll-nav-list">
         {stages.map((stage, index) => {
-          const full = STAGE_PROCESS_LABEL[stage.id];
-          const short = STAGE_PROCESS_SHORT[stage.id];
+          const full = resolveStageDisplayLabel(stage.id, medium, stage.title);
+          const short = resolveStageShortLabel(stage.id, medium, stage.title);
           const isActive = index === safeActive;
           const visited = index <= visitedMax;
           return (
@@ -67,16 +105,16 @@ export function StageScrollNav({
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                aria-current={isActive ? "location" : undefined}
+                aria-current={isActive ? "true" : undefined}
                 aria-label={`Stage ${stage.index}: ${full}`}
+                title={full}
                 onClick={() => onSelect(index)}
               >
-                <span className="stage-scroll-nav-mark" aria-hidden="true" />
                 <span className="stage-scroll-nav-index" aria-hidden="true">
                   {stage.index}
                 </span>
                 <span className="stage-scroll-nav-label stage-scroll-nav-label--full">
-                  {full}
+                  {short}
                 </span>
                 <span className="stage-scroll-nav-label stage-scroll-nav-label--short">
                   {short}

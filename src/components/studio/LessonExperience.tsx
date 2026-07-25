@@ -10,12 +10,19 @@ import {
   type StageImageRecord,
 } from "@/lib/progression";
 import { resolveLessonUiState } from "@/lib/lesson-ui-state";
+import {
+  isRegenerationBusy,
+  type FinalPaintingRegenerationState,
+  type RegenerationChecklistPhase,
+} from "@/lib/final-painting-regeneration";
 import { StudyMode } from "@/components/progression/StudyMode";
 import { PaintMode } from "@/components/progression/PaintMode";
 import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
 import type { CompareMode } from "@/components/progression/StageComparison";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
 import { MasterReviewView } from "@/components/studio/MasterReviewView";
+import { FinalPaintingRegenStatus } from "@/components/studio/FinalPaintingRegenStatus";
+import { FinalPaintingCandidateCompare } from "@/components/studio/FinalPaintingCandidateCompare";
 import { AppImage } from "@/components/ui/AppImage";
 import { getLessonTheme } from "@/lib/lesson-theme";
 import { getMediumLanguage } from "@/lib/medium-language";
@@ -40,6 +47,15 @@ export function LessonExperience({
   retryingStage,
   onRegenerate,
   regenerating,
+  regenerationState = "idle",
+  regenerationStartedAt = null,
+  regenerationError = null,
+  regenerationPhase = null,
+  candidateFinalPaintingUrl = null,
+  onAcceptCandidate,
+  onKeepCurrentPainting,
+  onTryAnotherCandidate,
+  acceptingCandidate = false,
   onAcceptMaster,
   acceptingMaster,
   onRegenerateMaster,
@@ -67,6 +83,15 @@ export function LessonExperience({
   retryingStage?: StageId | null;
   onRegenerate?: () => void;
   regenerating?: boolean;
+  regenerationState?: FinalPaintingRegenerationState;
+  regenerationStartedAt?: number | null;
+  regenerationError?: string | null;
+  regenerationPhase?: RegenerationChecklistPhase | null;
+  candidateFinalPaintingUrl?: string | null;
+  onAcceptCandidate?: () => void;
+  onKeepCurrentPainting?: () => void;
+  onTryAnotherCandidate?: () => void;
+  acceptingCandidate?: boolean;
   onAcceptMaster?: () => void;
   acceptingMaster?: boolean;
   onRegenerateMaster?: () => void;
@@ -84,8 +109,8 @@ export function LessonExperience({
   const [mode, setMode] = useState<Mode>(entryMode);
   const [compare, setCompare] = useState<CompareMode>("both");
   const lang = useMemo(() => getMediumLanguage(medium), [medium]);
-  const practiceLabel =
-    lang.actionVerb === "draw" ? "Draw" : lang.actionVerb === "paint" ? "Paint" : "Practice";
+  /** Product naming: Study / Paint (not medium-specific Draw). */
+  const practiceLabel = "Paint";
 
   // Sync when Overview CTAs request a mode change.
   useEffect(() => {
@@ -104,6 +129,7 @@ export function LessonExperience({
         regenerating: Boolean(regenerating),
         masterRequestInFlight,
         generationError,
+        medium,
       }),
     [
       tutorial,
@@ -115,6 +141,7 @@ export function LessonExperience({
       regenerating,
       masterRequestInFlight,
       generationError,
+      medium,
     ],
   );
 
@@ -128,13 +155,24 @@ export function LessonExperience({
     compare,
     onCompareChange: setCompare,
     referenceUrl: imageUrl,
+    masterImageUrl,
     onRetryStage,
     retryingStage,
     onOpenMaterials,
   } as const;
 
-  const regenerateBusy = Boolean(regenerating || acceptingMaster);
+  const regenerateBusy = Boolean(
+    acceptingMaster ||
+      acceptingCandidate ||
+      isRegenerationBusy(regenerationState) ||
+      regenerationState === "candidateReady" ||
+      (regenerating && regenerationState !== "error"),
+  );
   const lessonMedium = getLessonTheme(medium).dataAttribute;
+  const showAtelierRegenChrome =
+    masterStatus === "ready" &&
+    regenerationState !== "idle" &&
+    Boolean(masterImageUrl);
 
   // —— Finite views: atelier mounts after Accept; stages may still be landing ——
   if (ui.state === "creating" || ui.state === "masterGenerating") {
@@ -218,6 +256,11 @@ export function LessonExperience({
           masterImageUrl={masterImageUrl}
           reasons={masterReviewReasons}
           regenerating={Boolean(regenerating)}
+          regenerationState={regenerationState}
+          regenerationStartedAt={regenerationStartedAt}
+          regenerationError={regenerationError}
+          regenerationPhase={regenerationPhase}
+          medium={medium}
           accepting={Boolean(acceptingMaster)}
           canAccept={canAccept}
           onAccept={onAcceptMaster}
@@ -237,16 +280,25 @@ export function LessonExperience({
     >
       <div className="lesson-controls atelier-lesson-toolbar">
         <div
-          className="mode-switch"
+          className="mode-switch mode-switch--compact"
           role="tablist"
           aria-label="Lesson view"
         >
           <button
             type="button"
             role="tab"
+            id="lesson-mode-study"
+            aria-controls="lesson-mode-panel"
             aria-selected={mode === "study"}
+            tabIndex={mode === "study" ? 0 : -1}
             className={mode === "study" ? "mode-tab active" : "mode-tab"}
             onClick={() => setMode("study")}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                e.preventDefault();
+                setMode("paint");
+              }
+            }}
           >
             Study
           </button>
@@ -254,37 +306,84 @@ export function LessonExperience({
           <button
             type="button"
             role="tab"
+            id="lesson-mode-paint"
+            aria-controls="lesson-mode-panel"
             aria-selected={mode === "paint"}
+            tabIndex={mode === "paint" ? 0 : -1}
             className={mode === "paint" ? "mode-tab active" : "mode-tab"}
             onClick={() => setMode("paint")}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                e.preventDefault();
+                setMode("study");
+              }
+            }}
           >
             {practiceLabel}
           </button>
         </div>
 
         {onRegenerate ? (
-          <button
-            type="button"
-            className="secondary regenerate-targets atelier-regen-action"
-            onClick={onRegenerate}
-            disabled={regenerateBusy}
-          >
-            {regenerating
-              ? `Preparing another option…`
-              : `Try another ${lang.completedWorkNoun}`}
-          </button>
+          <details className="atelier-regen-disclosure">
+            <summary className="atelier-regen-summary">More options</summary>
+            <button
+              type="button"
+              className="secondary regenerate-targets atelier-regen-action"
+              onClick={onRegenerate}
+              disabled={regenerateBusy}
+            >
+              {isRegenerationBusy(regenerationState)
+                ? "Preparing a new interpretation…"
+                : regenerationState === "candidateReady"
+                  ? "New option ready"
+                  : `Try another ${lang.completedWorkNoun}`}
+            </button>
+          </details>
         ) : null}
       </div>
 
-      {regenerating ? (
-        <div className="atelier-regen-banner" role="status">
-          <p className="atelier-regen-whisper">
-            Preparing another option… Your current lesson stays visible.
-          </p>
-        </div>
+      <div
+        id="lesson-mode-panel"
+        role="tabpanel"
+        aria-label={mode === "study" ? "Study" : "Paint"}
+      >
+
+      {showAtelierRegenChrome &&
+      regenerationState !== "candidateReady" &&
+      !(regenerationState === "applying" && candidateFinalPaintingUrl) &&
+      masterImageUrl ? (
+        <FinalPaintingRegenStatus
+          state={regenerationState}
+          phase={regenerationPhase}
+          startedAt={regenerationStartedAt}
+          error={regenerationError}
+          medium={medium}
+          onRetry={onRegenerate}
+          className="fp-regen-status--atelier"
+        />
       ) : null}
 
-      {ui.stagesGeneratingInBackground && !regenerating ? (
+      {showAtelierRegenChrome &&
+      (regenerationState === "candidateReady" ||
+        regenerationState === "applying") &&
+      masterImageUrl &&
+      candidateFinalPaintingUrl &&
+      onAcceptCandidate &&
+      onKeepCurrentPainting ? (
+        <FinalPaintingCandidateCompare
+          currentUrl={masterImageUrl}
+          candidateUrl={candidateFinalPaintingUrl}
+          title={lang.completedWorkNoun}
+          applying={
+            regenerationState === "applying" || Boolean(acceptingCandidate)
+          }
+          onUseNew={onAcceptCandidate}
+          onKeepCurrent={onKeepCurrentPainting}
+          onTryAnother={onTryAnotherCandidate}
+        />
+      ) : null}
+
+      {ui.stagesGeneratingInBackground && !isRegenerationBusy(regenerationState) ? (
         <div className="atelier-stages-live-banner" role="status" aria-live="polite">
           <span className="atelier-stages-live-pulse" aria-hidden="true" />
           <div className="atelier-stages-live-copy">
@@ -345,6 +444,7 @@ export function LessonExperience({
           />
         </TermBudgetProvider>
       )}
+      </div>
     </div>
   );
 }

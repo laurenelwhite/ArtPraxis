@@ -77,12 +77,17 @@ Until `resolveLessonUiState(...).state === "ready"`:
 
 ## Regeneration
 
-- Keep current candidate visible  
-- Disable actions immediately (sync lock + `regenerating`)  
-- Overlay: “Painting another option…”  
-- Replace image only after successful upload  
-- On failure, restore prior master  
-- Log: `master_regeneration_started` | `_duplicate_ignored` | `_completed`  
+- Keep the accepted Final Painting and lesson fully usable (non-blocking)
+- Explicit machine: `idle | queued | generating | validating | candidateReady | applying | error`
+- Status attaches to the Final Painting dock / frame — not a distant disabled toolbar box
+- Checklist phases (indeterminate, no fake %): Studying → Creating → Checking → Preparing
+- Waiting copy: “This can take a few minutes.”; elapsed after ~15s
+- Atelier: generate candidate only; stages refresh **after** Use new painting
+- Candidate UI: Current vs New option → Use new painting / Keep current / Try another
+- Disable actions immediately (sync lock + regenerationState + lease)
+- Review overlay uses the same compact status; prior candidate stays visible
+- On failure, accepted painting and lesson are unchanged
+- Log: `regeneration.*` timing keys + `master_regeneration_*` events
 
 ## Typography (instructional)
 

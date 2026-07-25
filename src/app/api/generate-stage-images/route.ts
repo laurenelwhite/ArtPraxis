@@ -1010,6 +1010,13 @@ export async function POST(request: NextRequest) {
         totalMs,
         attempts: attemptCount,
         accepted: Boolean(acceptedCandidate),
+        "regeneration.reference_fetch_ms": referenceFetchMs,
+        "regeneration.master_generation_ms": editMs,
+        "regeneration.validation_ms": validationMs,
+        "regeneration.total_ms": totalMs,
+        "regeneration.retry_count": Math.max(0, attemptCount - 1),
+        "regeneration.model": imageModel,
+        "regeneration.input_fidelity": supportsInputFidelity(imageModel) ? "high" : "omitted",
         t: Date.now(),
       }),
     );
