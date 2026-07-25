@@ -41,7 +41,7 @@ import {
 //
 // Perceived-wait pipeline (master first, stages after accept):
 //   1. Generate + validate the MASTER painting only. Every successful candidate
-//      lands as needsReview (Accept Lesson / Regenerate) — including pass and
+//      is validated before becoming ready — including pass and
 //      warning. Hard-fail after retries still persists the best candidate for
 //      review — never a terminal 502 that discards progress.
 //   2. Do NOT seed or AI-refine stage images until the user accepts.
@@ -1523,8 +1523,7 @@ function stagesNeedDeterministicWork(stages: StageImageRecord[]): boolean {
 }
 
 // Generate + validate + upload + persist the MASTER in its own request.
-// Every successful candidate → needsReview (user must Accept Lesson before
-// stages run). Validation still runs; hard_fail reasons surface in review.
+// Every successful candidate is validated before stages run.
 // Never discards a prior valid master merely because a later attempt fails.
 async function runMaster(
   uid: string,
@@ -1668,9 +1667,9 @@ async function runMaster(
     });
 
     const validation = (response.masterValidation as CompositionValidation | null) ?? null;
-    // Surface composition hard-fail reasons in review; pass/warning still require Accept.
+    // Preserve composition diagnostics for logging and future quality controls.
     const reasons = userFacingReasons(validation);
-    const status: "ready" | "needsReview" = "needsReview";
+    const status: "ready" | "needsReview" = "ready";
 
     if (response.masterValidation) {
       console.warn("[progression] master validation", JSON.stringify(response.masterValidation));
@@ -1696,7 +1695,7 @@ async function runMaster(
       uid,
       projectId,
       {
-        masterStatus: "needsReview",
+        masterStatus: "generating",
         masterError: null,
         masterPrompt: response.master.prompt ?? null,
         masterValidation: validation,
@@ -1825,7 +1824,7 @@ async function runMaster(
 /**
  * Resumable client runner:
  *  1. Generate the master only (no stage images until Accept).
- *  2. Stop at needsReview so the user can Accept Lesson / Regenerate.
+ *  2. Persist the validated master and continue into stage generation.
  *  3. After accept (masterStatus ready), seed master-derived stage previews
  *     and optionally AI-refine — each stage persisted as it finishes.
  *  4. Lease + in-flight map prevent duplicate jobs across reloads/tabs.
@@ -1921,13 +1920,10 @@ async function orchestrateProgressionInner(params: {
   const needsAi = ENABLE_AI_STAGE_REFINEMENT && hydrated.stages.some(needsAiRefine);
   const masterUsable = masterUsableForStages(hydrated);
 
-  // Awaiting Accept Lesson — never generate stages before the user confirms.
+  // Upgrade legacy review-gated records before generating stages.
   if (hydrated.masterStatus === "needsReview" && masterUsable && !forceRegenerate) {
-    logProgression("generation_skipped", {
-      projectId,
-      reason: "master_needs_review_awaiting_acceptance",
-    });
-    return "skipped_review";
+    await persist(uid, projectId, { masterStatus: "ready" }, true);
+    hydrated.masterStatus = "ready";
   }
   if (hydrated.masterStatus === "needsReview" && !hydrated.masterImageUrl) {
     logProgression("generation_skipped", { projectId, reason: "master_needs_review_without_image" });
@@ -1973,17 +1969,6 @@ async function orchestrateProgressionInner(params: {
         referenceImageUrl,
         onMasterCandidate,
       );
-    }
-
-    // Stop after master until Accept Lesson — no stage images yet.
-    if (docData.masterStatus === "needsReview") {
-      logProgression("orchestration_complete", {
-        projectId,
-        outcome: "awaiting_master_acceptance",
-        masterStatus: docData.masterStatus,
-        hasMasterImageUrl: Boolean(docData.masterImageUrl),
-      });
-      return "ran";
     }
 
     if (!masterUsableForStages(docData) || docData.masterStatus !== "ready") {
@@ -2584,7 +2569,7 @@ export async function dismissRegeneratedCandidate(params: {
 
 /**
  * User accepted the master. Mark ready, reset stages, and kick off background
- * stage generation without blocking the Accept Lesson UI.
+ * stage generation without blocking the open lesson.
  */
 export async function acceptMaster(params: {
   uid: string;

@@ -12,8 +12,8 @@ type AdaptiveNavLogoProps = {
 };
 
 /**
- * Navigation lockup with an adaptive painted stroke + brush tip only.
- * Wordmark color stays official navy. Paths mirror artpraxis-logo-navigation.svg.
+ * Approved navigation lockup: Fraunces wordmark, indigo stroke, and brush.
+ * The mark stays fixed to Brand Kit 1.0 rather than changing by lesson medium.
  */
 export function AdaptiveNavLogo({
   theme,
@@ -25,13 +25,12 @@ export function AdaptiveNavLogo({
   const bristle = `ap-nav-bristle-${uid}`;
   const ferrule = `ap-nav-ferrule-${uid}`;
   const paintGrad = `ap-nav-paint-${uid}`;
-  const texture = theme.brushTexture;
 
   return (
     <span
       className={[
         "ap-logo-adaptive",
-        `ap-logo-adaptive--${texture}`,
+        "ap-logo-adaptive--approved",
         instant ? "ap-logo-adaptive--instant" : "ap-logo-adaptive--enter",
         className,
       ]
@@ -39,6 +38,7 @@ export function AdaptiveNavLogo({
         .join(" ")}
       style={{
         ...theme.cssVariables,
+        ["--ap-brush-accent" as string]: "#2C3E56",
         ["--ap-logo-h" as string]: `${height}px`,
       }}
     >
@@ -56,10 +56,10 @@ export function AdaptiveNavLogo({
         <text
           x="4"
           y="28"
-          fontFamily="Georgia, 'Times New Roman', Times, serif"
+          fontFamily="var(--font-fraunces), Fraunces, Georgia, serif"
           fontSize="24"
           fontWeight="600"
-          fill="#0d1b2a"
+          fill="#2C3E56"
           letterSpacing="-0.4"
         >
           ArtPraxis

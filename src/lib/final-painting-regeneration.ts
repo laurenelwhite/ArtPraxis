@@ -1,7 +1,7 @@
 /**
  * Final Painting regeneration — explicit state machine (separate from initial
  * lesson generation). Accepted art stays authoritative until the user accepts
- * a validated candidate (atelier) or Accept Lesson (review gate).
+ * a validated candidate while the existing atelier lesson remains available.
  */
 
 import { getMediumLanguage } from "@/lib/medium-language";

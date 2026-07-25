@@ -66,7 +66,7 @@ describe("resolveLessonUiState", () => {
     assert.equal(snap.progress, 0.35);
   });
 
-  it("shows masterReview when needsReview", () => {
+  it("opens legacy needsReview lessons directly", () => {
     const snap = resolveLessonUiState({
       hasTutorial: true,
       progressionHydrated: true,
@@ -82,8 +82,8 @@ describe("resolveLessonUiState", () => {
         }),
       ],
     });
-    assert.equal(snap.state, "masterReview");
-    assert.equal(snap.headline, "Your atelier interpretation");
+    assert.equal(snap.state, "ready");
+    assert.equal(snap.headline, "Your lesson is ready");
   });
 
   it("does not treat reference previews as usable stage art", () => {
@@ -137,7 +137,7 @@ describe("resolveLessonUiState", () => {
     assert.equal(snap.state, "ready");
   });
 
-  it("keeps review visible while regenerating a review candidate", () => {
+  it("keeps the lesson open while regenerating a candidate", () => {
     const snap = resolveLessonUiState({
       hasTutorial: true,
       progressionHydrated: true,
@@ -146,7 +146,7 @@ describe("resolveLessonUiState", () => {
       regenerating: true,
       stages: [],
     });
-    assert.equal(snap.state, "masterReview");
+    assert.equal(snap.state, "ready");
   });
 
   it("reaches ready with background flag cleared when all stages are usable", () => {
@@ -281,7 +281,7 @@ describe("shouldContinueProgression", () => {
     );
   });
 
-  it("does not resume stages while awaiting Accept Lesson", () => {
+  it("resumes legacy review-gated lessons without an acceptance step", () => {
     assert.equal(
       shouldContinueProgression({
         hasTutorial: true,
@@ -294,7 +294,7 @@ describe("shouldContinueProgression", () => {
           stage({ stageId: "pencil-sketch", index: 1, generationStatus: "pending" }),
         ],
       }),
-      false,
+      true,
     );
   });
 

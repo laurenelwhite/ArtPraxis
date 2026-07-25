@@ -10,7 +10,6 @@ import type { Medium } from "@/lib/tutorial-schema";
 export type LessonUiState =
   | "creating"
   | "masterGenerating"
-  | "masterReview"
   | "ready"
   | "error";
 
@@ -110,7 +109,7 @@ export function shouldContinueProgression(input: {
   if (!input.progressionHydrated) return false;
   if (input.masterRequestInFlight) return false;
   if (input.generationError) return false;
-  if (input.masterStatus !== "ready") return false;
+  if (input.masterStatus !== "ready" && input.masterStatus !== "needsReview") return false;
   if (!input.masterImageUrl) return false;
   return stagesNeedGeneration(input.stages);
 }
@@ -246,22 +245,24 @@ export function resolveLessonUiState(input: {
       };
     }
     return {
-      state: "masterReview",
-      headline: "Your atelier interpretation",
-      detail: "Your current candidate stays visible until a new version is ready.",
-      progress: null,
+      state: "ready",
+      headline: "Generating an alternative…",
+      detail: "Your current lesson stays available while a new target is prepared.",
+      progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
       ...base,
+      stagesGeneratingInBackground,
     };
   }
 
-  // Review gate — every master awaits Accept Lesson before stages / atelier.
+  // Legacy review records open directly into the MVP lesson.
   if (masterStatus === "needsReview" && validMaster) {
     return {
-      state: "masterReview",
-      headline: "Your atelier interpretation",
-      detail: "Accept this painting as your lesson target, or regenerate a new one.",
-      progress: null,
+      state: "ready",
+      headline: "Your lesson is ready",
+      detail: "Your target painting and guided stages are available.",
+      progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
       ...base,
+      stagesGeneratingInBackground,
     };
   }
 

@@ -41,7 +41,6 @@ import { LessonShell, LessonOverflowMenu } from "@/components/shell";
 import { StatusPill } from "@/components/project/StatusPill";
 import { ProjectOverview } from "@/components/project/ProjectOverview";
 import { ProjectMaterials } from "@/components/project/ProjectMaterials";
-import { ProjectPlaceholder } from "@/components/project/ProjectPlaceholder";
 import { ProgressUpload } from "@/components/progression/ProgressUpload";
 import {
   StudioReferenceProvider,
@@ -56,7 +55,6 @@ const TABS = [
   { id: "lesson", label: "Lesson" },
   { id: "reference", label: "Studio Reference" },
   { id: "materials", label: "Materials" },
-  { id: "notes", label: "Notes" },
   { id: "progress", label: "Progress" },
 ] as const;
 
@@ -646,7 +644,7 @@ export function LessonView({ id }: { id: string }) {
   const brandingEligible =
     Boolean(state?.summary) &&
     hasValidGeneratedMaster({ masterStatus, masterImageUrl }) &&
-    (lessonUi.state === "masterReview" || lessonUi.state === "ready");
+    lessonUi.state === "ready";
 
   useEffect(() => {
     if (!user || !state?.summary || !brandingEligible || !masterImageUrl) {
@@ -899,20 +897,6 @@ export function LessonView({ id }: { id: string }) {
               uid={user?.uid ?? null}
               highlightId={highlightMaterialId}
               onHighlightConsumed={() => setHighlightMaterialId(null)}
-            />
-          </div>
-
-          <div
-            id="lesson-panel-notes"
-            role="tabpanel"
-            aria-labelledby="lesson-tab-notes"
-            hidden={tab !== "notes"}
-            className="project-panel"
-          >
-            <ProjectPlaceholder
-              icon="message"
-              title="Notes"
-              description="Jot down observations, reminders, and what to try next on this project."
             />
           </div>
 

@@ -5,17 +5,20 @@
    ============================================================ */
 :root{
  /* —— Pigment primitives (Apelles-inspired) —— */
- --color-atelier-navy:#0D1B2A;
- --color-atelier-navy-hover:#162B40;
- --color-atelier-navy-active:#091522;
- --color-atelier-navy-soft:#E8EDF1;
+ --color-indigo:#2C3E56;
+ --color-red-earth:#A24A3A;
+ --color-warm-white:#F2ECE3;
+ --color-atelier-navy:var(--color-indigo);
+ --color-atelier-navy-hover:#223246;
+ --color-atelier-navy-active:#192737;
+ --color-atelier-navy-soft:#E4E7EA;
 
  /* Core brand surfaces (style guide) */
- --color-warm-ivory:#F7F5F2;
- --color-canvas:#F7F5F2;
- --color-canvas-light:#FCFAF8;
- --color-canvas-deep:#EEEAE4;
- --color-paper-white:#FFFDFC;
+ --color-warm-ivory:var(--color-warm-white);
+ --color-canvas:var(--color-warm-white);
+ --color-canvas-light:#F8F4ED;
+ --color-canvas-deep:#E9E0D4;
+ --color-paper-white:#FBF8F2;
  --color-soft-blue-gray:#DBDEE6;
 
  --color-bone-black:#1E1C19;
@@ -24,14 +27,14 @@
  --color-soft-gray:#D8D2C8;
  --color-border:#DED7CC;
 
- --color-yellow-ochre:#B88732;
- --color-yellow-ochre-soft:#F3E7CC;
+ --color-yellow-ochre:#DAA35A;
+ --color-yellow-ochre-soft:#F2E2C9;
  --color-brush-brown:#8B5E3C;
  --color-burnt-sienna:#A45E32;
  --color-burnt-sienna-soft:#F3DED0;
  --color-burnt-umber:#765038;
  --color-burnt-umber-soft:#E9DED5;
- --color-venetian-red:#914B43;
+ --color-venetian-red:var(--color-red-earth);
  --color-venetian-red-soft:#F2DDDA;
  --color-terre-verte:#69735F;
  --color-terre-verte-soft:#E2E7DE;
@@ -162,8 +165,8 @@
  --accent-soft:var(--color-atelier-navy-soft);
 
  /* Type — Cormorant Garamond + Inter via next/font CSS variables on <html> */
- --serif:var(--font-serif),Cormorant Garamond,Garamond,"Times New Roman",serif;
- --sans:var(--font-inter),Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ --serif:var(--font-fraunces),Fraunces,Georgia,"Times New Roman",serif;
+ --sans:var(--font-source-sans),"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
  --text-display:var(--ap-text-display);
  --text-stage:var(--ap-text-title);
  --text-body:var(--ap-text-body);
@@ -470,8 +473,8 @@ input:focus,select:focus{outline:none;border-color:var(--brand-navy);box-shadow:
   max-height:min(48vh, 420px);
   object-fit:contain;
   object-position:center;
-  opacity:0;
-  animation:creator-image-in .28s var(--ease) forwards;
+  opacity:1;
+  animation:none;
 }
 .creator-empty{
   display:grid;
@@ -11017,6 +11020,168 @@ button.tertiary:hover,
   .has-ref-dock .fp-candidate-compare{
     margin-right:0;
   }
+}
+
+/* ============================================================
+   Brand Kit 1.0 MVP refinement
+   ============================================================ */
+html,
+body,
+.app-main,
+.studio-ref-fullscreen-body,
+.studio-ref-panel-sheet,
+.project-tabs,
+.lesson-shell-tabs{
+  scrollbar-width:none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.app-main::-webkit-scrollbar,
+.studio-ref-fullscreen-body::-webkit-scrollbar,
+.studio-ref-panel-sheet::-webkit-scrollbar,
+.project-tabs::-webkit-scrollbar,
+.lesson-shell-tabs::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;
+}
+html,
+body{overflow-x:hidden}
+.app-shell{width:100vw; max-width:none}
+.app-main--lesson{
+  width:100% !important;
+  max-width:none !important;
+}
+.lesson-shell{
+  width:100%;
+  max-width:none;
+}
+.lesson-shell-head{
+  padding:clamp(4px, 1vw, 12px) 0 clamp(8px, 1vw, 16px);
+}
+.lesson-shell-title{
+  max-width:28ch;
+  color:var(--color-indigo);
+}
+.lesson-shell .project-tabs,
+.lesson-shell-tabs{
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+}
+.studio-ref-viewer--reference .studio-ref-panels,
+.studio-ref-viewer--final .studio-ref-panels{
+  grid-template-columns:minmax(0, 1fr);
+  min-height:240px;
+}
+.studio-ref-viewer--reference .studio-ref-panel,
+.studio-ref-viewer--final .studio-ref-panel{
+  display:grid;
+}
+.studio-ref-img{
+  width:100%;
+  height:auto;
+  object-fit:contain;
+}
+
+.reference-color-sampler{
+  position:relative;
+  display:grid;
+  width:100%;
+  min-height:220px;
+  place-items:center;
+  background:var(--color-paper-white);
+  cursor:crosshair;
+}
+.reference-color-sampler-canvas{
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:min(68vh, 720px);
+  object-fit:contain;
+}
+.reference-color-sampler-readout{
+  position:absolute;
+  z-index:3;
+  display:grid;
+  grid-template-columns:18px auto;
+  align-items:center;
+  gap:0 7px;
+  transform:translate(12px, calc(-100% - 12px));
+  min-width:126px;
+  padding:7px 9px;
+  border:1px solid rgba(44,62,86,.24);
+  border-radius:6px;
+  color:var(--color-indigo);
+  background:rgba(251,248,242,.96);
+  box-shadow:0 5px 18px rgba(44,62,86,.14);
+  font-family:var(--sans);
+  font-size:.76rem;
+  line-height:1.2;
+  pointer-events:none;
+}
+.reference-color-sampler-readout > span:last-child{
+  grid-column:2;
+  color:var(--text-secondary);
+  font-size:.66rem;
+}
+.reference-color-sampler-swatch{
+  grid-row:1 / span 2;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  border:1px solid rgba(44,62,86,.24);
+}
+.reference-color-sampler-hint{
+  position:absolute;
+  left:12px;
+  bottom:12px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin:0;
+  padding:6px 9px;
+  border-radius:999px;
+  color:var(--color-indigo);
+  background:rgba(242,236,227,.92);
+  font-size:.72rem;
+  font-weight:600;
+  pointer-events:none;
+}
+.reference-color-sampler-drop{
+  width:10px;
+  height:10px;
+  border-radius:50% 50% 50% 0;
+  background:var(--color-yellow-ochre);
+  transform:rotate(-45deg);
+}
+
+.atelier-studio-tip{
+  display:grid;
+  grid-template-columns:minmax(112px, 32%) 1fr;
+  gap:14px;
+  align-items:center;
+}
+.atelier-studio-tip-visual{
+  align-self:stretch;
+  display:grid;
+  place-items:center;
+  min-height:92px;
+  border-right:1px solid rgba(44,62,86,.16);
+  padding-right:12px;
+}
+.atelier-studio-tip-visual svg{display:block; width:100%; height:auto}
+.tip-visual-paper{fill:var(--color-warm-white); stroke:rgba(44,62,86,.22)}
+.tip-visual-line{fill:none; stroke-linecap:round}
+.tip-visual-line.is-one{stroke:var(--color-indigo); stroke-width:5}
+.tip-visual-line.is-two{stroke:var(--color-red-earth); stroke-width:3; opacity:.82}
+.tip-visual-focus{fill:rgba(218,163,90,.22); stroke:var(--color-yellow-ochre); stroke-width:2}
+.tip-visual-arrow{fill:none; stroke:var(--color-indigo); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.atelier-studio-tip-top,
+.atelier-studio-tip-title,
+.atelier-studio-tip-body{grid-column:2}
+@media(max-width:640px){
+  .atelier-studio-tip{grid-template-columns:80px 1fr; gap:10px}
+  .atelier-studio-tip-visual{min-height:74px; padding-right:8px}
 }
 
 

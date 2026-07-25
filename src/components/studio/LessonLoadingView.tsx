@@ -282,6 +282,15 @@ export function LessonLoadingView({
             key={`${medium}-${skillLevel}-${tipIndex}`}
             aria-label="Studio tip"
           >
+            <div className="atelier-studio-tip-visual" aria-hidden="true">
+              <svg viewBox="0 0 180 82" focusable="false">
+                <path className="tip-visual-paper" d="M8 7h164v68H8z" />
+                <path className="tip-visual-line is-one" d="M23 57c24-27 40-34 62-17 21 16 41 13 70-12" />
+                <path className="tip-visual-line is-two" d="M23 64c28-17 48-16 67-5 20 11 39 7 65-11" />
+                <circle className="tip-visual-focus" cx="91" cy="42" r="10" />
+                <path className="tip-visual-arrow" d="M129 19l-20 15m0 0 4-9m-4 9 10-1" />
+              </svg>
+            </div>
             <div className="atelier-studio-tip-top">
               <p className="atelier-studio-tip-kicker">Studio tip</p>
               <p className="atelier-studio-tip-index" aria-hidden="true">

@@ -11,6 +11,7 @@ export {
 } from "./StudioReferenceContext";
 export { StudioCompareControls } from "./StudioCompareControls";
 export { StudioReferenceViewer } from "./StudioReferenceViewer";
+export { ReferenceColorSampler } from "./ReferenceColorSampler";
 export { StudioReferencePair } from "./StudioReferencePair";
 export { LessonReferenceDock } from "./LessonReferenceDock";
 export { StudioReferencePanel } from "./StudioReferencePanel";

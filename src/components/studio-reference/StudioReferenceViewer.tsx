@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import { ArtworkFrame } from "@/components/progression/ArtworkFrame";
 import { StudioCompareControls } from "./StudioCompareControls";
+import { ReferenceColorSampler } from "./ReferenceColorSampler";
 import type { StudioCompareMode, StudioReferenceSize } from "./types";
 
 type StudioReferenceViewerProps = {
@@ -109,11 +110,9 @@ export function StudioReferenceViewer({
                 </figcaption>
                 {referenceUrl ? (
                   <ArtworkFrame variant="reference">
-                    <AppImage
+                    <ReferenceColorSampler
                       src={referenceUrl}
                       alt={`Reference for ${title}`}
-                      width={1600}
-                      height={1200}
                       sizes={sizeSizes(size)}
                       className="studio-ref-img"
                     />

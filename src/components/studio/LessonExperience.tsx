@@ -20,7 +20,6 @@ import { PaintMode } from "@/components/progression/PaintMode";
 import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
 import type { CompareMode } from "@/components/progression/StageComparison";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
-import { MasterReviewView } from "@/components/studio/MasterReviewView";
 import { FinalPaintingRegenStatus } from "@/components/studio/FinalPaintingRegenStatus";
 import { FinalPaintingCandidateCompare } from "@/components/studio/FinalPaintingCandidateCompare";
 import { AppImage } from "@/components/ui/AppImage";
@@ -39,7 +38,6 @@ export function LessonExperience({
   masterStatus = "pending",
   masterImageUrl = null,
   masterError = null,
-  masterReviewReasons = [],
   masterRequestInFlight = false,
   generationError = null,
   onRetryGeneration,
@@ -56,10 +54,8 @@ export function LessonExperience({
   onKeepCurrentPainting,
   onTryAnotherCandidate,
   acceptingCandidate = false,
-  onAcceptMaster,
   acceptingMaster,
   onRegenerateMaster,
-  masterReadyToAccept = false,
   projectStatus,
   onProjectStatusChange,
   savingStatus = false,
@@ -143,12 +139,6 @@ export function LessonExperience({
       generationError,
       medium,
     ],
-  );
-
-  const canAccept = Boolean(
-    onAcceptMaster &&
-      masterImageUrl &&
-      (masterReadyToAccept || masterStatus === "needsReview"),
   );
 
   const shared = {
@@ -241,33 +231,6 @@ export function LessonExperience({
             </div>
           </div>
         </section>
-      </div>
-    );
-  }
-
-  if (ui.state === "masterReview") {
-    return (
-      <div
-        className="lesson-experience lesson-experience--atelier lesson-experience--state lesson-experience--review"
-        data-lesson-medium={lessonMedium}
-      >
-        <MasterReviewView
-          referenceUrl={imageUrl}
-          masterImageUrl={masterImageUrl}
-          reasons={masterReviewReasons}
-          regenerating={Boolean(regenerating)}
-          regenerationState={regenerationState}
-          regenerationStartedAt={regenerationStartedAt}
-          regenerationError={regenerationError}
-          regenerationPhase={regenerationPhase}
-          medium={medium}
-          accepting={Boolean(acceptingMaster)}
-          canAccept={canAccept}
-          onAccept={onAcceptMaster}
-          onRegenerate={onRegenerateMaster || onRegenerate}
-          headline={ui.headline}
-          detail={ui.detail}
-        />
       </div>
     );
   }

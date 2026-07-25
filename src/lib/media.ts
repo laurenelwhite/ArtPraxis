@@ -7,8 +7,6 @@ export const MEDIA: Medium[] = [
   "oil",
   "pastel",
   "charcoal",
-  "pencil",
-  "pen",
 ];
 
 // Human-facing display names (American English). "pen" reads as "Pen & Ink".
