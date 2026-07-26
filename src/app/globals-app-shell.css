@@ -666,6 +666,13 @@
 
 @media(max-width:760px){
   :root{--app-topbar-h:60px}
+  .lesson-shell-tabs{
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+  .lesson-shell-tabs::-webkit-scrollbar{
+    display:none;
+  }
   .app-header{
     padding-inline:14px !important;
     column-gap:10px;
