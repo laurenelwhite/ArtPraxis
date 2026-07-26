@@ -276,21 +276,23 @@
   min-width:0;
 }
 
+/* Lesson section tabs + stage rail stay in document flow.
+   Do not re-sticky here — overlapping sticky chrome was the layout regression. */
 .lesson-shell .project-tabs,
 .lesson-view .project-tabs,
 .lesson-shell-tabs{
-  position:sticky !important;
-  top:0 !important;
-  z-index:30 !important;
+  position:static !important;
+  top:auto !important;
+  z-index:auto !important;
   display:flex !important;
   flex-wrap:nowrap;
   gap:2px 4px;
   margin:0 !important;
   padding:0 !important;
   min-height:var(--proj-tabs-h) !important;
-  height:var(--proj-tabs-h);
+  height:auto;
   align-items:stretch;
-  background:var(--color-paper-white) !important;
+  background:transparent !important;
   border-bottom:1px solid var(--border-subtle);
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
@@ -302,12 +304,12 @@
   font-weight:var(--weight-medium);
   padding:0 12px;
   min-height:var(--proj-tabs-h);
-  height:100%;
+  height:auto;
   color:var(--text-muted);
   border:0;
   background:transparent;
   border-radius:0;
-  flex:none;
+  flex:0 1 auto;
   white-space:nowrap;
   display:inline-flex;
   align-items:center;
@@ -322,13 +324,12 @@
 
 .stage-scroll-nav,
 .study-mode--single .stage-scroll-nav,
-.study-mode--continuous .stage-scroll-nav{
-  position:sticky !important;
-  top:var(--proj-tabs-h) !important;
-  z-index:20 !important;
+.study-mode--continuous .stage-scroll-nav,
+.paint-mode .stage-scroll-nav{
+  position:static !important;
+  top:auto !important;
+  z-index:auto !important;
 }
-.study-index{top:var(--proj-tabs-h) !important}
-.desk-nav{top:var(--proj-tabs-h) !important}
 
 .page-masthead.studio-masthead{
   padding-bottom:var(--space-5);

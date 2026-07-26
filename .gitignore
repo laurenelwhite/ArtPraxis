@@ -18,6 +18,7 @@ docs/academy/**/*.lcpl
 # Generated QA artifacts
 tmp-stage-qa/
 public/tmp-stage-qa/
+docs/stability-shots/
 
 # TypeScript build cache
 *.tsbuildinfo

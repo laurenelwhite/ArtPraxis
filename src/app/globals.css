@@ -600,14 +600,66 @@ input:focus,select:focus{outline:none;border-color:var(--brand-navy);box-shadow:
 }
 .creator-prepare-lead{
   margin:0;
-  font-size:0.9rem;
-  line-height:1.5;
   color:var(--ink-2);
+  max-width:42ch;
+}
+.creator-advanced{
+  margin-top:12px;
+  border:1px solid var(--hairline);
+  border-radius:var(--r);
+  padding:8px 12px;
+  background:transparent;
+}
+.creator-advanced > summary{
+  cursor:pointer;
+  font-family:var(--sans);
+  font-size:0.875rem;
+  font-weight:600;
+  color:var(--brand-navy);
+  list-style:none;
+}
+.creator-advanced > summary::-webkit-details-marker{display:none}
+.creator-advanced[open] > summary{margin-bottom:10px}
+.creator-advanced .creator-field{margin:0}
+.overview-status-hint{
+  margin:8px 0 0;
+  font-size:0.875rem;
+  color:var(--ink-2);
+  max-width:40ch;
+}
+.atelier-ribbon--hint{
+  display:grid;
+  gap:6px;
+  padding:12px 0 0;
+  border-top:1px solid var(--hairline);
+}
+.atelier-ribbon--hint .atelier-ribbon-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  align-items:baseline;
+  margin:0;
+}
+.atelier-ribbon-hint{
+  margin:0;
+  font-size:0.875rem;
+  color:var(--ink-2);
+  max-width:42ch;
 }
 .creator-fields{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr;
   gap:16px;
+}
+@media (min-width:700px){
+  .creator-fields{
+    grid-template-columns:1fr 1fr;
+  }
+  .creator-fields:has(+ .creator-advanced),
+  .creator-prepare > .creator-fields{
+    grid-template-columns:1fr;
+    max-width:20rem;
+  }
 }
 .creator-field{
   display:grid;
@@ -1737,6 +1789,8 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
 .lead-media-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-2);text-transform:capitalize;font-family:var(--serif);font-size:1.1rem}
 .lead-detail{display:grid;gap:14px;justify-items:start}
 .lead-title{font-family:var(--serif);font-weight:700;font-size:clamp(1.8rem,3vw,2.5rem);line-height:1.2;letter-spacing:-.01em}
+.lead-title a{color:inherit;text-decoration:none}
+.lead-title a:hover{text-decoration:underline;text-underline-offset:3px}
 .lead-meta{color:var(--ink-2);font-size:.92rem;margin:0}
 .lead-actions{margin-top:6px}
 
@@ -1789,9 +1843,9 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
 }
 
 /* Empty state — editorial, no blob */
-.empty-state{display:grid;justify-items:center;text-align:center;gap:16px;padding:56px 24px;max-width:52ch;margin:0 auto;border:1px solid var(--hairline);border-radius:var(--r-lg);background:var(--paper)}
+.empty-state{display:grid;justify-items:center;text-align:center;gap:12px;padding:28px 20px;max-width:42ch;margin:0 auto}
 .empty-mark{display:grid;place-items:center;width:62px;height:62px;border-radius:50%;border:1px solid var(--hairline);color:var(--brand-navy)}
-.empty-title{font-family:var(--serif);font-weight:700;font-size:clamp(1.8rem,3vw,2.4rem);line-height:1.2;letter-spacing:-.01em}
+.empty-title{font-family:var(--serif);font-weight:600;font-size:clamp(1.35rem,2.2vw,1.75rem);line-height:1.25;letter-spacing:-.01em}
 .empty-copy{color:var(--ink-2);max-width:46ch;margin:0}
 
 /* Inspiration strip */
@@ -1814,7 +1868,7 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
 /* Project tabs switch project-level content and stay pinned at the very top —
    deliberately styled as underlined text tabs, visually distinct from the pill
    chapter index used for lesson stage navigation. */
-.project-tabs{position:sticky;top:0;z-index:9;display:flex;gap:2px;border-bottom:1px solid var(--hairline);overflow-x:auto;background:var(--bg)}
+.project-tabs{position:static;top:auto;z-index:auto;display:flex;gap:2px;border-bottom:1px solid var(--hairline);overflow-x:auto;background:var(--bg)}
 .project-tab{border:0;background:transparent;color:var(--ink-2);font-weight:600;font-size:.94rem;padding:12px 15px;position:relative;white-space:nowrap;transition:color var(--dur) var(--ease),opacity var(--dur) var(--ease)}
 .project-tab:hover{color:var(--ink)}
 .project-tab.active{color:var(--text-primary)}
@@ -1861,7 +1915,7 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
 /* Chapter index (study) — a sticky, single-row chapter bar pinned beneath the
    project tabs. It IS the lesson stage navigation, so it reads as a pill index
    distinct from the project tabs above it. */
-.study-index{position:sticky;top:var(--proj-tabs-h);z-index:6;margin:0 0 4px;background:var(--bg)}
+.study-index{position:static;top:auto;z-index:auto;margin:0 0 4px;background:var(--bg)}
 .study-index ol{list-style:none;margin:0;padding:9px 2px;display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;scrollbar-width:thin;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
 .study-index a{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:7px 14px;border-radius:var(--r-pill);color:var(--ink-2);font-size:.84rem;font-weight:600;white-space:nowrap;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
 .study-index a:hover{color:var(--ink)}
@@ -2006,7 +2060,7 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
    Paint Mode — the workbench
    ============================================================ */
 .paint-mode{display:grid;gap:16px}
-.paint-nav{position:sticky;top:0;z-index:6;background:var(--bg);padding:8px 0 10px;border-bottom:1px solid var(--hairline)}
+.paint-nav{position:static;top:auto;z-index:auto;background:var(--bg);padding:8px 0 10px;border-bottom:1px solid var(--hairline)}
 .paint-nav-track{list-style:none;margin:0;padding:0;display:flex;gap:6px;overflow-x:auto}
 .paint-nav-item{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--hairline);border-radius:var(--r-pill);padding:7px 13px 7px 7px;background:var(--paper);color:var(--ink-2);font-weight:600;font-size:.84rem;white-space:nowrap;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease)}
 .paint-nav-item:hover{border-color:var(--ink);color:var(--ink)}
@@ -2206,7 +2260,7 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
 .paint-mode.desk{display:block}
 
 /* Chapter index — pinned beneath the table, editorial not stepper */
-.desk-nav{position:sticky;top:var(--proj-tabs-h);z-index:7;background:var(--bg);border-bottom:1px solid var(--hairline);margin-bottom:6px}
+.desk-nav{position:static;top:auto;z-index:auto;background:var(--bg);border-bottom:1px solid var(--hairline);margin-bottom:6px}
 .desk-nav-track{list-style:none;margin:0;padding:9px 2px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin}
 .desk-chapter{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:7px 14px;border:1px solid transparent;border-radius:var(--r-pill);background:transparent;color:var(--ink-2);font-family:var(--sans);font-weight:600;font-size:.82rem;white-space:nowrap;cursor:pointer;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
 .desk-chapter:hover{color:var(--ink)}
@@ -3467,230 +3521,6 @@ body:has(.creator--atelier) .lesson-ref-dock-fab,
   font-family:var(--serif);
   font-size:.88rem;
   font-weight:600;
-}
-
-/* Mobile controller */
-.stage-process-mobile{
-  display:grid;
-  gap:8px;
-  padding:10px 4px 12px;
-}
-.stage-process-mobile-bar{
-  display:grid;
-  grid-template-columns:44px minmax(0,1fr) 44px;
-  align-items:center;
-  gap:6px;
-}
-.stage-process-mobile-nav{
-  width:44px;
-  height:40px;
-  margin:0;
-  padding:0;
-  border:1px solid var(--hairline);
-  border-radius:var(--r);
-  background:var(--paper);
-  color:var(--ink);
-  font-size:1.35rem;
-  line-height:1;
-  cursor:pointer;
-}
-.stage-process-mobile-nav:disabled{
-  opacity:.35;
-  cursor:not-allowed;
-}
-.stage-process-mobile-nav:focus-visible,
-.stage-process-mobile-current:focus-visible,
-.stage-process-segments:focus-visible{
-  outline:2px solid var(--ultramarine);
-  outline-offset:2px;
-}
-.stage-process-mobile-current{
-  display:inline-flex;
-  align-items:baseline;
-  justify-content:center;
-  gap:6px;
-  min-height:40px;
-  margin:0;
-  padding:8px 10px;
-  border:1px solid rgba(23,23,23,0.16);
-  border-radius:var(--r);
-  background:var(--paper);
-  color:var(--ink);
-  font-family:var(--sans);
-  cursor:pointer;
-}
-.stage-process-mobile-count{
-  font-size:.78rem;
-  font-weight:700;
-  color:var(--ink-2);
-  white-space:nowrap;
-}
-.stage-process-mobile-sep{color:var(--ink-2)}
-.stage-process-mobile-label{
-  font-family:var(--serif);
-  font-size:1rem;
-  font-weight:600;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.stage-process-segments{
-  display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));
-  gap:4px;
-  width:100%;
-  margin:0;
-  padding:0;
-  border:0;
-  background:transparent;
-  cursor:pointer;
-}
-.stage-process-segment{
-  display:block;
-  height:3px;
-  border-radius:1px;
-  background:rgba(23,23,23,0.12);
-}
-.stage-process-segment.is-completed{
-  background:var(--brand-navy);
-}
-.stage-process-segment.is-current{
-  background:var(--brand-navy-soft);
-}
-
-/* Stage picker sheet (mobile) */
-.stage-picker-root{
-  position:fixed;
-  inset:0;
-  z-index:90;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-}
-.stage-picker-backdrop{
-  position:absolute;
-  inset:0;
-  border:0;
-  background:rgba(23,23,23,0.35);
-  cursor:pointer;
-}
-.stage-picker-sheet{
-  position:relative;
-  z-index:1;
-  width:min(520px,100%);
-  max-height:min(78vh,640px);
-  overflow:auto;
-  padding:14px 14px 22px;
-  border:1px solid var(--hairline);
-  border-bottom:0;
-  border-radius:var(--r-lg) var(--r-lg) 0 0;
-  background:var(--paper);
-  box-shadow:var(--shadow-lg);
-}
-.stage-picker-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-.stage-picker-title{
-  margin:0;
-  font-family:var(--serif);
-  font-size:1.15rem;
-  font-weight:600;
-}
-.stage-picker-close{
-  width:36px;
-  height:36px;
-  border:0;
-  border-radius:var(--r);
-  background:transparent;
-  color:var(--ink-2);
-  font-size:1.35rem;
-  cursor:pointer;
-}
-.stage-picker-list{
-  list-style:none;
-  margin:0;
-  padding:0;
-  display:grid;
-  gap:6px;
-}
-.stage-picker-item{
-  display:grid;
-  grid-template-columns:1.5rem minmax(0,1fr) 40px;
-  align-items:center;
-  gap:10px;
-  width:100%;
-  margin:0;
-  padding:10px 10px;
-  border:1px solid rgba(23,23,23,0.1);
-  border-radius:var(--r);
-  background:var(--paper);
-  color:var(--ink);
-  font-family:var(--sans);
-  text-align:left;
-  cursor:pointer;
-}
-.stage-picker-item.is-current{
-  border-color:rgba(23,23,23,0.32);
-  box-shadow:var(--shadow-sm);
-}
-.stage-picker-item.is-future{
-  color:var(--ink-2);
-}
-.stage-picker-index{
-  font-size:.78rem;
-  font-weight:700;
-  text-align:center;
-}
-.stage-picker-icon{
-  width:18px;
-  height:18px;
-  color:var(--ink-2);
-}
-.stage-picker-item.is-current .stage-picker-icon{
-  color:var(--sienna);
-}
-.stage-picker-copy{
-  display:grid;
-  gap:2px;
-  min-width:0;
-}
-.stage-picker-label{
-  font-size:.9rem;
-  font-weight:650;
-}
-.stage-picker-purpose{
-  font-size:.72rem;
-  color:var(--ink-2);
-  line-height:1.35;
-}
-.stage-picker-thumb{
-  width:40px;
-  height:40px;
-  object-fit:cover;
-  border-radius:4px;
-  border:1px solid var(--hairline);
-  background:var(--paper-2);
-}
-.stage-picker-thumb.is-empty{
-  display:block;
-  opacity:0.35;
-}
-
-@media(min-width:721px){
-  .stage-process > .stage-process-rail,
-  .study-index.stage-process > .stage-process-rail,
-  .desk-nav.stage-process > .stage-process-rail{display:flex}
-  .stage-process-mobile{display:none}
-}
-@media(max-width:720px){
-  .stage-process > .stage-process-rail,
-  .study-index.stage-process > .stage-process-rail,
-  .desk-nav.stage-process > .stage-process-rail{display:none !important}
-  .stage-process-mobile{display:grid}
 }
 
 /* —— Stage transition panel (prev / progress / continue) —— */
@@ -7838,9 +7668,9 @@ button.tertiary:hover,
   min-width:0;
 }
 .stage-scroll-nav{
-  position:sticky;
-  top:var(--app-topbar-h);
-  z-index:20;
+  position:static;
+  top:auto;
+  z-index:auto;
   margin:0 0 12px;
   padding:6px 0 8px;
   max-width:100%;
@@ -8231,7 +8061,7 @@ button.tertiary:hover,
 }
 
 .study-mode--single .stage-scroll-nav{
-  position:sticky;
+  position:static;
   top:var(--app-topbar-h);
   z-index:5;
   margin:0 0 12px;
@@ -8895,6 +8725,7 @@ button.tertiary:hover,
   min-width:0;
 }
 .study-stage-guide,
+.study-stage-guide-block,
 .study-stage-workspace{
   display:grid;
   gap:14px;
@@ -9330,24 +9161,6 @@ button.tertiary:hover,
   .overlay-label{display:none}
 }
 
-@media(min-width:1100px){
-  .study-stage-grid{
-    grid-template-columns:minmax(280px, 320px) minmax(0, 1fr);
-    gap:28px;
-  }
-  .study-stage-guide{
-    align-content:start;
-  }
-  .study-mode--continuous .cmp-panels--both{
-    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
-  }
-  .study-mode--continuous .cmp-viewport .cmp-frame-img,
-  .study-mode--continuous .cmp-viewport .annotated-image img,
-  .study-mode--continuous .cmp-viewport .cmp-target-live > .cmp-frame-img{
-    max-height:min(52vh, 560px);
-  }
-}
-
 @media(max-width:1099px){
   .lesson-document-stages{gap:36px}
   .study-stage-grid{
@@ -9735,7 +9548,7 @@ button.tertiary:hover,
 
 @media(min-width:1100px){
   .study-stage-grid{
-    grid-template-columns:minmax(0, 1fr) minmax(220px, 260px);
+    grid-template-columns:minmax(0, 1fr) minmax(240px, 280px);
     grid-template-areas:
       "head head"
       "final final"
@@ -9746,12 +9559,16 @@ button.tertiary:hover,
   .study-stage-head{grid-area:head}
   .study-stage-final-entry{grid-area:final}
   .study-stage-workspace{grid-area:canvas}
-  .study-stage-guide{
+  .study-stage-grid > .study-stage-guide{
     grid-area:guide;
     align-content:start;
     padding-top:4px;
+    min-width:0;
   }
   .lesson-document-stages{gap:48px}
+  .study-mode--continuous .cmp-panels--both{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
   .study-mode--continuous .cmp-viewport .cmp-frame-img,
   .study-mode--continuous .cmp-viewport .annotated-image img,
   .study-mode--continuous .cmp-viewport .cmp-target-live > .cmp-frame-img{
@@ -11458,13 +11275,17 @@ body{
     font-size:clamp(2rem, 9vw, 3rem);
     overflow-wrap:anywhere;
   }
+  /* Keep section tabs as one compact horizontal row — never a tall sheet. */
   .lesson-shell .project-tabs,
   .lesson-shell-tabs{
-    display:grid;
-    grid-template-columns:repeat(2, minmax(0, 1fr));
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    overflow-x:auto !important;
+    grid-template-columns:none !important;
   }
   .lesson-shell .project-tab{
-    width:100%;
+    width:auto;
+    flex:0 0 auto;
     padding-inline:10px;
   }
   .cmp-panels--both{
@@ -11533,4 +11354,38 @@ body{
   border:1px solid rgba(44,62,86,.24);
 }
 
-
+/* ============================================================
+   Lesson chrome — single non-sticky stage nav (stability cleanup)
+   Authoritative: tabs + StageScrollNav stay in document flow.
+   Legacy stage-process / journey selectors are inert (component removed).
+   ============================================================ */
+.lesson-view .project-tabs,
+.lesson-shell .project-tabs,
+.lesson-shell-tabs {
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+.stage-scroll-nav,
+.study-mode--single .stage-scroll-nav,
+.study-mode--continuous .stage-scroll-nav,
+.paint-mode .stage-scroll-nav {
+  position: static;
+  top: auto;
+  z-index: auto;
+  max-height: none;
+  height: auto;
+  overflow: visible;
+}
+.stage-process,
+.stage-process-rail,
+.stage-process-mobile,
+.stage-picker-root,
+.stage-picker-sheet,
+.stage-picker-backdrop,
+.stage-journey,
+.atelier-stage-nav,
+.study-index,
+.desk-nav.stage-process {
+  display: none;
+}
