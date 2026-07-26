@@ -50,10 +50,19 @@ export function hasValidGeneratedMaster(input: {
   masterStatus: GenerationStatus;
   masterImageUrl: string | null | undefined;
 }): boolean {
-  return Boolean(
-    input.masterImageUrl &&
-      (input.masterStatus === "ready" || input.masterStatus === "needsReview"),
-  );
+  if (!input.masterImageUrl) return false;
+  if (input.masterStatus === "ready" || input.masterStatus === "needsReview") {
+    return true;
+  }
+  // Recover stuck "generating" docs that already persisted a Storage master URL
+  // (should not happen in the happy path, but must not trap the atelier closed).
+  if (
+    input.masterStatus === "generating" &&
+    /^https?:\/\//i.test(input.masterImageUrl)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Whether LessonView should kick off master orchestration. */
@@ -194,9 +203,7 @@ export function resolveLessonUiState(input: {
     : null;
   const validMaster = hasValidGeneratedMaster({ masterStatus, masterImageUrl });
   const stagesGeneratingInBackground =
-    masterStatus === "ready" &&
-    validMaster &&
-    stagesNeedGeneration(stages);
+    validMaster && stagesNeedGeneration(stages);
 
   const base = {
     activeStageId,
@@ -284,8 +291,8 @@ export function resolveLessonUiState(input: {
     };
   }
 
-  // Accepted master — open the atelier immediately; stages arrive in the background.
-  if (masterStatus === "ready" && validMaster) {
+  // Accepted / recoverable master — open the atelier; stages arrive in the background.
+  if (validMaster) {
     return {
       state: "ready",
       headline: stagesGeneratingInBackground ? "Lesson open" : "Lesson ready",

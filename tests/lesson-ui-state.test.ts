@@ -198,6 +198,16 @@ describe("shouldStartMasterGeneration", () => {
     );
   });
 
+  it("treats generating+https master URL as valid so atelier can open", () => {
+    assert.equal(
+      hasValidGeneratedMaster({
+        masterStatus: "generating",
+        masterImageUrl: "https://example.com/master.webp",
+      }),
+      true,
+    );
+  });
+
   it("does not treat missing master image as valid", () => {
     assert.equal(
       hasValidGeneratedMaster({

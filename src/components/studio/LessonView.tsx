@@ -95,6 +95,7 @@ export function LessonView({ id }: { id: string }) {
   const [generationError, setGenerationError] = useState<string | null>(null);
   /** Project-scoped in-flight key — never a permanent boolean across projects. */
   const startedProjectRef = useRef<string | null>(null);
+  const leaseRetryRef = useRef(0);
   const previewUrlRef = useRef<string | null>(null);
   const masterUrlRef = useRef<string | null>(null);
   /** Sync lock — prevents double-click races before React state updates. */
@@ -124,6 +125,7 @@ export function LessonView({ id }: { id: string }) {
   // Reset per-project guards when navigating between lessons.
   useEffect(() => {
     startedProjectRef.current = null;
+    leaseRetryRef.current = 0;
     masterUrlRef.current = null;
     setMasterRequestInFlight(false);
     setGenerationError(null);
@@ -145,7 +147,7 @@ export function LessonView({ id }: { id: string }) {
     return () => {
       clearLessonBrand();
     };
-  }, [id, revokePreview, clearLessonBrand]);
+  }, [id]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -196,6 +198,14 @@ export function LessonView({ id }: { id: string }) {
       } else if (!regenLockRef.current) {
         setRegenerating(false);
       }
+      const hydratedValid = hasValidGeneratedMaster({
+        masterStatus: p?.masterStatus ?? "pending",
+        masterImageUrl: p?.masterImageUrl,
+      });
+      // Clear stale lease/orchestration errors once Firestore has a usable master.
+      if (hydratedValid) {
+        setGenerationError(null);
+      }
       console.warn(JSON.stringify({
         scope: "LessonView",
         event: "progression_hydration_resolved",
@@ -204,6 +214,7 @@ export function LessonView({ id }: { id: string }) {
         masterStatus: p?.masterStatus ?? null,
         hasMasterImageUrl: Boolean(p?.masterImageUrl),
         regenerationState: nextRegen,
+        hydratedValid,
       }));
       // Prefer the persisted Storage URL; keep a local blob preview until it arrives.
       if (p?.masterImageUrl) {
@@ -285,13 +296,31 @@ export function LessonView({ id }: { id: string }) {
       // Lease / incomplete skips must release the guard so a later attempt can run.
       // Also release after a successful master-only run so post-accept stage work
       // can resume if the accept fire-and-forget is interrupted (refresh, etc.).
+      startedProjectRef.current = null;
       if (outcome === "skipped_lease") {
-        startedProjectRef.current = null;
-        setGenerationError(
-          "Another session is generating this lesson. Retry in a moment.",
-        );
-      } else {
-        startedProjectRef.current = null;
+        // Soft retry — Creator and LessonView can race the same lease after /studio/new.
+        // Do not hard-error; subscription + a bounded retry resumes missing work.
+        const attempt = (leaseRetryRef.current += 1);
+        if (attempt <= 3) {
+          window.setTimeout(() => {
+            if (startedProjectRef.current) return;
+            if (
+              hasValidGeneratedMaster({
+                masterStatus: masterStatus,
+                masterImageUrl: masterUrlRef.current || masterImageUrl,
+              })
+            ) {
+              return;
+            }
+            void startMasterGeneration();
+          }, 2000 * attempt);
+        } else {
+          setGenerationError(
+            "Another session is generating this lesson. Retry in a moment.",
+          );
+        }
+      } else if (outcome === "ran" || outcome === "skipped_complete") {
+        leaseRetryRef.current = 0;
       }
     } catch (e) {
       const message =

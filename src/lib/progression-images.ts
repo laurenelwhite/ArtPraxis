@@ -182,24 +182,46 @@ function migrateStage(stage: StageImageRecord): StageImageRecord {
   };
 }
 
-function toDoc(data: Record<string, unknown>): ProgressionDoc | null {
-  if (!Array.isArray(data.stages)) return null;
+function toDoc(data: Record<string, unknown>): ProgressionDoc {
   const masterImageUrl = (data.masterImageUrl as string | null) ?? null;
+  const stagesRaw = data.stages;
+  const stages = Array.isArray(stagesRaw)
+    ? (stagesRaw as StageImageRecord[]).map(migrateStage)
+    : [];
+  if (!Array.isArray(stagesRaw)) {
+    console.warn(
+      "[progression] toDoc: stages missing or non-array — surfacing master fields anyway",
+      {
+        stagesType: stagesRaw === null ? "null" : typeof stagesRaw,
+        hasMasterImageUrl: Boolean(masterImageUrl),
+        masterStatus: data.masterStatus ?? null,
+      },
+    );
+  }
+  let masterStatus = normalizeGenerationStatus(
+    (data.masterStatus as string | undefined) ?? (masterImageUrl ? "ready" : "pending"),
+  );
+  // Normalize stuck mid-upload docs: Storage URL already written, status left on generating.
+  if (
+    masterImageUrl &&
+    /^https?:\/\//i.test(masterImageUrl) &&
+    masterStatus === "generating"
+  ) {
+    masterStatus = "ready";
+  }
   return {
     version: (data.version as number) ?? 1,
     size: (data.size as ImageSize) ?? "1024x1024",
     masterImageUrl,
     masterPrompt: (data.masterPrompt as string | null) ?? null,
-    masterStatus: normalizeGenerationStatus(
-      (data.masterStatus as string | undefined) ?? (masterImageUrl ? "ready" : "pending"),
-    ),
+    masterStatus,
     masterError: (data.masterError as string | null) ?? null,
     masterValidation: (data.masterValidation as CompositionValidation | null) ?? null,
     masterReviewReasons: Array.isArray(data.masterReviewReasons)
       ? (data.masterReviewReasons as string[])
       : userFacingReasons((data.masterValidation as CompositionValidation | null) ?? null),
     lease: (data.lease as Lease | null) ?? null,
-    stages: (data.stages as StageImageRecord[]).map(migrateStage),
+    stages,
     regenerationState: normalizeRegenerationState(data.regenerationState),
     regenerationStartedAt:
       typeof data.regenerationStartedAt === "number" ? data.regenerationStartedAt : null,
@@ -212,7 +234,7 @@ function toDoc(data: Record<string, unknown>): ProgressionDoc | null {
 async function getProgressionDoc(uid: string, projectId: string): Promise<ProgressionDoc | null> {
   const snap = await getDoc(progressionRef(uid, projectId));
   if (!snap.exists()) return null;
-  return toDoc(snap.data());
+  return toDoc(snap.data() as Record<string, unknown>);
 }
 
 export async function getProgression(uid: string, projectId: string): Promise<ProgressionDoc | null> {
@@ -225,9 +247,50 @@ export function subscribeProgression(
   projectId: string,
   cb: (doc: ProgressionDoc | null) => void,
 ): () => void {
+  const emit = (raw: Record<string, unknown> | null) => {
+    if (!raw) {
+      cb(null);
+      return;
+    }
+    try {
+      cb(toDoc(raw));
+    } catch (error) {
+      console.error(
+        "[progression] subscribeProgression toDoc failed",
+        sanitizeProgressionLogObject(
+          normalizeProgressionError(error, { operation: "subscribe-progression-parse" }),
+        ),
+      );
+      // Still surface a minimal usable doc so a parse quirk cannot trap the atelier closed.
+      const masterImageUrl =
+        typeof raw.masterImageUrl === "string" ? raw.masterImageUrl : null;
+      cb({
+        version: typeof raw.version === "number" ? raw.version : 1,
+        size: (raw.size as ImageSize) ?? "1024x1024",
+        masterImageUrl,
+        masterPrompt: (raw.masterPrompt as string | null) ?? null,
+        masterStatus: normalizeGenerationStatus(
+          (raw.masterStatus as string | undefined) ?? (masterImageUrl ? "ready" : "pending"),
+        ),
+        masterError: (raw.masterError as string | null) ?? null,
+        masterValidation: null,
+        masterReviewReasons: [],
+        lease: null,
+        stages: Array.isArray(raw.stages) ? (raw.stages as StageImageRecord[]) : [],
+        ...idleRegenerationFields(),
+      });
+    }
+  };
+
   return onSnapshot(
     progressionRef(uid, projectId),
-    (snap) => cb(snap.exists() ? toDoc(snap.data()) : null),
+    (snap) => {
+      if (!snap.exists()) {
+        emit(null);
+        return;
+      }
+      emit(snap.data() as Record<string, unknown>);
+    },
     (err) => {
       // Do not cb(null) on transport errors — that would look like "no master".
       console.error(
@@ -236,6 +299,15 @@ export function subscribeProgression(
           normalizeProgressionError(err, { operation: "subscribe-progression" }),
         ),
       );
+      // One-shot recovery read so a transient listener error does not leave the
+      // lesson stuck in creating/masterGenerating with progressionHydrated=false.
+      void getProgressionDoc(uid, projectId)
+        .then((doc) => {
+          if (doc) cb(doc);
+        })
+        .catch(() => {
+          /* keep prior UI state */
+        });
     },
   );
 }
@@ -249,8 +321,18 @@ export async function ensureProgression(
   referenceImageUrl: string,
   size: ImageSize,
 ): Promise<ProgressionDoc> {
-  const existing = await getProgressionDoc(uid, projectId);
-  if (existing) return existing;
+  // Existence must be checked on the snapshot — never via toDoc() alone.
+  // A parse quirk must not overwrite a real master with a blank pending doc.
+  const snap = await getDoc(progressionRef(uid, projectId));
+  if (snap.exists()) {
+    const existing = toDoc(snap.data() as Record<string, unknown>);
+    if (existing.stages.length === 0) {
+      const repairedStages = initialStages(tutorial, medium, referenceImageUrl);
+      await persist(uid, projectId, { stages: repairedStages }, false);
+      return { ...existing, stages: repairedStages };
+    }
+    return existing;
+  }
   const created: ProgressionDoc = {
     version: 3,
     size,

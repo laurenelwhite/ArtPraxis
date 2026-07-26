@@ -6,7 +6,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { useAuth } from "@/providers/AuthProvider";
 import { attachLessonImage, createLesson } from "@/lib/lessons";
-import { ensureProgression, orchestrateProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
+import { ensureProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
 import { MEDIA, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
@@ -118,17 +118,11 @@ export function LessonCreator() {
         await ensureProgression(user.uid, lessonId, tutorial, medium, referenceUrl, size);
         console.warn(JSON.stringify({
           scope: "LessonCreator",
-          event: "generation_request_started",
+          event: "progression_seeded",
           projectId: lessonId,
         }));
-        void orchestrateProgression({
-          uid: user.uid,
-          projectId: lessonId,
-          tutorial,
-          medium,
-          referenceImageUrl: referenceUrl,
-          size,
-        }).catch((e) => console.error("[LessonCreator] orchestrateProgression failed", e));
+        // LessonView owns orchestration after navigation. Starting it here races the
+        // lesson-route lease and can leave the UI stuck on a skipped_lease error.
       } catch (genError) {
         console.error("Could not initialize the stage progression", genError);
       }
