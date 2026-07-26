@@ -1,1 +1,41 @@
-{"name":"artpraxis","version":"0.1.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"eslint","email:welcome":"node scripts/welcome-email.mjs","test:storage-rules":"npx -y firebase-tools@latest emulators:exec --only storage --project artpraxis-storage-rules-test \"node tests/storage.rules.test.mjs\"","test:master-pipeline":"npx --yes tsx --test tests/master-pipeline.test.ts","test:progression-errors":"npx --yes tsx --test tests/progression-errors.test.ts","test:lesson-ui-state":"npx --yes tsx --test tests/lesson-ui-state.test.ts","test:final-painting-regen":"npx --yes tsx --test tests/final-painting-regeneration.test.ts","test:tutorial-materials":"npx --yes tsx --test tests/tutorial-materials.test.ts"},"dependencies":{"firebase":"^12.0.0","next":"^15.0.0","openai":"^5.0.0","react":"^19.0.0","react-dom":"^19.0.0","server-only":"^0.0.1","sharp":"^0.35.3","zod":"^3.24.0"},"devDependencies":{"@firebase/rules-unit-testing":"^5.0.1","@types/node":"^22.0.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0","eslint":"^9.0.0","eslint-config-next":"^15.0.0","typescript":"^5.7.0"}}
+{
+  "name": "artpraxis",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npx --yes tsx --test tests/*.test.ts",
+    "email:welcome": "node scripts/welcome-email.mjs",
+    "test:storage-rules": "npx -y firebase-tools@latest emulators:exec --only storage --project artpraxis-storage-rules-test \"node tests/storage.rules.test.mjs\"",
+    "test:master-pipeline": "npx --yes tsx --test tests/master-pipeline.test.ts",
+    "test:progression-errors": "npx --yes tsx --test tests/progression-errors.test.ts",
+    "test:lesson-ui-state": "npx --yes tsx --test tests/lesson-ui-state.test.ts",
+    "test:final-painting-regen": "npx --yes tsx --test tests/final-painting-regeneration.test.ts",
+    "test:tutorial-materials": "npx --yes tsx --test tests/tutorial-materials.test.ts",
+    "test:stability": "npx --yes tsx --test tests/stability-architecture.test.ts"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "next": "^15.0.0",
+    "openai": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.3",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "playwright": "^1.49.1",
+    "typescript": "^5.7.0"
+  }
+}
