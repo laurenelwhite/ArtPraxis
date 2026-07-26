@@ -14,8 +14,6 @@ type StudioReferenceViewerProps = {
   mode: StudioCompareMode;
   onModeChange: (mode: StudioCompareMode) => void;
   size?: StudioReferenceSize;
-  /** Optional teaching notes below the images (page size). */
-  notes?: string | null;
   showControls?: boolean;
   className?: string;
 };
@@ -31,7 +29,6 @@ export function StudioReferenceViewer({
   mode,
   onModeChange,
   size = "page",
-  notes,
   showControls = true,
   className,
 }: StudioReferenceViewerProps) {
@@ -150,12 +147,6 @@ export function StudioReferenceViewer({
         )}
       </div>
 
-      {notes && size === "page" ? (
-        <aside className="studio-ref-notes">
-          <p className="eyebrow">Teaching notes</p>
-          <p className="studio-ref-notes-body">{notes}</p>
-        </aside>
-      ) : null}
     </div>
   );
 }

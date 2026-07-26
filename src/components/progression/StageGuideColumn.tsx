@@ -7,7 +7,6 @@ import { StagePalette } from "@/components/progression/StagePalette";
 import { StageMaterialsChips } from "@/components/progression/StageMaterialsChips";
 import { StageSetupStrip } from "@/components/progression/StageSetupStrip";
 import { StageCheckpoint } from "@/components/progression/StageCheckpoint";
-import { StageInstructorNote } from "@/components/progression/StageInstructorNote";
 import { AutoTerms } from "@/components/vocabulary/AutoTerms";
 import { firstSentence } from "@/lib/stage-copy";
 
@@ -23,7 +22,7 @@ type StageGuideColumnProps = {
 };
 
 /**
- * Shared guide column: glance cards + Materials collapse + Notes collapse.
+ * Shared guide column: concise instructions, materials, and practical tips.
  * Study and Paint keep distinct class names for CSS compatibility.
  */
 export function StageGuideColumn({
@@ -84,7 +83,6 @@ export function StageGuideColumn({
             </p>
           ) : null}
           <StageCheckpoint stage={stage} />
-          <StageInstructorNote stage={stage} />
         </div>
       </details>
     </>

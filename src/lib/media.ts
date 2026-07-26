@@ -51,5 +51,5 @@ export const MEDIUM_INVITATION: Record<Medium, string> = {
 export function parseMedium(value: string | null | undefined): Medium | null {
   if (!value) return null;
   const result = mediumSchema.safeParse(value.trim().toLowerCase());
-  return result.success ? result.data : null;
+  return result.success && MEDIA.includes(result.data) ? result.data : null;
 }

@@ -11,12 +11,10 @@ export function StudioReferencePage({
   referenceUrl,
   finalPaintingUrl,
   title,
-  notes,
 }: {
   referenceUrl?: string | null;
   finalPaintingUrl?: string | null;
   title: string;
-  notes?: string | null;
 }) {
   const { mode, setMode } = useStudioComparePreference("both");
 
@@ -34,7 +32,6 @@ export function StudioReferencePage({
         mode={mode}
         onModeChange={setMode}
         size="page"
-        notes={notes}
       />
     </div>
   );

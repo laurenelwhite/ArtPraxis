@@ -874,11 +874,6 @@ export function LessonView({ id }: { id: string }) {
               referenceUrl={summary.imageUrl}
               finalPaintingUrl={finalPaintingUrl}
               title={summary.title}
-              notes={
-                tutorial?.composition?.valuePlan
-                  ? `Value plan: ${tutorial.composition.valuePlan}`
-                  : null
-              }
             />
           </div>
 

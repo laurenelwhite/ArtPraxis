@@ -11415,4 +11415,122 @@ body{
 .home-strip-medium{color:var(--color-red-earth)}
 .home-footer-note{color:var(--color-indigo)}
 
+/* MVP lesson shell: responsive, unclipped, and free of nested scrollbars. */
+html,
+body{
+  max-width:100%;
+  overflow-x:clip !important;
+}
+.lesson-shell,
+.lesson-shell-body,
+.project-panel,
+.study-mode,
+.studio-mode,
+.desk-stage,
+.stage-compare,
+.cmp-panels,
+.cmp-panel,
+.cmp-viewport{
+  min-width:0;
+  max-width:100%;
+}
+.lesson-shell .project-tabs,
+.lesson-shell-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  overflow:visible !important;
+}
+.lesson-shell .project-tab{
+  flex:0 1 auto;
+  min-width:0;
+}
+.cmp-sync-viewport,
+.cmp-viewport,
+.artwork-frame-stage{
+  overflow:clip !important;
+}
+@media(max-width:760px){
+  .lesson-shell-head{
+    grid-template-columns:minmax(0, 1fr) auto;
+    gap:12px;
+  }
+  .lesson-shell-title{
+    font-size:clamp(2rem, 9vw, 3rem);
+    overflow-wrap:anywhere;
+  }
+  .lesson-shell .project-tabs,
+  .lesson-shell-tabs{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+  .lesson-shell .project-tab{
+    width:100%;
+    padding-inline:10px;
+  }
+  .cmp-panels--both{
+    grid-template-columns:minmax(0, 1fr) !important;
+  }
+}
+
+/* Reference color sampler — available on the reference at every stage. */
+.reference-color-sampler{
+  position:relative;
+  min-width:0;
+}
+.reference-color-sampler.is-sampling{
+  cursor:crosshair;
+}
+.reference-color-toggle{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  z-index:6;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:38px;
+  padding:7px 11px;
+  border:1px solid rgba(44,62,86,.24);
+  border-radius:999px;
+  color:var(--color-indigo);
+  background:rgba(242,236,227,.94);
+  box-shadow:var(--shadow-sm);
+  font:600 .86rem/1 var(--sans);
+}
+.reference-color-toggle:disabled{opacity:.58}
+.reference-color-toggle-swatch{
+  width:15px;
+  height:15px;
+  border-radius:50%;
+  border:1px solid rgba(44,62,86,.34);
+  background:conic-gradient(
+    var(--color-indigo),
+    var(--color-yellow-ochre),
+    var(--color-red-earth),
+    var(--color-indigo)
+  );
+}
+.reference-color-result{
+  position:absolute;
+  z-index:7;
+  transform:translate(12px, 12px);
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 9px;
+  border:1px solid rgba(44,62,86,.24);
+  border-radius:4px;
+  color:var(--color-indigo);
+  background:var(--color-warm-white);
+  box-shadow:var(--shadow-md);
+  font:700 .8rem/1 var(--sans);
+  pointer-events:auto;
+}
+.reference-color-result span{
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  border:1px solid rgba(44,62,86,.24);
+}
+
 

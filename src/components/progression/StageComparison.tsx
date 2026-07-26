@@ -19,6 +19,7 @@ import { StudyTools } from "@/components/progression/StudyTools";
 import { AppImage } from "@/components/ui/AppImage";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
 import { resolveStageDisplayLabel } from "@/lib/stage-icons";
+import { ReferenceColorSampler } from "@/components/progression/ReferenceColorSampler";
 
 /** Visible panels / blend modes for the two-image comparison. */
 export type CompareMode = "both" | "target" | "reference" | "overlay";
@@ -327,7 +328,8 @@ export function StageComparison({
   }, [stage.id, defaultOverlay, resetZoom]);
 
   const referenceMedia = referenceUrl ? (
-    analytic ? (
+    <ReferenceColorSampler imageUrl={referenceUrl}>
+      {analytic ? (
       <AnnotatedImage
         tutorial={tutorial}
         imageUrl={referenceUrl}
@@ -337,7 +339,7 @@ export function StageComparison({
         hideTabs
         inComparison
       />
-    ) : (
+      ) : (
       <ComparisonFrame variant="reference">
         <AppImage
           className="cmp-frame-img cmp-frame-img--reference"
@@ -350,7 +352,8 @@ export function StageComparison({
           loading="lazy"
         />
       </ComparisonFrame>
-    )
+      )}
+    </ReferenceColorSampler>
   ) : (
     <ComparisonFrame variant="reference">
       <div className="cmp-empty">No reference image</div>
@@ -394,16 +397,18 @@ export function StageComparison({
                     onViewportChange={setViewport}
                     className="cmp-overlay-stack"
                   >
-                    <AppImage
-                      className="cmp-frame-img cmp-frame-img--reference cmp-overlay-base"
-                      src={referenceUrl}
-                      alt="Reference"
-                      width={1600}
-                      height={1200}
-                      sizes="(max-width: 1100px) 100vw, 900px"
-                      style={{ width: "100%", height: "auto" }}
-                      loading="lazy"
-                    />
+                    <ReferenceColorSampler imageUrl={referenceUrl}>
+                      <AppImage
+                        className="cmp-frame-img cmp-frame-img--reference cmp-overlay-base"
+                        src={referenceUrl}
+                        alt="Reference"
+                        width={1600}
+                        height={1200}
+                        sizes="(max-width: 1100px) 100vw, 900px"
+                        style={{ width: "100%", height: "auto" }}
+                        loading="lazy"
+                      />
+                    </ReferenceColorSampler>
                     <AppImage
                       className={[
                         "cmp-frame-img",
