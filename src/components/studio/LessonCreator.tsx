@@ -313,7 +313,7 @@ export function LessonCreator() {
             <header className="creator-prepare-head">
               <p className="eyebrow">About this lesson</p>
               <p className="creator-prepare-lead">
-                Choose a medium and experience level. Your lesson plan updates beside the reference.
+                Choose a medium, then generate. Optional settings stay tucked away.
               </p>
             </header>
 
@@ -330,6 +330,10 @@ export function LessonCreator() {
                   ))}
                 </select>
               </label>
+            </div>
+
+            <details className="creator-advanced">
+              <summary>More options</summary>
               <label className="creator-field" htmlFor="creator-skill">
                 Experience
                 <select
@@ -342,7 +346,7 @@ export function LessonCreator() {
                   <option value="advanced">Advanced</option>
                 </select>
               </label>
-            </div>
+            </details>
 
             {error ? <p className="status error" role="alert">{error}</p> : null}
 
@@ -352,7 +356,7 @@ export function LessonCreator() {
               disabled={!file || busy}
               onClick={generate}
             >
-              Begin your lesson
+              Generate lesson
             </button>
           </div>
         </section>

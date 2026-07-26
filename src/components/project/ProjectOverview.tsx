@@ -1,7 +1,6 @@
 import {
   formatFullDate,
   formatLessonDate,
-  projectStatusLabels,
   type LessonSummary,
   type ProjectStatus,
 } from "@/lib/lessons";
@@ -10,30 +9,28 @@ import { getMediumLanguage } from "@/lib/medium-language";
 import { StatusPill } from "./StatusPill";
 import { StudioReferencePair } from "@/components/studio-reference";
 
-const STATUS_ORDER: ProjectStatus[] = ["not-started", "in-progress", "completed"];
-
 export function ProjectOverview({
   summary,
   tutorial,
   status,
-  onStatusChange,
-  saving,
   onBeginStudy,
-  onStartPractice,
   masterImageUrl = null,
 }: {
   summary: LessonSummary;
   tutorial: Tutorial | null;
   status: ProjectStatus;
-  onStatusChange: (next: ProjectStatus) => void;
-  saving: boolean;
   onBeginStudy?: () => void;
-  onStartPractice?: () => void;
   masterImageUrl?: string | null;
 }) {
   const lang = getMediumLanguage(summary.medium);
   const materials = tutorial?.materials?.filter((m) => m.required !== false).slice(0, 5) ?? [];
   const skills = deriveSkills(tutorial);
+  const primaryLabel =
+    status === "in-progress"
+      ? "Resume lesson"
+      : status === "completed"
+        ? "Review lesson"
+        : "Begin lesson";
 
   return (
     <div className="project-overview project-overview--dashboard">
@@ -52,14 +49,7 @@ export function ProjectOverview({
               className="btn-solid btn-lg btn-branded"
               onClick={onBeginStudy}
             >
-              Begin Lesson
-            </button>
-            <button
-              type="button"
-              className="secondary btn-lg"
-              onClick={onStartPractice}
-            >
-              {lang.primaryPracticeCta}
+              {primaryLabel}
             </button>
           </div>
         </div>
@@ -120,20 +110,9 @@ export function ProjectOverview({
             <p className="eyebrow">Project status</p>
             <StatusPill status={status} />
           </div>
-          <div className="status-control" role="group" aria-label="Set project status">
-            {STATUS_ORDER.map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={option === status}
-                className={option === status ? "status-option active" : "status-option"}
-                disabled={saving}
-                onClick={() => onStatusChange(option)}
-              >
-                {projectStatusLabels[option]}
-              </button>
-            ))}
-          </div>
+          <p className="overview-status-hint">
+            Update status and upload stage photos from the Progress tab.
+          </p>
         </div>
 
         <dl className="overview-meta overview-meta--secondary">

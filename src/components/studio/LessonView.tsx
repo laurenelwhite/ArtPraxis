@@ -800,15 +800,9 @@ export function LessonView({ id }: { id: string }) {
               summary={summary}
               tutorial={tutorial}
               status={status}
-              onStatusChange={changeStatus}
-              saving={savingStatus}
               masterImageUrl={finalPaintingUrl}
               onBeginStudy={() => {
                 setLessonEntryMode("study");
-                selectTab("lesson");
-              }}
-              onStartPractice={() => {
-                setLessonEntryMode("paint");
                 selectTab("lesson");
               }}
             />
