@@ -5,6 +5,7 @@ import {
   getAuth,
   initializeAuth,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   type Auth,
 } from "firebase/auth";
@@ -53,6 +54,7 @@ function createAuth(firebaseApp: FirebaseApp): Auth {
   try {
     return initializeAuth(firebaseApp, {
       persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
     // Hot reload — Auth already initialized for this app.

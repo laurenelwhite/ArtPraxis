@@ -1,7 +1,12 @@
 "use client";
 import { useState } from "react";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+} from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
+import { authErrorMessage } from "@/lib/auth-errors";
 import { ArtPraxisLogo } from "@/components/brand/ArtPraxisLogo";
 
 export function AuthPanel({ initialError = null }: { initialError?: string | null }) {
@@ -9,6 +14,7 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(initialError ?? "");
+  const [googlePending, setGooglePending] = useState(false);
 
   async function emailAuth() {
     try {
@@ -16,7 +22,19 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
       if (mode === "signup") await createUserWithEmailAndPassword(auth, email, password);
       else await signInWithEmailAndPassword(auth, email, password);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Authentication failed");
+      setError(authErrorMessage(e));
+    }
+  }
+
+  async function googleAuth() {
+    try {
+      setError("");
+      setGooglePending(true);
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setGooglePending(false);
     }
   }
 
@@ -42,7 +60,9 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
         </label>
         {error && <p className="status error" role="alert">{error}</p>}
         <button className="primary btn-branded" type="submit">{mode === "signin" ? "Sign in" : "Create account"}</button>
-        <button className="secondary" type="button" onClick={() => signInWithPopup(auth, googleProvider)}>Continue with Google</button>
+        <button className="secondary" type="button" onClick={googleAuth} disabled={googlePending}>
+          {googlePending ? "Opening Google…" : "Continue with Google"}
+        </button>
         <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>
