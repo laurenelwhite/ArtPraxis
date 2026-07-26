@@ -14,7 +14,7 @@ import type { StageModeBaseProps } from "@/components/progression/stage-shell-pr
 
 /**
  * Guided study as one continuous vertical atelier journey.
- * Stages stay mounted; the sticky indicator scrolls to anchors.
+ * Stages stay mounted; StageScrollNav scrolls to anchors (document flow, not sticky).
  */
 export function StudyMode({
   stages,
@@ -27,12 +27,10 @@ export function StudyMode({
   onRetryStage,
   retryingStage,
   projectStatus,
-  onProjectStatusChange,
-  savingStatus = false,
   onOpenMaterials,
 }: StageModeBaseProps & {
   projectStatus: ProjectStatus;
-  onProjectStatusChange: (next: ProjectStatus) => void;
+  onProjectStatusChange?: (next: ProjectStatus) => void;
   savingStatus?: boolean;
 }) {
   const domIds = useMemo(
@@ -88,13 +86,7 @@ export function StudyMode({
             if (finishedIndex >= 0) scrollTo(finishedIndex);
             onCompareChange?.("target");
           }}
-          progressSlot={
-            <AtelierRibbon
-              status={projectStatus}
-              onStatusChange={onProjectStatusChange}
-              saving={savingStatus}
-            />
-          }
+          progressSlot={<AtelierRibbon status={projectStatus} />}
         />
       </div>
     </div>

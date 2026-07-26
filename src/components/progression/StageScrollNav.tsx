@@ -17,9 +17,10 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Sticky stage indicator for the continuous Study journey.
+ * Stage indicator for the continuous Study journey.
  * Desktop: six compact equal markers within page width.
  * Mobile: horizontally scrollable rail with active centering.
+ * Stays in document flow (not sticky) to avoid chrome stacking.
  */
 export function StageScrollNav({
   stages,

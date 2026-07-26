@@ -101,5 +101,5 @@ export function StageGuideColumn({
     );
   }
 
-  return <div className="study-stage-guide">{body}</div>;
+  return <div className="study-stage-guide-block">{body}</div>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import type { ProjectStatus } from "@/lib/lessons";
 import {
@@ -16,7 +16,6 @@ import {
   type RegenerationChecklistPhase,
 } from "@/lib/final-painting-regeneration";
 import { StudyMode } from "@/components/progression/StudyMode";
-import { PaintMode } from "@/components/progression/PaintMode";
 import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
 import type { CompareMode } from "@/components/progression/StageComparison";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
@@ -26,13 +25,10 @@ import { AppImage } from "@/components/ui/AppImage";
 import { getLessonTheme } from "@/lib/lesson-theme";
 import { getMediumLanguage } from "@/lib/medium-language";
 
-type Mode = "study" | "paint";
-
 export function LessonExperience({
   tutorial,
   imageUrl,
   medium,
-  entryMode = "study",
   progression,
   progressionHydrated = true,
   masterStatus = "pending",
@@ -64,8 +60,8 @@ export function LessonExperience({
   tutorial: Tutorial;
   imageUrl: string;
   medium: Medium;
-  /** Prefer study (continuous) or paint (one-stage) when entering from Overview. */
-  entryMode?: Mode;
+  /** @deprecated Continuous Study is the sole lesson model; retained for call-site compatibility. */
+  entryMode?: "study" | "paint";
   progression: StageImageRecord[];
   progressionHydrated?: boolean;
   masterStatus?: GenerationStatus;
@@ -102,16 +98,8 @@ export function LessonExperience({
     [tutorial, imageUrl, medium, progression],
   );
 
-  const [mode, setMode] = useState<Mode>(entryMode);
   const [compare, setCompare] = useState<CompareMode>("both");
   const lang = useMemo(() => getMediumLanguage(medium), [medium]);
-  /** Product naming: Study / Paint (not medium-specific Draw). */
-  const practiceLabel = "Paint";
-
-  // Sync when Overview CTAs request a mode change.
-  useEffect(() => {
-    setMode(entryMode);
-  }, [entryMode]);
 
   const ui = useMemo(
     () =>
@@ -208,24 +196,14 @@ export function LessonExperience({
               </figure>
             ) : null}
             <div className="master-review-view-actions">
-              {onRetryGeneration && (
+              {(onRetryGeneration || onRegenerateMaster || onRegenerate) && (
                 <button
                   type="button"
                   className="primary btn-branded"
-                  onClick={onRetryGeneration}
+                  onClick={onRetryGeneration || onRegenerateMaster || onRegenerate}
                   disabled={regenerateBusy || masterRequestInFlight}
                 >
-                  {masterRequestInFlight ? "Retrying…" : "Retry"}
-                </button>
-              )}
-              {(onRegenerateMaster || onRegenerate) && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={onRegenerateMaster || onRegenerate}
-                  disabled={regenerateBusy}
-                >
-                  {regenerating ? "Retrying…" : "Try again"}
+                  {masterRequestInFlight || regenerating ? "Retrying…" : "Try again"}
                 </button>
               )}
             </div>
@@ -235,58 +213,14 @@ export function LessonExperience({
     );
   }
 
-  // —— Lesson open: atelier (stages may still generate in the background) ——
+  // —— Lesson open: continuous Study document (sole lesson model) ——
   return (
     <div
-      className={`lesson-experience mode-${mode} lesson-experience--atelier`}
+      className="lesson-experience mode-study lesson-experience--atelier"
       data-lesson-medium={lessonMedium}
     >
-      <div className="lesson-controls atelier-lesson-toolbar">
-        <div
-          className="mode-switch mode-switch--compact"
-          role="tablist"
-          aria-label="Lesson view"
-        >
-          <button
-            type="button"
-            role="tab"
-            id="lesson-mode-study"
-            aria-controls="lesson-mode-panel"
-            aria-selected={mode === "study"}
-            tabIndex={mode === "study" ? 0 : -1}
-            className={mode === "study" ? "mode-tab active" : "mode-tab"}
-            onClick={() => setMode("study")}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-                e.preventDefault();
-                setMode("paint");
-              }
-            }}
-          >
-            Study
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            id="lesson-mode-paint"
-            aria-controls="lesson-mode-panel"
-            aria-selected={mode === "paint"}
-            tabIndex={mode === "paint" ? 0 : -1}
-            className={mode === "paint" ? "mode-tab active" : "mode-tab"}
-            onClick={() => setMode("paint")}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-                e.preventDefault();
-                setMode("study");
-              }
-            }}
-          >
-            {practiceLabel}
-          </button>
-        </div>
-
-        {onRegenerate ? (
+      {onRegenerate ? (
+        <div className="lesson-controls atelier-lesson-toolbar">
           <details className="atelier-regen-disclosure">
             <summary className="atelier-regen-summary">More options</summary>
             <button
@@ -302,15 +236,10 @@ export function LessonExperience({
                   : `Try another ${lang.completedWorkNoun}`}
             </button>
           </details>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <div
-        id="lesson-mode-panel"
-        role="tabpanel"
-        aria-label={mode === "study" ? "Study" : "Paint"}
-      >
-
+      <div id="lesson-mode-panel">
       {showAtelierRegenChrome &&
       regenerationState !== "candidateReady" &&
       !(regenerationState === "applying" && candidateFinalPaintingUrl) &&
@@ -385,28 +314,17 @@ export function LessonExperience({
         </div>
       ) : null}
 
-      {mode === "study" ? (
-        <TermBudgetProvider>
-          <StudyMode
-            stages={stages}
-            tutorial={tutorial}
-            medium={medium}
-            projectStatus={projectStatus}
-            onProjectStatusChange={onProjectStatusChange}
-            savingStatus={savingStatus}
-            {...shared}
-          />
-        </TermBudgetProvider>
-      ) : (
-        <TermBudgetProvider>
-          <PaintMode
-            stages={stages}
-            tutorial={tutorial}
-            medium={medium}
-            {...shared}
-          />
-        </TermBudgetProvider>
-      )}
+      <TermBudgetProvider>
+        <StudyMode
+          stages={stages}
+          tutorial={tutorial}
+          medium={medium}
+          projectStatus={projectStatus}
+          onProjectStatusChange={onProjectStatusChange}
+          savingStatus={savingStatus}
+          {...shared}
+        />
+      </TermBudgetProvider>
       </div>
     </div>
   );

@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { StageProcessRail } from "@/components/progression/StageProcessRail";
+import { StageScrollNav } from "@/components/progression/StageScrollNav";
 import { DeskStage } from "@/components/progression/DeskStage";
 import type { StageModeBaseProps } from "@/components/progression/stage-shell-props";
 
+/**
+ * Paint mode — one active stage at a time.
+ * Shares StageScrollNav with Study (no separate process rail / picker sheet).
+ */
 export function PaintMode({
   stages,
   tutorial,
@@ -31,9 +35,9 @@ export function PaintMode({
   };
 
   return (
-    <div className="paint-mode desk studio-mode studio-mode--atelier">
-      <StageProcessRail
-        className="desk-nav stage-process--quiet"
+    <div className="paint-mode desk studio-mode studio-mode--atelier lesson-document">
+      <StageScrollNav
+        className="stage-scroll-nav--quiet"
         stages={stages}
         active={safeActive}
         visitedMax={visitedMax}
@@ -41,12 +45,12 @@ export function PaintMode({
         medium={medium}
       />
 
-      <div className="desk-stages studio-stage-host atelier-stage-host">
+      <div className="desk-stages studio-stage-host atelier-stage-host lesson-document-stages">
         {activeStage ? (
           <section
             key={activeStage.id}
             id={`stage-${activeStage.id}`}
-            className="desk-stage studio-chapter-active"
+            className="desk-stage studio-chapter-active study-stage-section"
             aria-label={`${activeStage.title} — stage ${activeStage.index} of ${stages.length}`}
           >
             <DeskStage
