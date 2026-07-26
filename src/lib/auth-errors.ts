@@ -15,7 +15,7 @@ export function authErrorMessage(error: unknown): string {
     case "auth/cancelled-popup-request":
       return "Another sign-in window is already open.";
     case "auth/unauthorized-domain":
-      return "Google sign-in is not enabled for this site.";
+      return "This address is not authorized for Google sign-in. Use http://localhost:3000 (not 127.0.0.1), or add the domain in Firebase Auth → Settings → Authorized domains.";
     case "auth/operation-not-allowed":
       return "Google sign-in is not enabled. Please use email and password for now.";
     case "auth/network-request-failed":

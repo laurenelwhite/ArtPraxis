@@ -20,6 +20,8 @@ import {
   acceptRegeneratedCandidate,
   dismissRegeneratedCandidate,
   orchestrateProgression,
+  releaseProgressionLease,
+  PROGRESSION_LEASE_MS,
   regenerateAllTargets,
   regenerateMasterCandidate,
   retryStageTarget,
@@ -96,6 +98,7 @@ export function LessonView({ id }: { id: string }) {
   /** Project-scoped in-flight key — never a permanent boolean across projects. */
   const startedProjectRef = useRef<string | null>(null);
   const leaseRetryRef = useRef(0);
+  const leaseRetryStartedAtRef = useRef<number | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const masterUrlRef = useRef<string | null>(null);
   /** Sync lock — prevents double-click races before React state updates. */
@@ -126,6 +129,7 @@ export function LessonView({ id }: { id: string }) {
   useEffect(() => {
     startedProjectRef.current = null;
     leaseRetryRef.current = 0;
+    leaseRetryStartedAtRef.current = null;
     masterUrlRef.current = null;
     setMasterRequestInFlight(false);
     setGenerationError(null);
@@ -148,6 +152,22 @@ export function LessonView({ id }: { id: string }) {
       clearLessonBrand();
     };
   }, [id]);
+
+  // Release an in-flight lease on full document unload only. Do not release on
+  // React unmount — Strict Mode remounts would drop a live lease and force a
+  // soft retry (or briefly block a peer with the same CLIENT_ID race).
+  useEffect(() => {
+    if (!user) return;
+    const projectId = id;
+    const uid = user.uid;
+    const release = () => {
+      void releaseProgressionLease(uid, projectId);
+    };
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.removeEventListener("pagehide", release);
+    };
+  }, [user, id]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -298,10 +318,15 @@ export function LessonView({ id }: { id: string }) {
       // can resume if the accept fire-and-forget is interrupted (refresh, etc.).
       startedProjectRef.current = null;
       if (outcome === "skipped_lease") {
-        // Soft retry — Creator and LessonView can race the same lease after /studio/new.
-        // Do not hard-error; subscription + a bounded retry resumes missing work.
-        const attempt = (leaseRetryRef.current += 1);
-        if (attempt <= 3) {
+        // Soft retry across the full lease window — a reload/unmount can orphan a
+        // lease for up to PROGRESSION_LEASE_MS. Short retries hard-error too early.
+        if (leaseRetryStartedAtRef.current == null) {
+          leaseRetryStartedAtRef.current = Date.now();
+        }
+        const elapsed = Date.now() - leaseRetryStartedAtRef.current;
+        const budgetMs = PROGRESSION_LEASE_MS + 30_000;
+        if (elapsed < budgetMs) {
+          const attempt = (leaseRetryRef.current += 1);
           window.setTimeout(() => {
             if (startedProjectRef.current) return;
             if (
@@ -313,7 +338,7 @@ export function LessonView({ id }: { id: string }) {
               return;
             }
             void startMasterGeneration();
-          }, 2000 * attempt);
+          }, Math.min(2_000 * attempt, 10_000));
         } else {
           setGenerationError(
             "Another session is generating this lesson. Retry in a moment.",
@@ -321,6 +346,7 @@ export function LessonView({ id }: { id: string }) {
         }
       } else if (outcome === "ran" || outcome === "skipped_complete") {
         leaseRetryRef.current = 0;
+        leaseRetryStartedAtRef.current = null;
       }
     } catch (e) {
       const message =

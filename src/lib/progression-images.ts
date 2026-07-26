@@ -75,7 +75,9 @@ import {
 export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 
 const IMAGE_MODEL = "gpt-image-1";
-const LEASE_MS = 120_000; // a running item must renew within this window
+/** How long another client must wait before taking over an abandoned lease. */
+export const PROGRESSION_LEASE_MS = 120_000;
+const LEASE_MS = PROGRESSION_LEASE_MS;
 
 // One id per browser tab/session — identifies the lease owner.
 const CLIENT_ID =
@@ -892,6 +894,11 @@ async function releaseLease(uid: string, projectId: string): Promise<void> {
   } catch {
     /* best-effort */
   }
+}
+
+/** Best-effort release when a tab unloads mid-orchestration so peers are not blocked for LEASE_MS. */
+export async function releaseProgressionLease(uid: string, projectId: string): Promise<void> {
+  await releaseLease(uid, projectId);
 }
 
 interface ApiImage {

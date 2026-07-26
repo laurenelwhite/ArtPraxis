@@ -25,7 +25,7 @@ describe("auth error messages", () => {
     );
     assert.match(
       authErrorMessage({ code: "auth/unauthorized-domain" }),
-      /not enabled for this site/i,
+      /localhost/i,
     );
   });
 
