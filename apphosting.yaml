@@ -1,0 +1,34 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 40
+  cpu: 1
+  memoryMiB: 1024
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyDV6__bmRwibXGmF2iZMfDvWnA6bTLQkyw
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: artpraxis-33840.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: artpraxis-33840
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: artpraxis-33840.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "411067288024"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:411067288024:web:7224224467163cbe374aad
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-0MDZM0246M
+  - variable: OPENAI_API_KEY
+    secret: OPENAI_API_KEY
+  - variable: OPENAI_MODEL
+    value: gpt-5-mini
+  - variable: ENABLE_STAGE_IMAGE_GEN
+    value: "true"
+  - variable: NEXT_PUBLIC_ENABLE_AI_STAGE_REFINEMENT
+    value: "false"
+  - variable: ENABLE_AI_STAGE_REFINEMENT
+    value: "false"
+  - variable: STAGE_GEN_MAX_RETRIES
+    value: "0"

@@ -1,4 +1,25 @@
 {
+  "apphosting": [
+    {
+      "backendId": "artpraxis",
+      "rootDir": ".",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".next",
+        ".env",
+        ".env.local",
+        ".env.*.local",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "scripts/e2e-lesson-*.mjs",
+        "scripts/inspect-*.mjs",
+        "scripts/probe-lesson-console.js",
+        "tmp-stage-qa",
+        "docs/stability-shots"
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
