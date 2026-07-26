@@ -54,6 +54,36 @@ Add owners and PR links to each entry.
 
 ---
 
+## 2026-07-26
+
+### Approved Brand Kit 1.0 application surfaces
+
+**Decision**
+
+The approved Brand Kit 1.0 is the visual authority for application chrome, lesson generation, Overview, and Lesson surfaces. Product UI must express the system through visible warm handmade paper, Fraunces editorial headings, Source Sans 3 UI text, indigo structure and brushwork, restrained yellow-ochre and red-earth accents, quiet material-integrated controls, and mounted-artwork presentation.
+
+Generation waits retain the truthful pipeline checklist and qualitative timing, preceded by the approved three-pigment loading motif (yellow ochre, red earth, indigo) and “Practice. Progress. Master.” message. The motif supplements status communication; it does not fabricate completion or replace accessible text.
+
+Existing logo SVGs remain temporary approximations. They must be replaced by isolated designer-exported production assets when available; the composite brand-kit image must not be cropped, traced, or shipped as navigation artwork.
+
+**Reason**
+
+Using only the palette and fonts produced a generic beige editorial interface that did not reflect the approved handcrafted, tactile atelier identity.
+
+**Outcome**
+
+Production application surfaces now use the approved material, color, typography, brushwork, loading, and artwork-framing language while preserving lesson state, generation, accessibility, and responsive behavior.
+
+**Related Documents**
+
+- [ArtPraxis Brand and UI Source of Truth](./brand/ARTPRAXIS_BRAND_GUIDE.md)
+- [Component Principles](./design/component-principles.md)
+- [UI Patterns](./design/ui-patterns.md)
+- [Logo Standards](./brand/Logo%20Standards.md)
+- [public/brand/README](../public/brand/README.md)
+
+---
+
 ## 2026-07-23
 
 ### Design-system audit polish (brand / type / chrome)
