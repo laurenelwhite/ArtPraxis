@@ -2,7 +2,10 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { AdaptiveNavLogo } from "@/components/brand/AdaptiveNavLogo";
-import type { BrandTheme } from "@/lib/branding/brand-theme";
+import {
+  defaultBrandTheme,
+  type BrandTheme,
+} from "@/lib/branding/brand-theme";
 
 /**
  * Approved ArtPraxis logo variants.
@@ -157,11 +160,11 @@ export function ArtPraxisLogo({
   const isSidebar = requested === "sidebar" || activeVariant === "sidebar";
   const reducedMotion = usePrefersReducedMotion();
 
-  const useAdaptive =
-    requested === "navigation" && adaptiveTheme != null && !showWordmark;
+  const navigationTheme = adaptiveTheme ?? defaultBrandTheme("watercolor");
+  const useAdaptive = requested === "navigation" && !showWordmark;
 
   const adaptiveKey = useAdaptive
-    ? `${adaptiveTheme.brushTexture}:${adaptiveTheme.accentColor}:${adaptiveTheme.sourceMasterUrl ?? ""}`
+    ? `${navigationTheme.brushTexture}:${navigationTheme.accentColor}:${navigationTheme.sourceMasterUrl ?? ""}`
     : "navy";
 
   /** Height-driven presets; sidebar is width-driven via CSS (no --ap-logo-h clamp). */
@@ -201,10 +204,10 @@ export function ArtPraxisLogo({
     >
       {showWordmark ? (
         <span className="ap-logo-wordmark">ArtPraxis</span>
-      ) : useAdaptive && adaptiveTheme ? (
+      ) : useAdaptive ? (
         <AdaptiveNavLogo
           key={adaptiveKey}
-          theme={adaptiveTheme}
+          theme={navigationTheme}
           instant={reducedMotion}
           height={SIZE_HEIGHT[size]}
         />
@@ -226,4 +229,3 @@ export function ArtPraxisLogo({
     </span>
   );
 }
-
