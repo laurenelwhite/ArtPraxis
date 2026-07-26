@@ -4,11 +4,11 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithP
 import { auth, googleProvider } from "@/lib/firebase";
 import { ArtPraxisLogo } from "@/components/brand/ArtPraxisLogo";
 
-export function AuthPanel() {
+export function AuthPanel({ initialError = null }: { initialError?: string | null }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError ?? "");
 
   async function emailAuth() {
     try {

@@ -16,7 +16,7 @@ function isLessonDetailPath(pathname: string) {
  * Header stays fixed; only `.app-main` scrolls (Figma / Linear / Notion pattern).
  */
 function AppShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, error } = useAuth();
   const pathname = usePathname();
   const lessonRoute = isLessonDetailPath(pathname);
 
@@ -31,7 +31,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <main className="shell">
-        <AuthPanel />
+        <AuthPanel initialError={error} />
       </main>
     );
   }
