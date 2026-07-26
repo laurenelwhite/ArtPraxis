@@ -666,12 +666,26 @@
 
 @media(max-width:760px){
   :root{--app-topbar-h:60px}
-  .lesson-shell-tabs{
-    scrollbar-width:none;
+  .lesson-shell .project-tabs.lesson-shell-tabs{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:10px !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    scrollbar-width:none !important;
     -ms-overflow-style:none;
+    overscroll-behavior-inline:contain;
+    touch-action:pan-x;
   }
-  .lesson-shell-tabs::-webkit-scrollbar{
-    display:none;
+  .lesson-shell .project-tabs.lesson-shell-tabs::-webkit-scrollbar{
+    display:none !important;
+    width:0 !important;
+    height:0 !important;
+  }
+  .lesson-shell .project-tabs.lesson-shell-tabs .project-tab{
+    flex:0 0 auto !important;
+    padding-inline:12px !important;
+    white-space:nowrap;
   }
   .app-header{
     padding-inline:14px !important;
