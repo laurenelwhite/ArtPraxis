@@ -205,6 +205,16 @@ export function LessonLoadingView({
           <p className="atelier-wait-body">{body}</p>
         </header>
 
+        <div className="atelier-pigment-loader" aria-hidden="true">
+          <span className="atelier-pigment-drop is-ochre" />
+          <span className="atelier-pigment-drop is-earth" />
+          <span className="atelier-pigment-drop is-indigo" />
+          <span className="atelier-pigment-spread" />
+        </div>
+        <p className="atelier-pigment-caption">
+          Practice. <span>Progress.</span> Master.
+        </p>
+
         <div className="atelier-wait-time" aria-label="Expected wait">
           <div className="atelier-wait-time-row">
             <p className="atelier-wait-estimate">{remainingCopy}</p>

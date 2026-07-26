@@ -376,7 +376,7 @@
 .app-shell{
   background-color:var(--ap-kit-paper) !important;
   background-image:
-    linear-gradient(rgba(242,236,227,.82), rgba(242,236,227,.82)),
+    linear-gradient(rgba(242,236,227,.56), rgba(242,236,227,.56)),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.045 .62' numOctaves='4' seed='14' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .34 0 0 0 0 .27 0 0 0 0 .20 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.38'/%3E%3C/svg%3E") !important;
 }
 
@@ -470,12 +470,11 @@
   content:"";
   position:absolute;
   left:0;
-  bottom:-2px;
-  width:clamp(72px,11vw,150px);
-  height:3px;
-  border-radius:999px 70% 999px 45%;
-  background:var(--ap-kit-ochre);
-  transform:rotate(-.25deg);
+  bottom:-5px;
+  width:clamp(96px,15vw,190px);
+  height:10px;
+  background:url("/brand/brush-stroke-navy.svg") left center / 100% 100% no-repeat;
+  transform:rotate(-.4deg);
 }
 .lesson-shell-copy{
   max-width:72rem;
@@ -648,6 +647,127 @@
   border-color:rgba(44,62,86,.14);
   background:rgba(248,243,235,.58);
   box-shadow:none;
+}
+
+/* Approved three-pigment loading experience. */
+.lesson-experience--generating .atelier-wait-panel,
+.creator--generating .atelier-wait-panel{
+  position:relative;
+  padding:clamp(24px,3vw,40px);
+  max-width:none;
+  border:1px solid rgba(44,62,86,.18);
+  border-radius:8px;
+  background:rgba(248,243,235,.68);
+  box-shadow:var(--ap-kit-shadow);
+  overflow:hidden;
+}
+.lesson-experience--generating .atelier-wait-panel::before,
+.creator--generating .atelier-wait-panel::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.18;
+  background:
+    radial-gradient(ellipse at 12% 16%, rgba(218,163,90,.34), transparent 32%),
+    radial-gradient(ellipse at 92% 78%, rgba(162,74,58,.22), transparent 34%);
+}
+.atelier-wait-panel > *{position:relative;z-index:1}
+.atelier-wait-heading{
+  color:var(--ap-kit-ink) !important;
+  font-size:clamp(2rem,3.5vw,3.5rem) !important;
+  font-weight:500 !important;
+  line-height:1.02 !important;
+  letter-spacing:-.025em;
+}
+.atelier-wait-body{
+  color:rgba(44,62,86,.78) !important;
+}
+.atelier-pigment-loader{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:clamp(14px,2vw,22px);
+  width:min(100%,330px);
+  min-height:82px;
+  margin:8px 0 0;
+  padding:12px 18px 20px;
+}
+.atelier-pigment-drop{
+  position:relative;
+  z-index:2;
+  display:block;
+  width:46px;
+  aspect-ratio:1;
+  border-radius:46% 54% 48% 52% / 52% 43% 57% 48%;
+  box-shadow:
+    inset 7px 8px 10px rgba(255,255,255,.24),
+    inset -7px -8px 12px rgba(18,24,28,.24),
+    0 8px 12px rgba(44,62,86,.15);
+  transform:rotate(-8deg);
+}
+.atelier-pigment-drop::after{
+  content:"";
+  position:absolute;
+  inset:9px 10px auto auto;
+  width:11px;
+  height:7px;
+  border-radius:50%;
+  background:rgba(255,255,255,.28);
+  transform:rotate(18deg);
+}
+.atelier-pigment-drop.is-ochre{background:#daa35a}
+.atelier-pigment-drop.is-earth{background:#a24a3a;transform:rotate(7deg)}
+.atelier-pigment-drop.is-indigo{background:#2c3e56;transform:rotate(-2deg)}
+.atelier-pigment-spread{
+  position:absolute;
+  z-index:1;
+  left:12px;
+  right:0;
+  bottom:12px;
+  height:14px;
+  border-radius:60% 42% 64% 38%;
+  background:linear-gradient(90deg,#daa35a 0 30%,#a24a3a 35% 63%,#2c3e56 68% 100%);
+  opacity:.82;
+  transform:skewX(-12deg) rotate(-1deg);
+  filter:saturate(.92);
+}
+.atelier-pigment-caption{
+  margin:-4px 0 4px 18px;
+  color:var(--ap-kit-earth);
+  font-family:var(--artpraxis-font-display,var(--serif));
+  font-size:1rem;
+  font-style:italic;
+  letter-spacing:.01em;
+}
+.atelier-pigment-caption span{color:#986b2f}
+.atelier-wait-track{
+  background:rgba(44,62,86,.10) !important;
+}
+.atelier-wait-track-fill{
+  background:linear-gradient(90deg,var(--ap-kit-ochre),var(--ap-kit-earth),var(--ap-kit-ink)) !important;
+}
+.atelier-pipeline{
+  border-radius:7px !important;
+  border-color:rgba(44,62,86,.15) !important;
+  background:rgba(242,236,227,.62) !important;
+}
+.atelier-studio-tip{
+  border-radius:7px !important;
+  color:var(--ap-kit-ink);
+  background:rgba(218,163,90,.13) !important;
+}
+
+@media(prefers-reduced-motion:no-preference){
+  .atelier-pigment-drop{
+    animation:ap-pigment-breathe 2.8s ease-in-out infinite;
+  }
+  .atelier-pigment-drop.is-earth{animation-delay:.18s}
+  .atelier-pigment-drop.is-indigo{animation-delay:.36s}
+}
+@keyframes ap-pigment-breathe{
+  0%,100%{transform:translateY(0) rotate(-5deg)}
+  50%{transform:translateY(-3px) rotate(2deg)}
 }
 
 @media(max-width:980px){
