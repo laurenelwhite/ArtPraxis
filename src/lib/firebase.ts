@@ -57,7 +57,7 @@ function createAuth(firebaseApp: FirebaseApp): Auth {
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
-    // Hot reload — Auth already initialized for this app.
+    // Hot reload or earlier browser init — always reuse the same app's Auth instance.
     return getAuth(firebaseApp);
   }
 }

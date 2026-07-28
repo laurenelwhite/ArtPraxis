@@ -2288,3 +2288,201 @@ Introduced `--ap-state-*` and `--ap-completion-*` tokens. Reused `--ap-loading-e
 ### Exact next migration target
 
 **Mobile and tablet polish** — responsive sections in `globals.css`, `globals-app-shell.css`, lesson shell gutters, dock/FAB clearance, and narrow-viewport overflow fixes across migrated surfaces.
+
+## Completed: Mobile and tablet polish
+
+### Viewport matrix reviewed
+
+Structural audit across: 1440×1000, 1280×800, 1024×768, 834×1194, 768×1024, 430×932, 390×844, 375×667, 320×568; plus conceptual checks for 200% zoom, short viewport heights, landscape mobile, long titles/copy, and portrait/landscape/square artwork. Browser visual verification was not completed in this pass (no authenticated dev session opened; no new lesson generated).
+
+### Breakpoint inventory
+
+| Value | Primary use | Classification |
+| --- | --- | --- |
+| 480px | Header menu label hide; materials filter grid | Narrow mobile / shell |
+| 560px | Overlay labels, palette grid, materials | Narrow mobile / component |
+| 640px | Auth panel padding; creator fields; loading chip | Mobile layout |
+| 699px | App-main mobile gutter; lesson header; study gaps; compare segment grid | Mobile layout |
+| 700px | Creator two-column min; desk layouts | Mobile/desktop split (pairs with 699) |
+| 720px | Reference dock FAB; progress stack; panel peek; FAB clearance | Component-specific (dock) |
+| 760px | App header mobile menu; lesson shell title/tabs; JS menu close (`innerWidth > 760`) | Global shell |
+| 800px | Legacy desk/stage rules | Legacy / component |
+| 820px | Studio reference image `sizes` attribute | Component (TSX) |
+| 860px | Legacy layout | Legacy |
+| 899px | Legacy breakpoints | Legacy |
+| 900px | Creator stack; materials list; reference sizes | Tablet layout |
+| 960px | Legacy | Legacy |
+| 961px | Legacy min-width | Legacy |
+| 980px | Overview dashboard stack; shell tablet gutters | Tablet layout |
+| 1024px | Legacy max-width | Legacy |
+| 1099px / 1100px | Study/Paint grid collapse; sticky workspace off; compare panels | Tablet layout |
+| 1100px+ | Study/Paint desktop grid; sticky artwork | Desktop layout |
+
+**JavaScript vs CSS:** Only layout JS is `AppHeader` menu close at `760px` — aligned with shell CSS. `matchMedia` is reduced-motion only (no layout breakpoints).
+
+**Near-duplicate pairs intentionally retained:**
+
+- **699 / 700** — off-by-one split for mobile rules vs `min-width:700px` desktop rules (cascade boundary).
+- **720 / 760** — 720 controls reference dock FAB and bottom clearance; 760 controls global header and lesson shell chrome.
+- **721** — dock desktop card mode threshold (pairs with 720 mobile FAB).
+- **980 / 900** — 980 stacks overview dashboard; 900 stacks creator and materials grids (different surfaces).
+
+### Breakpoints consolidated
+
+- None merged in this pass — consolidation would risk changing cascade order across 100+ legacy media blocks. Duplicate study `@media(max-width:1099px)` blocks (lines ~9451 and ~10122) remain; behavior is identical for order/sticky rules.
+
+### Breakpoints intentionally retained
+
+See table above — especially 699/700, 720/760/721, 980/900, 1099/1100.
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/app/globals.css` (append-only polish block)
+- `src/app/globals-app-shell.css` (shell gutters, menu safe-area, lesson title wrap)
+- `docs/design/TOKEN_MIGRATION_AUDIT.md`
+
+No component TypeScript/TSX files modified — responsive pass is CSS/token only.
+
+### Responsive tokens introduced or reused
+
+**Introduced:** `--ap-safe-area-*`, `--ap-page-gutter-current`, `--ap-mobile-control-min-height`, `--ap-mobile-fab-clearance`, `--ap-mobile-section-gap`, `--ap-tablet-section-gap`, `--ap-mobile-dialog-gutter`, `--ap-mobile-panel-max-height`.
+
+**Reused:** `--ap-shell-page-padding-inline-*`, `--ap-reference-panel-*`, `--ap-materials-check-size`, existing spacing and motion tokens.
+
+### Horizontal overflow fixes
+
+- Reinforced `min-width:0` / `max-width:100%` on auth, creator, overview dashboard, and error/state surfaces at ≤720px.
+- `overflow-wrap:anywhere` on long error copy, material names, substitution text, loading banners.
+- Instructional artwork `max-width:100%; object-fit:contain` guard on migrated image selectors.
+- Retained intentional horizontal scroll on lesson primary tabs and stage navigation only.
+- No new `overflow-x:hidden` on `body`/`html` (pre-existing `overflow-x:clip` on `html,body` and `.app-main` unchanged).
+
+### Vertical-scroll and viewport-height fixes
+
+- Loading/generation panels gain `max-height` + `overflow-y:auto` on short viewports (≤640px and landscape ≤560px height).
+- Reference panel uses `84dvh` via `--ap-mobile-panel-max-height`.
+- No rigid `100vh` traps added; modal/body-lock behavior untouched.
+
+### Typography fixes
+
+- Lesson shell title: removed `max-width:18ch` clamp in mobile shell — titles wrap with `text-wrap:balance`.
+- Fullscreen reference head wraps on narrow widths.
+- No new typography tokens; existing `clamp()` rules preserved.
+
+### Touch-target fixes
+
+At ≤720px, minimum ~44px applied to: overflow menu trigger/items, dock close, stage scroll nav buttons, compare segment buttons, final painting entry, progress status/upload, reference color toggle, materials ready controls, atelier ribbon summaries.
+
+### Shell/header improvements
+
+- Tablet/mobile `--app-main-pad-x` syncs with shell gutter tokens at 980px / 760px.
+- Mobile menu respects safe-area top/bottom; menu toggle min-width 44px.
+- Lesson title no longer artificially truncated at 18ch on mobile.
+
+### Authentication improvements
+
+- Panel and fields constrained to viewport; error/lead copy wraps at ≤720px.
+- Existing 640px padding token retained.
+
+### Create Lesson improvements
+
+- Creator layout `min-width:0` at ≤720px; submit/change-image full-width at ≤640px.
+- Workspace height tokens (900/640 breakpoints) unchanged; no upload logic changes.
+
+### Loading improvements
+
+- Wait panel scrollable on short/landscape viewports; long pipeline labels wrap.
+
+### Overview improvements
+
+- Dashboard meta grid single column at ≤720px; dashboard width 100% (overrides `min(760px)`).
+- 980px stack rules retained from prior pass.
+
+### Navigation improvements
+
+- Stage nav touch targets enlarged without changing scroll-into-view logic.
+- Tab horizontal scroll and nowrap preserved.
+
+### Study improvements
+
+- Sticky workspace still disabled below 1100px (unchanged).
+- FAB/dock clearance extended to completion/progress tail content.
+- Compare segment touch targets improved at mobile.
+
+### Paint Mode observations
+
+- Structural CSS already mirrors Study collapse at 1099px; not exposed in navigation. No Paint Mode changes required beyond shared touch-target and artwork-contain guards.
+
+### Studio Reference improvements
+
+- FAB clearance on all lesson surfaces; dock close 44px on mobile.
+- Panel and fullscreen safe-area padding; panel nearly full width on mobile.
+- Fullscreen head wraps controls.
+
+### Materials improvements
+
+- Ready controls meet 44px; header/actions stack on mobile.
+- Filter grid 2-column at ≤480px; list already single column at 900px.
+
+### Progress improvements
+
+- Status/upload controls already stack at 720px; touch min-height reinforced.
+- FAB clearance on progress workbench.
+
+### State-system improvements
+
+- Empty/error/completion surfaces use mobile padding token; long raw errors wrap safely.
+- Completion actions stack at 720px (pre-existing, retained).
+
+### Safe-area improvements
+
+- Tokens centralize `env(safe-area-inset-*)` expressions.
+- Applied to mobile menu, reference panel, fullscreen, and FAB bottom offset (pre-existing FAB offset retained and extended).
+
+### Accessibility improvements
+
+- Touch targets and focus-visible rings preserved/enlarged on mobile controls.
+- Text wrapping prevents clipping at 200% zoom (structural).
+- Keyboard tab/stage nav behavior unchanged.
+
+### Functional concerns observed but intentionally not changed
+
+- `AppHeader` menu closes on `resize` when `innerWidth > 760` — unchanged.
+- Studio Reference focus restoration gap — unchanged.
+- Progress photo upload still unwired.
+- Paint Mode not exposed.
+- `LessonView` hook-deps warning — unchanged.
+- Full `npm run lint` still scans browser-profile artifacts under `docs/stability-shots/`.
+
+### Remaining responsive inconsistencies
+
+- Many legacy breakpoints (800, 860, 899, 960, 961, 1024) remain in `globals.css` for unmigrated or historical surfaces.
+- Duplicate `@media(max-width:1099px)` study blocks could be merged in a future cleanup pass.
+- `699px` app-main padding rule in `globals-app-shell.css` overlaps new 760px gutter token (harmless redundancy).
+- Browser visual QA across full viewport matrix still pending.
+
+### Exact next target
+
+**Full visual QA and screenshot readiness audit**
+
+## Completed: Full visual QA and screenshot readiness audit
+
+### Final QA status (continued pass)
+
+- Branch/HEAD unchanged: `feature/stability-ui-cleanup` @ `b397335`; checkpoint `08f1495` intact
+- Authenticated session working; ready lesson `eJcl58mY5ox6TRlizyB5` used; **no new generation**
+- Full viewport matrix (1440→320) completed for Overview, Study, Materials, Progress — no page-level overflow-X; artwork `contain`
+- Studio Reference panel + fullscreen + Overlay/opacity verified; Escape closes; warm studio chrome
+- 200% zoom (CSS zoom), reduced-motion, mobile menu verified
+- Shell fixes retained (menu grid-area + open-menu z-index); no auth/generation/upload logic changes
+- Validation: typecheck / test (98) / build pass
+- Detail log: `docs/design/VISUAL_QA_SCREENSHOT_READINESS.md`
+
+### Overall readiness decision
+
+**NOT READY** (conservative) — lesson screenshot candidates 3–13 pass browser review with zero Blocker/High defects; still blocked for full READY by Create selected-image unverified, loading unverified, and incomplete keyboard/focus proof (including known missing focus-return after Studio Reference close).
+
+### Exact next step
+
+Verify Create at `/studio/new` without generating; finish keyboard/focus proof or defer as a11y debt; confirm Progress status for capture; then capture candidates 3–13 or reassess.

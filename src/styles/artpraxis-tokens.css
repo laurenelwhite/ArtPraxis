@@ -468,6 +468,19 @@
   --ap-completion-rule:rgba(44, 62, 86, 0.1);
   --ap-completion-max-width:40rem;
 
+  /* Responsive polish — runtime-adjustable (not usable in @media conditions) */
+  --ap-safe-area-top:env(safe-area-inset-top, 0px);
+  --ap-safe-area-right:env(safe-area-inset-right, 0px);
+  --ap-safe-area-bottom:env(safe-area-inset-bottom, 0px);
+  --ap-safe-area-left:env(safe-area-inset-left, 0px);
+  --ap-page-gutter-current:var(--ap-shell-page-padding-inline);
+  --ap-mobile-control-min-height:44px;
+  --ap-mobile-fab-clearance:0px;
+  --ap-mobile-section-gap:var(--ap-space-4);
+  --ap-tablet-section-gap:var(--ap-space-5);
+  --ap-mobile-dialog-gutter:var(--ap-space-3);
+  --ap-mobile-panel-max-height:min(84dvh, 820px);
+
   /* Approved primitive aliases kept for compatibility */
   --color-indigo:#2c3e56;
   --color-red-earth:#a24a3a;

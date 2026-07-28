@@ -12769,3 +12769,207 @@ body{
     animation:none !important;
   }
 }
+
+/* ============================================================
+   Mobile and tablet polish — responsive system (2026)
+   Artwork remains hero; controls wrap before crowding.
+   ============================================================ */
+
+@media(max-width:1099px){
+  :root{
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-tablet);
+    --ap-reference-panel-max-height:var(--ap-mobile-panel-max-height);
+  }
+}
+
+@media(max-width:760px){
+  :root{
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-mobile);
+    --ap-mobile-fab-clearance:96px;
+  }
+}
+
+@media(max-width:720px){
+  .has-ref-dock .lesson-shell-body,
+  .has-ref-dock .project-panel,
+  .has-ref-dock .study-mode--continuous,
+  .has-ref-dock .lesson-document-stages,
+  .has-ref-dock .progress-workbench,
+  .has-ref-dock .materials-workbench,
+  .has-ref-dock .studio-ref-page,
+  .has-ref-dock .ap-completion,
+  .has-ref-dock .study-completion-progress{
+    padding-bottom:max(
+      var(--ap-mobile-fab-clearance),
+      calc(var(--ap-safe-area-bottom) + 72px)
+    );
+  }
+
+  .lesson-overflow-trigger,
+  .lesson-ref-dock-close{
+    width:var(--ap-mobile-control-min-height);
+    height:var(--ap-mobile-control-min-height);
+    min-width:var(--ap-mobile-control-min-height);
+    min-height:var(--ap-mobile-control-min-height);
+  }
+  .lesson-overflow-item{
+    min-height:var(--ap-mobile-control-min-height);
+    padding-block:10px;
+  }
+
+  .stage-scroll-nav-btn{
+    min-height:var(--ap-mobile-control-min-height);
+    padding:8px 10px;
+  }
+  .compare-segment-btn,
+  .final-painting-entry-btn,
+  .progress-status-option,
+  .progress-upload-trigger,
+  .reference-color-toggle{
+    min-height:var(--ap-mobile-control-min-height);
+  }
+
+  .studio-ref-panel-root{
+    padding:
+      max(var(--ap-space-3), var(--ap-safe-area-top))
+      max(var(--ap-mobile-dialog-gutter), var(--ap-safe-area-right))
+      max(var(--ap-space-3), var(--ap-safe-area-bottom))
+      max(var(--ap-mobile-dialog-gutter), var(--ap-safe-area-left));
+    place-items:end stretch;
+  }
+  .studio-ref-panel-sheet{
+    width:min(100%, var(--ap-reference-panel-width));
+    max-height:var(--ap-mobile-panel-max-height);
+  }
+
+  .studio-ref-fullscreen{
+    padding:
+      var(--ap-safe-area-top)
+      var(--ap-safe-area-right)
+      var(--ap-safe-area-bottom)
+      var(--ap-safe-area-left);
+    box-sizing:border-box;
+  }
+  .studio-ref-fullscreen-head{
+    padding-top:max(var(--ap-space-3), var(--ap-safe-area-top));
+    flex-wrap:wrap;
+    gap:var(--ap-space-3);
+  }
+  .studio-ref-fullscreen-body{
+    padding-bottom:max(var(--ap-space-5), var(--ap-safe-area-bottom));
+  }
+
+  .ap-auth-panel,
+  .ap-auth-form,
+  .ap-auth-field,
+  .ap-auth-field input,
+  .creator--atelier,
+  .creator-layout,
+  .creator-stage,
+  .creator-plan,
+  .lesson-error-view,
+  .ap-state,
+  .overview-dashboard{
+    min-width:0;
+    max-width:100%;
+  }
+  .ap-auth-error,
+  .ap-auth-lead,
+  .lesson-error-detail,
+  .ap-state-body,
+  .fp-regen-status-message,
+  .creator-error,
+  .materials-workbench .workbench-item-name,
+  .materials-workbench .workbench-item-substitution,
+  .studio-ref-fullscreen-title{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+  .overview-dashboard{
+    width:100%;
+  }
+  .overview-meta--dash{
+    grid-template-columns:1fr;
+  }
+
+  .materials-workbench .palette-ready-btn--compact,
+  .materials-workbench .palette-ready-btn,
+  .materials-workbench .workbench-ready{
+    min-height:var(--ap-mobile-control-min-height);
+    padding-block:8px;
+  }
+  .materials-workbench-header,
+  .materials-ready-actions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .study-completion .atelier-ribbon-summary,
+  .progress-workbench .atelier-ribbon-summary{
+    min-height:var(--ap-mobile-control-min-height);
+    padding-block:10px;
+  }
+}
+
+@media(max-width:640px){
+  .creator--atelier .creator-submit,
+  .creator--atelier .creator-change-image{
+    width:100%;
+  }
+  .atelier-wait-panel,
+  .lesson-experience--generating .atelier-wait-panel,
+  .creator--generating .atelier-wait-panel{
+    max-height:calc(100dvh - var(--app-topbar-h) - 48px);
+    overflow-y:auto;
+  }
+  .atelier-stages-live-banner,
+  .atelier-pipeline-step-label{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+}
+
+@media(max-width:480px){
+  .materials-filters{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+  .materials-filter{
+    width:100%;
+    text-align:center;
+  }
+}
+
+@media(orientation:landscape) and (max-height:560px){
+  .atelier-wait-view,
+  .lesson-loading-view.atelier-wait-view{
+    min-height:0;
+    padding-block:var(--ap-space-3);
+  }
+  .atelier-wait-panel,
+  .lesson-experience--generating .atelier-wait-panel,
+  .creator--generating .atelier-wait-panel{
+    max-height:calc(100dvh - var(--app-topbar-h) - 24px);
+    overflow-y:auto;
+  }
+  .studio-ref-panel-sheet{
+    max-height:calc(100dvh - var(--app-topbar-h) - 32px);
+  }
+}
+
+/* Instructional artwork — contain at every migrated viewport */
+.study-mode--continuous .cmp-viewport img,
+.study-mode--continuous .cmp-viewport .cmp-frame-img,
+.study-mode--continuous .annotated-image img,
+.overview-ref-pair .studio-ref-img,
+.studio-ref-viewer img,
+.studio-ref-page img,
+.creator-preview-img,
+.creator-preview-frame img,
+.atelier-studio-painting-img,
+.progress-upload-preview img,
+.materials-workbench .workbench-item-mark img{
+  max-width:100%;
+  object-fit:contain;
+}

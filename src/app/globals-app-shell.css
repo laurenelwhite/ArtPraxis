@@ -745,6 +745,11 @@
   .app-shell:has(.app-header.is-menu-open) .app-main{
     overflow:hidden !important;
   }
+  /* Overlay is a header sibling at z=55. Raise the whole header stacking
+     context while the menu is open so Sign out / nav links receive clicks. */
+  .app-header.is-menu-open{
+    z-index:var(--ap-shell-z-menu);
+  }
   .app-header{
     grid-template-columns:minmax(0,1fr) auto !important;
     grid-template-areas:"brand menu" !important;
@@ -762,6 +767,8 @@
     left:var(--ap-shell-page-padding-inline-mobile);
     z-index:var(--ap-shell-z-menu);
     display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:none;
     gap:12px;
     width:auto;
     max-width:var(--ap-shell-menu-width);
@@ -773,6 +780,14 @@
     box-shadow:var(--ap-shell-menu-shadow);
     max-height:calc(100dvh - var(--app-topbar-h) - 24px);
     overflow:auto;
+  }
+  /* Desktop named areas (nav/account) must not apply inside the mobile panel,
+     or Sign out stacks under Create a lesson and becomes untappable. */
+  .app-header.is-menu-open .app-header-nav,
+  .app-header.is-menu-open .app-header-account{
+    grid-area:auto;
+    justify-self:stretch;
+    width:100%;
   }
   .app-header-overlay{
     display:block;
@@ -876,9 +891,10 @@
     padding-bottom:24px;
   }
   .lesson-shell-title{
-    max-width:18ch;
+    max-width:100%;
+    text-wrap:balance;
     font-size:clamp(2rem,10.5vw,3.35rem);
-    line-height:1.01;
+    line-height:1.08;
   }
   .lesson-shell .project-tabs,
   .lesson-shell-tabs{
@@ -902,4 +918,36 @@
 @media(max-width:480px){
   .app-header-menu-toggle{padding-inline:10px}
   .app-header-menu-label{display:none}
+}
+
+/* ============================================================
+   Mobile and tablet polish — shell gutters and menu (2026)
+   ============================================================ */
+
+@media(max-width:980px){
+  :root{
+    --app-main-pad-x:var(--ap-shell-page-padding-inline-tablet);
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-tablet);
+  }
+}
+
+@media(max-width:760px){
+  :root{
+    --app-main-pad-x:var(--ap-shell-page-padding-inline-mobile);
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-mobile);
+    --ap-mobile-fab-clearance:96px;
+  }
+  .app-header.is-menu-open .app-header-menu{
+    top:max(
+      calc(var(--app-topbar-h) + 8px),
+      calc(var(--ap-safe-area-top) + var(--app-topbar-h) + 4px)
+    );
+    max-height:calc(
+      100dvh - var(--app-topbar-h) - max(16px, var(--ap-safe-area-bottom)) - 8px
+    );
+    padding-bottom:max(16px, var(--ap-safe-area-bottom));
+  }
+  .app-header-menu-toggle{
+    min-width:var(--ap-mobile-control-min-height);
+  }
 }
