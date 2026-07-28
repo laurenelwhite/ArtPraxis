@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
@@ -181,6 +181,11 @@ export function LessonCreator() {
     onFileChange(next);
   }
 
+  function onPrepareSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    void generate();
+  }
+
   if (busy) {
     const lang = getMediumLanguage(medium);
     return (
@@ -207,13 +212,16 @@ export function LessonCreator() {
   }
 
   const filled = Boolean(preview);
+  const canSubmit = Boolean(file) && !busy;
+  const headingId = "creator-heading";
+  const errorId = "creator-error";
+  const submitHintId = "creator-submit-hint";
 
   return (
     <div className="creator creator--atelier" data-lesson-medium={medium}>
       <header className="creator-header page-masthead">
         <div className="creator-header-copy">
-          <p className="eyebrow">New lesson</p>
-          <h1 className="dashboard-title creator-title">Choose your reference</h1>
+          <h1 id={headingId} className="dashboard-title creator-title">Choose your reference</h1>
           <p className="meta creator-lead">
             {emailMedium
               ? `Upload a photograph or artwork. ArtPraxis will turn it into a personalized ${MEDIUM_LABEL[emailMedium].toLowerCase()} atelier lesson.`
@@ -223,7 +231,7 @@ export function LessonCreator() {
       </header>
 
       <div className="creator-layout">
-        <section className="creator-stage" aria-label="Reference and lesson settings">
+        <section className="creator-stage" aria-labelledby={headingId}>
           <div
             className={[
               "creator-upload",
@@ -236,6 +244,8 @@ export function LessonCreator() {
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
+            aria-label="Reference image workspace"
+            data-dragging={dragging ? "true" : "false"}
           >
             <input
               ref={fileInputRef}
@@ -243,7 +253,11 @@ export function LessonCreator() {
               className="visually-hidden"
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              aria-describedby={filled ? "creator-ref-label" : "creator-empty-hint"}
+              aria-describedby={
+                filled
+                  ? "creator-ref-label"
+                  : "creator-empty-hint creator-empty-formats"
+              }
               aria-label="Upload a reference photo"
               onChange={(e) => onFileChange(e.target.files?.[0] || null)}
             />
@@ -261,7 +275,7 @@ export function LessonCreator() {
                 <figure className="creator-preview-frame">
                   <AppImage
                     src={preview}
-                    alt="Selected reference photo"
+                    alt="Selected reference preview"
                     width={1600}
                     height={1200}
                     sizes="(max-width: 900px) 100vw, 640px"
@@ -285,6 +299,9 @@ export function LessonCreator() {
                   </span>
                   <span className="creator-browse">Browse files</span>
                   <span className="creator-empty-drop">or drop an image here</span>
+                  <span className="creator-empty-drop" id="creator-empty-formats">
+                    JPEG, PNG, or WebP · under 10 MB
+                  </span>
                 </label>
               )}
             </div>
@@ -303,11 +320,11 @@ export function LessonCreator() {
             ) : null}
           </div>
 
-          <div className="creator-prepare">
+          <form className="creator-prepare" onSubmit={onPrepareSubmit} noValidate>
             <header className="creator-prepare-head">
-              <p className="eyebrow">About this lesson</p>
+              <h2 className="creator-prepare-title">Lesson settings</h2>
               <p className="creator-prepare-lead">
-                Choose a medium, then generate. Optional settings stay tucked away.
+                Choose a medium, then create your lesson. Experience level stays optional.
               </p>
             </header>
 
@@ -342,17 +359,32 @@ export function LessonCreator() {
               </label>
             </details>
 
-            {error ? <p className="status error" role="alert">{error}</p> : null}
+            {error ? (
+              <p id={errorId} className="creator-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            {!canSubmit ? (
+              <p id={submitHintId} className="creator-submit-hint">
+                Add a reference image to create your lesson.
+              </p>
+            ) : null}
 
             <button
-              type="button"
-              className="primary creator-submit"
-              disabled={!file || busy}
-              onClick={generate}
+              type="submit"
+              className="ap-button-primary btn-branded creator-submit"
+              disabled={!canSubmit}
+              aria-describedby={[
+                !canSubmit ? submitHintId : null,
+                error ? errorId : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined}
             >
-              Generate lesson
+              Create lesson
             </button>
-          </div>
+          </form>
         </section>
 
         <aside className="creator-plan" aria-label="Lesson preview">

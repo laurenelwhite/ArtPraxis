@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppImage } from "@/components/ui/AppImage";
 import {
-  formatMediumLevelEyebrow,
   getCreatorPipeline,
   getMediumLanguage,
   getMediumTips,
@@ -56,6 +55,12 @@ function stepState(index: number, activeIndex: number): StepState {
   if (index < activeIndex) return "complete";
   if (index === activeIndex) return "active";
   return "pending";
+}
+
+function stepStateLabel(state: StepState): string {
+  if (state === "complete") return "Complete";
+  if (state === "active") return "In progress";
+  return "Upcoming";
 }
 
 function waitProfile(mode: LoadingMode): WaitTimingProfile {
@@ -144,7 +149,7 @@ export function LessonLoadingView({
 
   const mediumEyebrow =
     medium != null && medium !== ""
-      ? formatMediumLevelEyebrow(medium, skillLevel)
+      ? `${lang.mediumLabel} · ${level.charAt(0).toUpperCase()}${level.slice(1)}`
       : null;
 
   const eyebrow =
@@ -161,6 +166,9 @@ export function LessonLoadingView({
       ? lang.preparationDescription(level)
       : `Translating your reference into a finished ${lang.completedWorkNoun} while preserving composition and placement.`);
 
+  const headingId = "atelier-wait-heading";
+  const nowId = "atelier-wait-now-label";
+
   return (
     <section
       className={[
@@ -173,8 +181,7 @@ export function LessonLoadingView({
       ]
         .filter(Boolean)
         .join(" ")}
-      aria-live="polite"
-      aria-labelledby="atelier-wait-heading"
+      aria-labelledby={headingId}
       data-lesson-medium={medium ?? undefined}
       data-active-step={activeStep?.id}
     >
@@ -193,13 +200,13 @@ export function LessonLoadingView({
         </figure>
       ) : null}
 
-      <div className="atelier-wait-panel" role="status">
+      <div className="atelier-wait-panel">
         <header className="atelier-wait-header">
           {mediumEyebrow ? (
             <p className="atelier-wait-medium">{mediumEyebrow}</p>
           ) : null}
           <p className="atelier-wait-eyebrow">{eyebrow}</p>
-          <h2 className="atelier-wait-heading" id="atelier-wait-heading">
+          <h2 className="atelier-wait-heading" id={headingId}>
             {heading}
           </h2>
           <p className="atelier-wait-body">{body}</p>
@@ -211,7 +218,7 @@ export function LessonLoadingView({
           <span className="atelier-pigment-drop is-indigo" />
           <span className="atelier-pigment-spread" />
         </div>
-        <p className="atelier-pigment-caption">
+        <p className="atelier-pigment-caption" aria-hidden="true">
           Practice. <span>Progress.</span> Master.
         </p>
 
@@ -243,9 +250,9 @@ export function LessonLoadingView({
           <p className="atelier-wait-range">{rangeEstimate}</p>
         </div>
 
-        <div className="atelier-wait-now" aria-live="polite">
+        <div className="atelier-wait-now" aria-live="polite" aria-atomic="true">
           <span className="atelier-wait-now-pulse" aria-hidden="true" />
-          <p className="atelier-wait-now-label">
+          <p className="atelier-wait-now-label" id={nowId}>
             Now: <strong>{activeStep?.label ?? "Working…"}</strong>
           </p>
         </div>
@@ -280,6 +287,7 @@ export function LessonLoadingView({
                     <span className="atelier-pipeline-dot" />
                   )}
                 </span>
+                <span className="visually-hidden">{stepStateLabel(state)}: </span>
                 <span className="atelier-pipeline-label">{step.label}</span>
               </li>
             );
@@ -301,14 +309,16 @@ export function LessonLoadingView({
                 <path className="tip-visual-arrow" d="M129 19l-20 15m0 0 4-9m-4 9 10-1" />
               </svg>
             </div>
-            <div className="atelier-studio-tip-top">
-              <p className="atelier-studio-tip-kicker">Studio tip</p>
-              <p className="atelier-studio-tip-index" aria-hidden="true">
-                {tipIndex + 1}/{tips.length}
-              </p>
+            <div className="atelier-studio-tip-copy">
+              <div className="atelier-studio-tip-top">
+                <p className="atelier-studio-tip-kicker">Studio tip</p>
+                <p className="atelier-studio-tip-index" aria-hidden="true">
+                  {tipIndex + 1}/{tips.length}
+                </p>
+              </div>
+              <p className="atelier-studio-tip-title">{tip.title}</p>
+              <p className="atelier-studio-tip-body">{tip.body}</p>
             </div>
-            <p className="atelier-studio-tip-title">{tip.title}</p>
-            <p className="atelier-studio-tip-body">{tip.body}</p>
           </aside>
         ) : tip ? (
           <div className="atelier-studio-tip atelier-studio-tip--slot" aria-hidden="true" />
@@ -316,6 +326,7 @@ export function LessonLoadingView({
 
         <p className="atelier-wait-reassure">
           Keep this tab open — your reference stays safe while we prepare.
+          Detailed lessons can take a few minutes.
         </p>
       </div>
     </section>

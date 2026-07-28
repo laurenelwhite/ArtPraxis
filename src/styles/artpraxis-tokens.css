@@ -1,0 +1,461 @@
+/*
+ * ArtPraxis semantic design tokens
+ * Authority order:
+ * 1. docs/brand/ARTPRAXIS_BRAND_GUIDE.md
+ * 2. Latest approved implementation on feature/stability-ui-cleanup
+ * 3. Backward-compatible aliases required by current UI
+ */
+:root{
+  /* Foundational color tokens */
+  --ap-color-paper-canvas:#f8f4ed;
+  --ap-color-paper-elevated:#fbf8f2;
+  --ap-color-paper-inset:#f2ece3;
+  --ap-color-paper-muted:#e9e0d4;
+  --ap-color-ink-primary:#1e1c19;
+  --ap-color-ink-secondary:#4f5963;
+  --ap-color-ink-muted:#8a8278;
+  --ap-color-ink-faint:rgba(42, 35, 27, 0.08);
+  --ap-color-ultramarine-primary:#415d8c;
+  --ap-color-ultramarine-hover:#223246;
+  --ap-color-ultramarine-pressed:#192737;
+  --ap-color-ultramarine-soft:#dde5f0;
+  --ap-color-umber:#765038;
+  --ap-color-sienna:#a45e32;
+  --ap-color-olive:#69735f;
+  --ap-color-graphite:#1e1c19;
+  --ap-color-brass:#daa35a;
+  --ap-color-border-subtle:#ded7cc;
+  --ap-color-border-standard:#bdb4a7;
+  --ap-color-border-strong:rgba(44, 62, 86, 0.22);
+  --ap-color-focus-ring:rgba(65, 93, 140, 0.38);
+  --ap-color-selection:rgba(65, 93, 140, 0.14);
+  --ap-color-success:#69735f;
+  --ap-color-warning:#daa35a;
+  --ap-color-danger:#a24a3a;
+  --ap-color-informational:#415d8c;
+
+  /* Typography tokens */
+  --ap-font-display:var(--font-fraunces), Fraunces, Georgia, "Times New Roman", serif;
+  --ap-font-body:var(--font-source-sans), "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ap-font-annotation:var(--ap-font-display);
+  --ap-text-display:clamp(2.125rem, 3.6vw, 2.875rem);
+  --ap-text-display-hero:clamp(2.35rem, 5vw, 5.25rem);
+  --ap-text-heading-xl:clamp(1.65rem, 2.4vw, 2rem);
+  --ap-text-heading-lg:clamp(1.4rem, 2.2vw, 1.6rem);
+  --ap-text-heading-md:clamp(1.2rem, 1.8vw, 1.375rem);
+  --ap-text-body-lg:1.125rem;
+  --ap-text-body:1.0625rem;
+  --ap-text-ui:0.9375rem;
+  --ap-text-small:0.875rem;
+  --ap-text-caption:0.8125rem;
+  --ap-text-label:0.75rem;
+  --ap-line-height-display:1.12;
+  --ap-line-height-heading:1.2;
+  --ap-line-height-body:1.55;
+  --ap-line-height-relaxed:1.65;
+  --ap-weight-regular:400;
+  --ap-weight-medium:500;
+  --ap-weight-semibold:600;
+  --ap-weight-bold:700;
+  --ap-letter-tight:-0.015em;
+  --ap-letter-heading:-0.01em;
+  --ap-letter-label:0.08em;
+  --ap-reading-width:62ch;
+
+  /* Spacing tokens */
+  --ap-space-1:4px;
+  --ap-space-2:8px;
+  --ap-space-3:12px;
+  --ap-space-4:16px;
+  --ap-space-5:20px;
+  --ap-space-6:24px;
+  --ap-space-7:32px;
+  --ap-space-8:40px;
+  --ap-space-9:48px;
+  --ap-space-10:64px;
+  --ap-space-11:80px;
+  --ap-space-12:96px;
+  --ap-space-inline-compact:var(--ap-space-2);
+  --ap-space-inline-standard:var(--ap-space-4);
+  --ap-space-control-pad-y:11px;
+  --ap-space-control-pad-x:20px;
+  --ap-space-card-pad:26px;
+  --ap-space-panel-pad:clamp(24px, 3vw, 38px);
+  --ap-space-section:var(--ap-space-8);
+  --ap-space-stage:28px;
+  --ap-space-page-gutter-mobile:16px;
+  --ap-space-page-gutter-tablet:clamp(20px, 4vw, 28px);
+  --ap-space-page-gutter-desktop:clamp(20px, 4.5vw, 72px);
+
+  /* Shape tokens */
+  --ap-radius-small:6px;
+  --ap-radius-control:10px;
+  --ap-radius-card:14px;
+  --ap-radius-panel:14px;
+  --ap-radius-circular:999px;
+
+  /* Border and elevation tokens */
+  --ap-border-hairline:1px solid var(--ap-color-border-subtle);
+  --ap-border-standard:1px solid var(--ap-color-border-subtle);
+  --ap-border-strong:1px solid var(--ap-color-border-standard);
+  --ap-shadow-resting:0 1px 2px rgba(42, 35, 27, 0.10);
+  --ap-shadow-elevated:0 2px 14px rgba(42, 35, 27, 0.10);
+  --ap-shadow-dialog:0 12px 34px rgba(42, 35, 27, 0.12);
+  --ap-shadow-artwork-frame:0 18px 50px rgba(44, 62, 86, 0.10);
+
+  /* Motion tokens */
+  --ap-motion-fast:0.16s;
+  --ap-motion-standard:0.2s;
+  --ap-motion-panel:0.3s;
+  --ap-motion-ambient:0.45s;
+  --ap-ease-standard:cubic-bezier(.22,.61,.36,1);
+  --ap-ease-enter:cubic-bezier(.22,.61,.36,1);
+
+  /* Layout tokens */
+  --ap-layout-app-max:1380px;
+  --ap-layout-lesson-max:1480px;
+  --ap-layout-reading-max:62ch;
+  --ap-layout-desktop-gutter:var(--ap-space-page-gutter-desktop);
+  --ap-layout-tablet-gutter:var(--ap-space-page-gutter-tablet);
+  --ap-layout-mobile-gutter:var(--ap-space-page-gutter-mobile);
+  --ap-layout-sticky-top-offset:calc(var(--app-topbar-h) + var(--proj-tabs-h) + var(--stage-nav-h));
+  --ap-layout-artwork-min:300px;
+  --ap-layout-guidance-min:320px;
+  --ap-layout-guidance-max:760px;
+  --ap-layout-workspace-width:min(100%, 640px);
+
+  /* Shell tokens */
+  --ap-shell-background:var(--color-warm-white);
+  --ap-shell-header-background:rgba(242, 236, 227, 0.94);
+  --ap-shell-header-border:rgba(44, 62, 86, 0.17);
+  --ap-shell-header-shadow:0 5px 18px rgba(44, 62, 86, 0.035);
+  --ap-shell-header-height:72px;
+  --ap-shell-header-height-mobile:60px;
+  --ap-shell-z-header:50;
+  --ap-shell-z-overlay:55;
+  --ap-shell-z-menu:60;
+  --ap-shell-nav-gap:10px;
+  --ap-shell-logo-height:48px;
+  --ap-shell-logo-height-mobile:34px;
+  --ap-shell-page-padding-inline:clamp(20px, 4.5vw, 72px);
+  --ap-shell-page-padding-inline-tablet:clamp(20px, 4vw, 28px);
+  --ap-shell-page-padding-inline-mobile:14px;
+  --ap-shell-nav-text:rgba(44, 62, 86, 0.72);
+  --ap-shell-nav-text-muted:rgba(44, 62, 86, 0.64);
+  --ap-shell-nav-text-secondary:rgba(44, 62, 86, 0.68);
+  --ap-shell-nav-active-text:var(--color-atelier-navy);
+  --ap-shell-nav-hover-background:rgba(44, 62, 86, 0.055);
+  --ap-shell-nav-active-underline:var(--color-yellow-ochre);
+  --ap-shell-overlay-background:rgba(30, 28, 25, 0.14);
+  --ap-shell-menu-background:rgba(242, 236, 227, 0.98);
+  --ap-shell-menu-shadow:var(--ap-shadow-dialog);
+  --ap-shell-menu-width:min(26rem, calc(100vw - 28px));
+  --ap-shell-divider:var(--ap-shell-header-border);
+  --ap-shell-content-top-offset:var(--ap-space-4);
+
+  /* Authentication tokens */
+  --ap-auth-panel-width:430px;
+  --ap-auth-panel-padding:var(--ap-space-7);
+  --ap-auth-panel-padding-mobile:var(--ap-space-6);
+  --ap-auth-panel-offset-top:min(12vh, 90px);
+  --ap-auth-field-height:44px;
+  --ap-auth-field-background:var(--ap-color-paper-elevated);
+  --ap-auth-field-border:var(--ap-color-border-subtle);
+  --ap-auth-field-border-hover:var(--ap-color-border-standard);
+  --ap-auth-field-border-focus:var(--color-atelier-navy);
+  --ap-auth-field-shadow-focus:0 0 0 3px var(--ap-color-focus-ring);
+  --ap-auth-error-background:var(--color-venetian-red-soft);
+  --ap-auth-error-border:transparent;
+  --ap-auth-error-text:var(--ap-color-danger);
+  --ap-auth-divider:var(--ap-color-border-subtle);
+  --ap-auth-provider-background:var(--ap-color-paper-elevated);
+  --ap-auth-provider-border:var(--ap-color-border-subtle);
+  --ap-auth-provider-hover:var(--ap-color-paper-muted);
+
+  /* Create Lesson intake tokens */
+  --ap-creator-max-width:1080px;
+  --ap-creator-workspace-min-height:188px;
+  --ap-creator-workspace-height:220px;
+  --ap-creator-workspace-max-height:240px;
+  --ap-creator-workspace-min-height-mobile:176px;
+  --ap-creator-workspace-height-mobile:188px;
+  --ap-creator-workspace-max-height-mobile:200px;
+  --ap-creator-workspace-height-tablet:200px;
+  --ap-creator-workspace-max-height-tablet:220px;
+  --ap-creator-workspace-background:var(--ap-color-paper-elevated);
+  --ap-creator-workspace-border:var(--ap-color-border-subtle);
+  --ap-creator-workspace-border-hover:rgba(44, 62, 86, 0.22);
+  --ap-creator-workspace-border-active:var(--color-yellow-ochre);
+  --ap-creator-workspace-shadow:none;
+  --ap-creator-preview-background:linear-gradient(180deg, rgba(251, 248, 242, 0.72), rgba(242, 236, 227, 0.92));
+  --ap-creator-preview-max-height:min(48vh, 420px);
+  --ap-creator-preview-max-height-tablet:min(42vh, 360px);
+  --ap-creator-preview-max-height-mobile:min(46vh, 340px);
+  --ap-creator-control-gap:var(--ap-space-4);
+  --ap-creator-section-gap:var(--ap-space-7);
+  --ap-creator-config-width:20rem;
+  --ap-creator-help-text:var(--ap-color-ink-secondary);
+  --ap-creator-error-background:var(--color-venetian-red-soft);
+  --ap-creator-error-border:transparent;
+  --ap-creator-error-text:var(--ap-color-danger);
+
+  /* Loading and generation tokens */
+  --ap-loading-panel-width:min(42rem, 100%);
+  --ap-loading-panel-padding:clamp(24px, 3vw, 40px);
+  --ap-loading-panel-padding-mobile:var(--ap-space-6);
+  --ap-loading-panel-background:rgba(248, 243, 235, 0.68);
+  --ap-loading-panel-border:rgba(44, 62, 86, 0.18);
+  --ap-loading-panel-shadow:var(--ap-shadow-artwork-frame);
+  --ap-loading-step-gap:var(--ap-space-3);
+  --ap-loading-step-marker-size:18px;
+  --ap-loading-step-complete:var(--ap-color-success);
+  --ap-loading-step-active:var(--ap-color-ultramarine-primary);
+  --ap-loading-step-pending:var(--ap-color-ink-muted);
+  --ap-loading-step-border:rgba(44, 62, 86, 0.15);
+  --ap-loading-tip-background:rgba(218, 163, 90, 0.13);
+  --ap-loading-tip-border:var(--color-yellow-ochre);
+  --ap-loading-tip-text:var(--ap-color-ink-secondary);
+  --ap-loading-overlay-background:rgba(247, 245, 242, 0.78);
+  --ap-loading-overlay-border:var(--ap-color-border-subtle);
+  --ap-loading-overlay-shadow:var(--ap-shadow-elevated);
+  --ap-loading-progress-track:rgba(44, 62, 86, 0.10);
+  --ap-loading-progress-fill:linear-gradient(90deg, var(--color-yellow-ochre), var(--color-red-earth), var(--color-atelier-navy));
+  --ap-loading-error-background:var(--color-venetian-red-soft);
+  --ap-loading-error-border:transparent;
+  --ap-loading-error-text:var(--ap-color-danger);
+  --ap-loading-dot-size:6px;
+  --ap-loading-dot-gap:7px;
+  --ap-loading-dot-color:var(--color-atelier-navy);
+  --ap-loading-motion:var(--ap-motion-standard);
+  --ap-loading-tip-min-height:7.5rem;
+  --ap-loading-z-overlay:40;
+
+  /* Lesson Overview tokens */
+  --ap-overview-max-width:min(1480px, 100%);
+  --ap-overview-hero-gap:clamp(34px, 5vw, 76px);
+  --ap-overview-hero-gap-mobile:var(--ap-space-7);
+  --ap-overview-reference-surface:rgba(248, 243, 235, 0.44);
+  --ap-overview-final-surface:rgba(248, 243, 235, 0.58);
+  --ap-overview-image-background:var(--ap-color-paper-inset);
+  --ap-overview-image-border:rgba(44, 62, 86, 0.16);
+  --ap-overview-image-shadow:var(--ap-shadow-artwork-frame);
+  --ap-overview-image-radius:3px;
+  --ap-overview-final-emphasis-border:rgba(44, 62, 86, 0.22);
+  --ap-overview-meta-gap:clamp(24px, 3vw, 38px);
+  --ap-overview-fact-background:transparent;
+  --ap-overview-fact-border:var(--ap-shell-divider);
+  --ap-overview-summary-width:42ch;
+  --ap-overview-actions-gap:var(--ap-space-3);
+  --ap-overview-empty-background:var(--ap-color-paper-inset);
+  --ap-overview-empty-border:var(--ap-color-border-subtle);
+  --ap-overview-dashboard-background:rgba(248, 243, 235, 0.35);
+  --ap-overview-label:var(--ap-kit-earth);
+  --ap-overview-body:rgba(44, 62, 86, 0.74);
+
+  /* Lesson navigation */
+  --ap-lesson-nav-background:transparent;
+  --ap-lesson-nav-border:var(--ap-kit-rule);
+  --ap-lesson-nav-shadow:none;
+  --ap-lesson-nav-height:58px;
+  --ap-lesson-nav-gap:clamp(6px, 1.2vw, 18px);
+  --ap-lesson-nav-padding-inline:0;
+  --ap-lesson-nav-text:rgba(44, 62, 86, 0.60);
+  --ap-lesson-nav-text-muted:rgba(44, 62, 86, 0.28);
+  --ap-lesson-nav-active-text:var(--ap-kit-ink);
+  --ap-lesson-nav-active-rule:var(--ap-kit-ochre);
+  --ap-lesson-nav-hover-background:transparent;
+  --ap-lesson-mode-background:rgba(248, 243, 235, 0.55);
+  --ap-lesson-mode-border:rgba(44, 62, 86, 0.10);
+  --ap-lesson-mode-active-background:var(--ap-color-paper-elevated);
+  --ap-lesson-mode-active-text:var(--ap-kit-ink);
+  --ap-stage-nav-background:transparent;
+  --ap-stage-nav-border:rgba(44, 62, 86, 0.06);
+  --ap-stage-nav-text:rgba(44, 62, 86, 0.40);
+  --ap-stage-nav-active-text:var(--ap-kit-ink);
+  --ap-stage-nav-active-background:rgba(44, 62, 86, 0.04);
+  --ap-stage-nav-active-rule:var(--ap-kit-ink);
+  --ap-stage-nav-complete:var(--text-primary);
+  --ap-stage-nav-gap:var(--ap-space-1);
+  --ap-stage-nav-height:44px;
+  --ap-stage-nav-mobile-height:44px;
+  --ap-lesson-sticky-top:var(--lesson-sticky);
+  --ap-stage-scroll-offset:calc(var(--lesson-sticky) + var(--ap-space-3));
+  --ap-lesson-nav-z:auto;
+  --ap-stage-nav-z:auto;
+
+  /* Approved primitive aliases kept for compatibility */
+  --color-indigo:#2c3e56;
+  --color-red-earth:#a24a3a;
+  --color-warm-white:#f2ece3;
+  --color-atelier-navy:#2c3e56;
+  --color-atelier-navy-hover:#223246;
+  --color-atelier-navy-active:#192737;
+  --color-atelier-navy-soft:#e4e7ea;
+  --color-warm-ivory:var(--color-warm-white);
+  --color-canvas:var(--color-warm-white);
+  --color-canvas-light:var(--ap-color-paper-canvas);
+  --color-canvas-deep:var(--ap-color-paper-muted);
+  --color-paper-white:var(--ap-color-paper-elevated);
+  --color-soft-blue-gray:#dbdee6;
+  --color-bone-black:var(--ap-color-ink-primary);
+  --color-paynes-gray:var(--ap-color-ink-secondary);
+  --color-warm-gray:var(--ap-color-ink-muted);
+  --color-soft-gray:#d8d2c8;
+  --color-border:var(--ap-color-border-subtle);
+  --color-yellow-ochre:var(--ap-color-brass);
+  --color-yellow-ochre-soft:#f2e2c9;
+  --color-brush-brown:#8b5e3c;
+  --color-burnt-sienna:var(--ap-color-sienna);
+  --color-burnt-sienna-soft:#f3ded0;
+  --color-burnt-umber:var(--ap-color-umber);
+  --color-burnt-umber-soft:#e9ded5;
+  --color-venetian-red:var(--ap-color-danger);
+  --color-venetian-red-soft:#f2ddda;
+  --color-terre-verte:var(--ap-color-olive);
+  --color-terre-verte-soft:#e2e7de;
+  --color-ultramarine:var(--ap-color-ultramarine-primary);
+  --color-ultramarine-soft:var(--ap-color-ultramarine-soft);
+
+  /* Semantic compatibility aliases used by current screens */
+  --background:var(--ap-color-paper-canvas);
+  --foreground:var(--ap-color-ink-primary);
+  --surface-primary:var(--ap-color-paper-elevated);
+  --surface-secondary:var(--ap-color-paper-inset);
+  --surface-muted:var(--ap-color-paper-muted);
+  --text-primary:var(--ap-color-ink-primary);
+  --text-secondary:var(--ap-color-ink-secondary);
+  --text-muted:var(--ap-color-ink-muted);
+  --text-inverse:var(--ap-color-paper-elevated);
+  --border-subtle:var(--ap-color-border-subtle);
+  --border-strong:var(--ap-color-border-standard);
+  --action-primary:var(--color-atelier-navy);
+  --action-primary-hover:var(--color-atelier-navy-hover);
+  --action-primary-active:var(--color-atelier-navy-active);
+  --action-secondary:var(--ap-color-umber);
+  --action-secondary-hover:#65432e;
+  --status-active:var(--ap-color-ultramarine-primary);
+  --status-complete:var(--ap-color-success);
+  --status-warning:var(--ap-color-warning);
+  --status-error:var(--ap-color-danger);
+  --status-information:var(--ap-color-informational);
+  --focus-ring:var(--ap-color-focus-ring);
+  --shadow-color:rgba(42, 35, 27, 0.10);
+
+  --lesson-accent:var(--ap-color-ultramarine-primary);
+  --lesson-accent-soft:var(--ap-color-ultramarine-soft);
+  --lesson-accent-contrast:var(--ap-color-paper-elevated);
+
+  /* Legacy brand aliases retained to preserve approved rendering */
+  --brand-navy:var(--color-atelier-navy);
+  --brand-navy-soft:var(--color-atelier-navy-hover);
+  --brand-ivory:var(--color-warm-ivory);
+  --brand-paper:var(--color-canvas-light);
+  --brand-warm-gray:var(--color-warm-gray);
+  --brand-brush-brown:var(--color-brush-brown);
+  --brand-soft-blue-gray:var(--color-soft-blue-gray);
+  --brand-border:var(--border-subtle);
+  --brand-muted:var(--color-paynes-gray);
+  --brand-white:var(--color-paper-white);
+
+  --ap-color-navy:var(--color-atelier-navy);
+  --ap-color-ivory:var(--color-warm-ivory);
+  --ap-color-paper:var(--color-canvas-light);
+  --ap-color-warm-gray:var(--color-warm-gray);
+  --ap-color-brush-brown:var(--color-brush-brown);
+  --ap-color-soft-blue-gray:var(--color-soft-blue-gray);
+  --ap-color-ink:var(--color-bone-black);
+  --ap-color-border:var(--border-subtle);
+  --ap-color-muted:var(--color-warm-gray);
+  --ap-color-success:var(--status-complete);
+
+  --bg:var(--background);
+  --muted-text:var(--text-muted);
+  --surface:var(--surface-secondary);
+  --surface-elevated:var(--surface-primary);
+  --border:var(--border-subtle);
+  --primary:var(--action-primary);
+  --primary-fg:var(--text-inverse);
+  --accent-foundational:var(--color-burnt-sienna);
+  --secondary-bg:transparent;
+  --secondary-fg:var(--action-primary);
+  --success:var(--status-complete);
+  --warning:var(--status-warning);
+  --error:var(--status-error);
+  --paper:var(--surface-primary);
+  --paper-2:var(--surface-secondary);
+  --ink:var(--text-primary);
+  --ink-2:var(--text-secondary);
+  --hairline:var(--border-subtle);
+  --ultramarine:var(--color-ultramarine);
+  --sienna:var(--color-burnt-sienna);
+  --sage:var(--color-terre-verte);
+  --warn:var(--color-venetian-red);
+  --panel:var(--paper);
+  --panel-2:var(--paper-2);
+  --line:var(--hairline);
+  --line-soft:var(--ap-color-ink-faint);
+  --muted:var(--ink-2);
+  --ink-soft:var(--ink-2);
+  --accent:var(--action-primary);
+  --accent-dark:var(--action-primary-active);
+  --accent-soft:var(--color-atelier-navy-soft);
+
+  /* Typography compatibility */
+  --serif:var(--ap-font-display);
+  --sans:var(--ap-font-body);
+  --text-stage:var(--ap-text-heading-xl);
+  --text-body:var(--ap-text-body);
+  --text-ui:var(--ap-text-ui);
+  --text-meta:var(--ap-text-caption);
+  --lh-body:var(--ap-line-height-body);
+  --lh-display:var(--ap-line-height-display);
+  --weight-regular:var(--ap-weight-regular);
+  --weight-medium:var(--ap-weight-medium);
+  --weight-semibold:var(--ap-weight-semibold);
+
+  /* Geometry + motion compatibility */
+  --r-sm:var(--ap-radius-small);
+  --r:var(--ap-radius-control);
+  --r-lg:var(--ap-radius-card);
+  --r-pill:var(--ap-radius-circular);
+  --radius-sm:var(--r-sm);
+  --radius:var(--r);
+  --radius-lg:var(--r-lg);
+  --radius-xl:16px;
+  --radius-pill:var(--r-pill);
+  --shadow-sm:var(--ap-shadow-resting);
+  --shadow-md:var(--ap-shadow-elevated);
+  --shadow-lg:var(--ap-shadow-dialog);
+  --shadow-accent:none;
+  --dur:var(--ap-motion-standard);
+  --ease:var(--ap-ease-standard);
+  --measure:var(--ap-reading-width);
+
+  /* Layout compatibility */
+  --app-topbar-h:var(--ap-shell-header-height);
+  --proj-tabs-h:var(--ap-lesson-nav-height);
+  --stage-nav-h:var(--ap-stage-nav-height);
+  --lesson-sticky:var(--ap-layout-sticky-top-offset);
+  --lesson-shell-max:1600px;
+  --space-1:var(--ap-space-1);
+  --space-2:var(--ap-space-2);
+  --space-3:var(--ap-space-3);
+  --space-4:var(--ap-space-4);
+  --space-5:24px;
+  --space-6:32px;
+  --space-7:48px;
+  --space-8:64px;
+  --app-main-pad-x:var(--ap-shell-page-padding-inline);
+  --app-main-pad-top:var(--space-5);
+  --app-main-pad-bottom:var(--space-8);
+
+  /* Approved app-shell aliases */
+  --ap-kit-paper:var(--ap-shell-background);
+  --ap-kit-paper-light:var(--ap-color-paper-canvas);
+  --ap-kit-paper-deep:#e8ddcf;
+  --ap-kit-ink:var(--color-atelier-navy);
+  --ap-kit-ochre:var(--color-yellow-ochre);
+  --ap-kit-earth:var(--color-red-earth);
+  --ap-kit-rule:var(--ap-shell-divider);
+  --ap-kit-shadow:var(--ap-shadow-artwork-frame);
+}

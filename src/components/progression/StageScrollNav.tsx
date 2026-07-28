@@ -106,7 +106,7 @@ export function StageScrollNav({
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                aria-current={isActive ? "true" : undefined}
+                aria-current={isActive ? "step" : undefined}
                 aria-label={`Stage ${stage.index}: ${full}`}
                 title={full}
                 onClick={() => onSelect(index)}

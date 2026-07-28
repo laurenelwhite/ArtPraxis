@@ -18,7 +18,9 @@ export type IconName =
   | "eye"
   | "crop"
   | "palette"
-  | "ban";
+  | "ban"
+  | "menu"
+  | "close";
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /></>),
@@ -39,6 +41,8 @@ const paths: Record<IconName, React.ReactNode> = {
   crop: (<><path d="M6 3v14a1 1 0 0 0 1 1h14" /><path d="M18 21V7a1 1 0 0 0-1-1H3" /></>),
   palette: (<><path d="M12 3.5a8.5 8.5 0 0 0-1.2 16.9c.8.1 1.2-.4 1.2-1v-1.1c0-.7.5-1.2 1.1-1.3a6.2 6.2 0 0 0 7.4-6C20.5 6.8 16.7 3.5 12 3.5z" /><circle cx="7.8" cy="10.2" r="1" fill="currentColor" stroke="none" /><circle cx="11" cy="7.5" r="1" fill="currentColor" stroke="none" /><circle cx="14.8" cy="8.2" r="1" fill="currentColor" stroke="none" /><circle cx="16.5" cy="11.5" r="1" fill="currentColor" stroke="none" /></>),
   ban: (<><circle cx="12" cy="12" r="9" /><path d="M6.2 6.2l11.6 11.6" /></>),
+  menu: (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>),
+  close: (<><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>),
 };
 
 export function Icon({

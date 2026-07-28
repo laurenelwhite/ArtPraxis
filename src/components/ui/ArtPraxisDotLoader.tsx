@@ -6,6 +6,8 @@ export type ArtPraxisDotLoaderProps = {
   label?: string;
   size?: "small" | "medium";
   className?: string;
+  /** When false, omit status semantics if adjacent copy already announces progress. */
+  announce?: boolean;
 };
 
 const DOT_COUNT = 5;
@@ -13,11 +15,13 @@ const DOT_COUNT = 5;
 /**
  * Painterly five-dot loader with the approved ArtPraxis brush asset.
  * CSS-only motion; decorative brush + dots are aria-hidden.
+ * Currently unused by live loading views (pigment loader is primary), retained for reuse.
  */
 export function ArtPraxisDotLoader({
   label = "Loading…",
   size = "small",
   className,
+  announce = true,
 }: ArtPraxisDotLoaderProps) {
   const statusLabel = label.trim() || "Loading…";
   const brushW = size === "medium" ? 56 : 44;
@@ -32,9 +36,10 @@ export function ArtPraxisDotLoader({
       ]
         .filter(Boolean)
         .join(" ")}
-      role="status"
-      aria-live="polite"
-      aria-label={statusLabel}
+      role={announce ? "status" : undefined}
+      aria-live={announce ? "polite" : undefined}
+      aria-label={announce ? statusLabel : undefined}
+      aria-hidden={announce ? undefined : true}
     >
       <div className="ap-dot-loader-row" aria-hidden="true">
         <span className="ap-dot-loader-dots">
@@ -54,7 +59,7 @@ export function ArtPraxisDotLoader({
           />
         </span>
       </div>
-      <p className="ap-dot-loader-label">{statusLabel}</p>
+      {announce ? <p className="ap-dot-loader-label">{statusLabel}</p> : null}
     </div>
   );
 }

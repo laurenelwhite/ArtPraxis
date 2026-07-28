@@ -199,7 +199,7 @@ export function LessonExperience({
               {(onRetryGeneration || onRegenerateMaster || onRegenerate) && (
                 <button
                   type="button"
-                  className="primary btn-branded"
+                  className="ap-button-primary btn-branded lesson-error-retry"
                   onClick={onRetryGeneration || onRegenerateMaster || onRegenerate}
                   disabled={regenerateBusy || masterRequestInFlight}
                 >
