@@ -1215,15 +1215,1076 @@ Introduced for navigation:
 
 ### Exact next migration target
 
-Study Mode is the safest next migration target.
+Paint Mode is the safest next migration target.
 
 Relevant files:
+
+- `src/components/progression/PaintMode.tsx`
+- `src/components/studio/DeskStage.tsx`
+- `src/components/studio/StageChapter.tsx`
+- paint-mode / desk-stage styles in `src/app/globals.css`
+
+Reason:
+
+Continuous Study Mode is now tokenized; Paint Mode remains the paginated one-stage-at-a-time experience with legacy desk/chapter chrome that should adopt the same semantic token layer without altering stage-generation or pagination behavior.
+
+## Completed: Study Mode
+
+### Files inspected
 
 - `src/components/progression/StudyMode.tsx`
 - `src/components/progression/StudyStageSection.tsx`
 - `src/components/progression/StageTeachingHeader.tsx`
-- study-stage styles in `src/app/globals.css`
+- `src/components/progression/StageGuideColumn.tsx`
+- `src/components/progression/StageComparison.tsx`
+- `src/components/progression/StageContinueNav.tsx`
+- `src/components/progression/FinalPaintingEntry.tsx`
+- `src/components/progression/StageCompletion.tsx`
+- `src/components/progression/AtelierRibbon.tsx`
+- `src/components/progression/useActiveStage.ts` (read-only)
+- `src/components/progression/StageScrollNav.tsx` (read-only)
+- `src/components/studio/LessonExperience.tsx` (read-only mode host)
+- `src/components/studio/DeskStage.tsx` (legacy — not mounted in live Study)
+- `src/components/studio/StageChapter.tsx` (legacy — Paint path)
+- `src/components/studio/PaintMode.tsx` (read-only — paginated alternate)
+- `src/app/globals.css` (continuous Study block, atelier polish, desktop grid)
+- `src/app/globals-app-shell.css` (study-stage section card removal)
+- `src/styles/artpraxis-tokens.css`
+
+### Active components identified
+
+Live continuous Study path:
+
+- `StudyMode` → `StageScrollNav` + all mounted `StudyStageSection` + `StageCompletion`
+- `StudyStageSection` → `StageTeachingHeader`, `FinalPaintingEntry`, `StageGuideColumn` (instructions + extras), `StageComparison`, `StageContinueNav`
+- Studio Reference access via `FinalPaintingEntry` (panel / fullscreen); dock unchanged
+
+Not active in live Study:
+
+- `DeskStage`, `StageChapter`, paginated `PaintMode`
+
+Behavior preserved:
+
+- All stages mounted in document order
+- Vertical scroll; no pagination or content swapping
+- `useActiveStage` IntersectionObserver + `StageScrollNav` anchor scroll
+- No per-stage `ProgressUpload` (completion ribbon only at end)
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/progression/StudyMode.tsx`
+- `src/components/progression/StudyStageSection.tsx`
+- `src/components/progression/FinalPaintingEntry.tsx`
+- `src/app/globals.css`
+- `src/app/globals-app-shell.css`
+
+### Tokens introduced or reused
+
+Reused:
+
+- `--ap-color-paper-*`, `--ap-kit-ink`, `--ap-kit-earth`, `--ap-kit-rule`
+- `--ap-overview-image-*`, `--ap-shadow-artwork-frame`
+- `--ap-lesson-sticky-top`, `--ap-stage-scroll-offset` (via study scroll offset)
+- spacing, radius, typography, focus tokens
+
+Introduced for Study:
+
+- `--ap-study-max-width`
+- `--ap-study-stage-gap`
+- `--ap-study-stage-padding-block`
+- `--ap-study-stage-divider`
+- `--ap-study-guidance-min` / `--ap-study-guidance-max`
+- `--ap-study-workspace-min`
+- `--ap-study-grid-gap`
+- `--ap-study-workspace-sticky-top`
+- `--ap-study-scroll-offset`
+- `--ap-study-image-background` / `border` / `shadow` / `radius`
+- `--ap-study-stage-label` / `title` / `purpose`
+- `--ap-study-instruction-gap`
+- `--ap-study-tip-background` / `border` / `text`
+- `--ap-study-this-stage-background` / `border`
+- `--ap-study-transition-rule` / `text`
+- `--ap-study-mobile-gap`
+
+### Hard-coded values removed
+
+- Study stage divider, label, title, and purpose rgba/ink values → `--ap-study-*` tokens
+- Stage section scroll-margin calc → `--ap-study-scroll-offset`
+- Desktop sticky top calc → `--ap-study-workspace-sticky-top`
+- Tip/guide card backgrounds and borders → `--ap-study-tip-*` tokens
+- Uppercase on stage meta, focus kicker, canvas label, tip labels, final-painting eyebrow, transition kicker
+- Final-painting thumb `object-fit: cover` → `contain`
+- Card background on `.study-mode--continuous .study-stage-section` in app-shell
+
+### Values intentionally retained
+
+- Sketch stage display filter (`cmp-frame-img--sketch`) for legibility
+- Museum artwork matte values on image surfaces (scoped museum block)
+- `.cmp-caption` uppercase (comparison chrome, not instruction hierarchy)
+- Historical polish blocks that refine spacing rhythm without reintroducing hard-coded ink
+- `StageCompletion` branded primary button styling (completion surface, out of scope)
+- All stage instructional copy, URLs, and data mapping unchanged
+- IntersectionObserver rootMargin and active-stage logic unchanged
+- Studio Reference open/compare behavior unchanged
+
+### Continuous-flow behavior preserved
+
+- All six stages remain mounted in `StudyMode`
+- No active-index content swapping or carousel
+- No Previous/Next pagination controls
+- `StageContinueNav` quiet transition cues only
+- Vertical document scroll primary; no scroll snapping
+- Stage IDs and `scrollTo` anchor navigation unchanged
+
+### Stage composition improvements
+
+- Semantic `role="region"` on Study Mode container
+- Guide column wrapped in `<aside aria-label="Stage guidance">`
+- “This stage” promoted to `<h3 className="study-stage-canvas-label">`
+- DOM order: head → final → guide → workspace (desktop atelier grid)
+- Mobile CSS `order` restores artwork-before-guidance reading order
+- Restrained section dividers instead of card framing per stage
+
+### Artwork workspace improvements
+
+- Stage target images use `object-fit: contain`
+- Tokenized inset background, border, shadow on artwork surfaces
+- Desktop sticky workspace with semantic top offset; releases on narrow viewports
+- Max-height guard on large viewports without cropping
+- Final painting entry subordinate to stage canvas
+
+### Instruction hierarchy improvements
+
+- Stage header: meta + title + purpose (sentence case)
+- Today’s focus kicker de-emphasized vs title
+- Guide cards use restrained inset paper; technique/avoid tones via left rule only
+- Primary instructions visually stronger than tips
+
+### Tip treatment improvements
+
+- Tips/common mistakes use `--ap-study-tip-background` and subtle border
+- Removed alert-style uppercase labels on study guide cards
+- No bright status fills for ordinary tips
+
+### Transition-cue improvements
+
+- Existing `StageContinueNav` quiet text treatment preserved
+- Tokenized transition rule and text colors where styled in Study block
+
+### Progress-upload changes
+
+- No per-stage `ProgressUpload` in live path; unchanged
+- `StageCompletion` / `AtelierRibbon` at journey end only
+
+### Studio Reference observations
+
+- `FinalPaintingEntry` provides compare affordance without duplicating large reference pair
+- Dock padding-right on wide viewports preserved (`has-ref-dock`)
+- Full Studio Reference panel/fullscreen redesign deferred to dedicated pass
+- Minor duplication: final/reference thumb in entry + dock — acceptable until Reference pass
+
+### Responsive improvements
+
+- Desktop ≥1100px: two-column grid (`guide` left, `canvas` right), full-width head/final rows
+- Below 1100px: single column, sticky disabled, artwork before guidance via `order`
+- Tokenized stage gaps; mobile gap tightening at 699px
+- `overflow-x: clip` on study container preserved
+
+### Accessibility improvements
+
+- Study region labeled “Study lesson”
+- Each stage section `aria-labelledby` tied to stage title id
+- Guide aside labeled; focus section labeled “Today’s focus”
+- Sentence-case labels (not misread as alerts)
+- Focus-visible rings on final-painting entry buttons
+- Reduced-motion transitions disabled for nav/transition controls
+
+### Functional concerns observed but intentionally not changed
+
+- Notes tab still absent from `LessonView` TABS
+- Study/Paint mode switch not exposed in live UI
+- `PaintMode` still paginates when mounted directly
+- `lessonEntryMode` state unused in UI
+- `StageCompletion` upload placeholder not wired to full Progress page
+- Legacy desk/chapter CSS blocks remain for Paint path
+
+### Unresolved Study inconsistencies
+
+- Duplicate polish rhythm blocks in `globals.css` (main Study block + atelier polish) — cascade intentional but verbose
+- `.cmp-caption` still uppercase outside Study instruction scope
+- Some later globals overrides (e.g. tighter rhythm ~10960) may narrow gaps — monitor in Paint pass
+
+### Exact next migration target
+
+Paint Mode — see top of this section.
+
+## Completed: Paint Mode
+
+### Files inspected
+
+- `src/components/progression/PaintMode.tsx`
+- `src/components/progression/DeskStage.tsx`
+- `src/components/progression/StageScrollNav.tsx` (read-only)
+- `src/components/progression/StageTeachingHeader.tsx`
+- `src/components/progression/StageGuideColumn.tsx`
+- `src/components/progression/StageComparison.tsx`
+- `src/components/progression/StageContinueNav.tsx`
+- `src/components/progression/FinalPaintingEntry.tsx`
+- `src/components/progression/StageCompletion.tsx`
+- `src/components/progression/ProgressUpload.tsx` (read-only — Progress tab only, not mounted in Paint)
+- `src/components/studio/LessonExperience.tsx` (read-only — Study only in live path)
+- `src/components/studio/LessonView.tsx` (read-only)
+- `src/app/globals.css` (paint-mode block, legacy desk/atelier rules)
+- `src/app/globals-app-shell.css`
+- `src/styles/artpraxis-tokens.css`
+
+### Active and legacy components identified
+
+**Active Paint path (future-ready, not live):**
+
+- `PaintMode` → `StageScrollNav` + single mounted `DeskStage` (selected stage only)
+- `DeskStage` → `StageTeachingHeader`, `FinalPaintingEntry`, `StageComparison`, `StageGuideColumn`, `StageContinueNav` / `StageCompletion`
+
+**Not present in repository:**
+
+- `src/components/studio/DeskStage.tsx`, `StageChapter.tsx`, `StageNavControls.tsx`, `StageProcessRail.tsx` (documented in older architecture notes only)
+
+**Not mounted in live app:**
+
+- `PaintMode` is not rendered by `LessonExperience`; continuous `StudyMode` remains sole live lesson surface
+
+**Behavior preserved:**
+
+- Single selected stage via local `active` index state
+- `StageScrollNav` updates selection (no URL change)
+- Previous stage via `StageCompletion.onReviewPrevious` on last stage only; `StageContinueNav` advances on non-final stages
+- No `ProgressUpload` inside Paint path (Progress tab owns upload)
+- Paginated one-stage-at-a-time rendering unchanged
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/progression/PaintMode.tsx`
+- `src/components/progression/DeskStage.tsx`
+- `src/app/globals.css`
+- `src/app/globals-app-shell.css`
+
+### Tokens introduced or reused
+
+Reused:
+
+- Study image/workspace tokens via aliases (`--ap-paint-image-*` → `--ap-study-image-*`)
+- paper/ink/kit, spacing, radius, focus, stage-nav tokens
+
+Introduced for Paint:
+
+- `--ap-paint-max-width`
+- `--ap-paint-grid-gap`
+- `--ap-paint-guidance-min` / `--ap-paint-guidance-max`
+- `--ap-paint-workspace-min`
+- `--ap-paint-workspace-sticky-top`
+- `--ap-paint-stage-divider`
+- `--ap-paint-image-background` / `border` / `shadow` / `radius`
+- `--ap-paint-stage-label` / `title` / `purpose`
+- `--ap-paint-instruction-gap`
+- `--ap-paint-tip-background` / `border` / `text`
+- `--ap-paint-guidance-background` / `border`
+- `--ap-paint-control-gap`
+- `--ap-paint-nav-text` / `nav-active`
+- `--ap-paint-mobile-gap`
+
+### Hard-coded values removed
+
+- Removed `study-stage-section` class from Paint section (prevented Study continuous CSS leak)
+- Paint stage meta/title/purpose uppercase and rgba ink values → `--ap-paint-*` tokens
+- Guide card hard-coded borders/backgrounds → `--ap-paint-tip-*` tokens
+- “This stage” eyebrow uppercase class removed from DeskStage
+- Legacy `atelier-layout` / `atelier-layout--teaching` grid dependency removed from active DeskStage shell
+
+### Values intentionally retained
+
+- Sketch display filter for legibility
+- `.cmp-caption` uppercase (comparison chrome)
+- `StageCompletion` branded primary button
+- Legacy `.paint-mode`, `.desk-stage`, `.atelier-layout` rules for historical selectors
+- Single-column `atelier-layout` editorial override block (11409+) for non-paint legacy paths
+- All stage copy, URLs, handlers, and index state unchanged
+- Paint not exposed in live navigation
+
+### Paint layout improvements
+
+- Dedicated `.paint-stage-grid` with scoped desktop two-column desk (guide left, artwork right)
+- Mobile `order` restores artwork-before-guidance reading order
+- Removed card framing; transparent section background in app-shell
+- Completion/continue row spans full width below workspace
+
+### Artwork workspace improvements
+
+- `object-fit: contain` enforced within `.paint-mode`
+- Tokenized image surfaces; sticky workspace on desktop with semantic top offset
+- Static workspace on ≤1099px; max-height guard on large viewports
+
+### Instruction hierarchy improvements
+
+- Stage identity → artwork → guidance → progress/navigation
+- Today’s focus and guide cards use restrained inset paper
+- Primary instructions visually stronger than tips
+
+### Stage navigation improvements
+
+- `StageScrollNav` remains quiet secondary chrome (tokenized from navigation pass)
+- `StageContinueNav` quiet “Next →” treatment preserved
+- No duplicate Previous/Next pagination controls added
+- Stage rail + continue nav duplication documented (rail selects; continue advances one step)
+
+### Progress upload improvements
+
+- None in Paint path — `ProgressUpload` remains on Progress tab only
+
+### Reference/final access observations
+
+- `FinalPaintingEntry` compact compare affordance preserved
+- Studio Reference dock behavior unchanged
+- Duplication with dock thumb acceptable until Studio Reference pass
+
+### Responsive improvements
+
+- Desktop ≥1100px: two-column desk grid with sticky artwork
+- Tablet/mobile: single column, artwork early, no sticky trap
+- Compare segment wraps on narrow widths
+
+### Accessibility improvements
+
+- Paint region labeled “Paint lesson”
+- Section `aria-labelledby` tied to stage title id via `STAGE_DOM_ID`
+- Guide aside labeled; focus section labeled
+- Sentence-case labels throughout Paint scope
+- `titleId` passed to `StageTeachingHeader` for programmatic heading association
+
+### Functional concerns observed but intentionally not changed
+
+- Paint Mode not wired in `LessonExperience`
+- `lessonEntryMode` prop retained but unused in UI
+- Notes tab still absent
+- `StageScrollNav` + `StageContinueNav` both advance stages (different UX affordances)
+- Legacy `atelier-layout` CSS blocks remain for unused DOM shapes
+
+### Unresolved Paint inconsistencies
+
+- Historical `.paint-nav`, `.paint-rail`, `.paint-stage` CSS blocks remain unreferenced
+- Global `atelier-layout` single-column override (11409+) still applies to legacy class trees
+- `docs/COMPONENT_ARCHITECTURE.md` references removed components (`StageProcessRail`, `StageChapter`)
+
+### Exact next migration target
+
+Studio Reference — panel, fullscreen, dock, and compare surfaces.
+
+Relevant files:
+
+- `src/components/studio-reference/*`
+- `LessonReferenceDock` / compare components
+- reference dock styles in `src/app/globals.css` and `globals-app-shell.css`
 
 Reason:
 
-Navigation chrome is now tokenized; the next visible lesson surface is continuous Study stage content, instructions, and artwork framing inside each mounted stage section.
+Study and Paint stage shells now share tokenized artwork and guidance patterns; the next visible duplication is reference/final compare chrome outside the stage workspace.
+
+## Completed: Studio Reference
+
+### Files inspected
+
+- `src/components/studio-reference/LessonReferenceDock.tsx`
+- `src/components/studio-reference/StudioReferencePanel.tsx`
+- `src/components/studio-reference/StudioReferenceFullscreen.tsx`
+- `src/components/studio-reference/StudioReferencePage.tsx`
+- `src/components/studio-reference/StudioReferenceViewer.tsx`
+- `src/components/studio-reference/StudioReferencePair.tsx`
+- `src/components/studio-reference/StudioCompareControls.tsx`
+- `src/components/studio-reference/StudioReferenceContext.tsx`
+- `src/components/studio-reference/useStudioComparePreference.ts`
+- `src/components/studio-reference/types.ts`
+- `src/components/studio-reference/ReferenceColorSampler.tsx` (read-only)
+- `src/components/progression/FinalPaintingEntry.tsx` (read-only consumer)
+- `src/components/studio/LessonView.tsx` (read-only mount wiring)
+- `src/components/project/ProjectOverview.tsx` (read-only pair usage)
+- `src/app/globals.css` (studio reference block)
+- `src/app/globals-app-shell.css` (overview dock hide, overview pair scopes)
+- `src/styles/artpraxis-tokens.css`
+
+### Active components identified
+
+Four-surface architecture preserved:
+
+- **Mini:** `LessonReferenceDock` (desktop card + mobile FAB) — mounted in `LessonView`, hidden on Reference tab and Overview
+- **Peek:** `StudioReferencePanel` — modal dialog, opens from dock/FinalPaintingEntry
+- **Deep:** `StudioReferenceFullscreen` — modal dialog, body scroll lock, Escape closes
+- **Page:** `StudioReferencePage` — dedicated lesson tab via `useStudioComparePreference` (separate hook instance from context)
+
+Shared: `StudioReferenceViewer` + `StudioCompareControls`; `StudioReferencePair` on Overview
+
+State: `StudioReferenceContext` owns panel/fullscreen/dock/compare mode; localStorage key `artpraxis.studioReference.compareMode` unchanged; opacity local to `StudioReferenceViewer` (default 0.55)
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/studio-reference/types.ts` (label casing only)
+- `src/components/studio-reference/LessonReferenceDock.tsx`
+- `src/components/studio-reference/StudioReferencePanel.tsx`
+- `src/components/studio-reference/StudioReferenceFullscreen.tsx`
+- `src/components/studio-reference/StudioReferencePage.tsx`
+- `src/components/studio-reference/StudioReferenceViewer.tsx`
+- `src/app/globals.css`
+
+### Tokens introduced or reused
+
+Reused: study/overview image tokens, paper/ink/kit, focus, motion, shadow, spacing, radius tokens
+
+Introduced: `--ap-reference-dock-*`, `--ap-reference-panel-*`, `--ap-reference-fullscreen-*`, `--ap-reference-control-*`, `--ap-reference-image-*`, `--ap-reference-label`, `--ap-reference-divider`, `--ap-reference-slider-*`, `--ap-reference-mobile-gap`
+
+### Hard-coded values removed
+
+- Dock/panel/fullscreen rgba backgrounds and shadows → reference tokens
+- Panel backdrop `rgba(30,28,25,0.28)` → `--ap-reference-fullscreen-overlay`
+- Compare control hairline/paper colors → `--ap-reference-control-*`
+- Dock FAB/thumb `object-fit: cover` → `contain`
+- Uppercase dock eyebrow → sentence-case tokenized label
+- Global `.eyebrow` on panel/fullscreen/page → `.studio-ref-kicker`
+- Focus rings → `--ap-color-focus-ring`
+- Fixed z-index 40/80/90 → semantic reference z tokens
+- `padding-right: 176px` dock gutter → `--ap-reference-dock-width`
+
+### Values intentionally retained
+
+- `STUDIO_COMPARE_STORAGE_KEY` and mode enum values unchanged
+- Opacity range 0.1–1, step 0.05, default 0.55 unchanged
+- Panel modal semantics (`aria-modal="true"`) preserved
+- Fullscreen body `overflow: hidden` lock preserved
+- Escape handler order (fullscreen → panel → dock) unchanged
+- Overview `.overview-ref-pair` museum matte overrides in app-shell preserved
+- Regeneration pulse on dock FAB preserved (reduced-motion disables animation)
+- `ReferenceColorSampler` untouched
+
+### Dock improvements
+
+- Tokenized paper surface, border, shadow, radius
+- Thumbnail `object-fit: contain` on FAB and card thumb
+- Sentence-case “Final painting” label
+- 44px minimum touch targets on actions
+
+### Mobile FAB improvements
+
+- Tokenized size via `--ap-reference-dock-width-mobile`
+- Safe-area positioning preserved
+- Contain-fit thumbnail; focus ring tokenized
+
+### Panel improvements
+
+- Warm paper sheet with dialog shadow token
+- Semantic overlay (not pure black)
+- `.studio-ref-kicker` replaces uppercase eyebrow
+- Compact header; artwork-dominant body
+
+### Fullscreen improvements
+
+- Warm paper canvas background (not black)
+- Tokenized header divider and title ink
+- Close button `aria-label` added
+- Motion tokens on enter animation
+
+### Dedicated page improvements
+
+- `.studio-ref-kicker` for section label
+- Page title uses `--ap-kit-ink`
+- Same viewer/compare modes as fullscreen (shared component)
+
+### Pair/comparison improvements
+
+- Caption labels sentence case in viewer; pair already “Reference” / “Final painting”
+- Compare mode labels sentence case in `STUDIO_COMPARE_OPTIONS`
+- Radio group semantics preserved; active state uses inset rule + weight
+
+### Mode/opacity improvements
+
+- Mode controls tokenized; 44px min-height on compare buttons
+- Opacity slider labeled; accent uses `--ap-reference-slider-fill`
+- Overlay top image `pointer-events: none` fix (was invalid `pointer:relative`)
+
+### Responsive improvements
+
+- Mobile: pair and side-by-side panels stack at ≤720px (unchanged)
+- Dock FAB bottom offset preserved for lesson chrome
+- Panel nearly full width with safe padding
+- Compare segment wraps via flex-wrap
+
+### Accessibility improvements
+
+- Fullscreen close `aria-label`
+- Panel/fullscreen/page use non-uppercase kicker (not misread as alerts)
+- Compare radiogroup + arrow keyboard navigation preserved
+- Opacity slider `aria-label` preserved
+- Focus-visible on dock, compare, pair hit targets
+
+### Functional concerns observed but intentionally not changed
+
+- `StudioReferencePage` uses separate `useStudioComparePreference` hook — mode on page tab does not sync with context compare mode in panel/fullscreen until both read localStorage on hydrate
+- No focus return to trigger on panel/fullscreen close (pre-existing)
+- Panel opens with focus on close button only; no focus trap library
+- Dock thumb button nested inside aside (valid; not nested buttons)
+- `FinalPaintingEntry` duplicates compact compare affordance alongside dock
+
+### Unresolved Studio Reference inconsistencies
+
+- Page vs context compare mode instances may momentarily diverge before localStorage hydrate
+- Historical `studio-inspiration--inline` CSS remains for unused DOM
+- Regeneration pulse animation still present (disabled under `prefers-reduced-motion`)
+
+## Completed: Materials
+
+### Files inspected
+
+- `src/components/project/ProjectMaterials.tsx`
+- `src/components/studio/LessonView.tsx` (read-only tab wiring)
+- `src/lib/material-images.ts` (read-only)
+- `src/lib/material-readiness.ts` (read-only)
+- `src/lib/paint-material-id.ts` (read-only)
+- `src/lib/tutorial-schema.ts` (read-only normalization)
+- `src/components/progression/StageMaterialsChips.tsx` (read-only — stage chips, out of scope)
+- `src/app/globals.css` (materials-workbench, palette-atelier, workbench-* blocks)
+- `src/styles/artpraxis-tokens.css`
+
+### Active Materials components identified
+
+- **Materials tab:** `ProjectMaterials` mounted from `LessonView` when `tab === "materials"`
+- **Data path:** `tutorial.palette` + `tutorial.materials` → `buildItems()` → categorized workbench
+- **Interactions:** filter toolbar (all/essential/optional/ready), palette selection, category expand/collapse, per-item “Mark ready” with localStorage persistence (`material-readiness.ts`), reset checklist, highlight scroll from stage chips
+- **Not on Materials tab:** `StageMaterialsChips` (Study stage guidance), Overview materials list preview
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/project/ProjectMaterials.tsx`
+- `src/app/globals.css`
+
+### Tokens introduced or reused
+
+Reused: paper/ink/kit, study tip inset tokens, overview empty tokens, spacing, radius, focus, motion tokens
+
+Introduced: `--ap-materials-max-width`, `--ap-materials-section-gap`, `--ap-materials-grid-gap`, `--ap-materials-category-gap`, `--ap-materials-surface`, `--ap-materials-border`, `--ap-materials-shadow`, `--ap-materials-item-*`, `--ap-materials-label`, `--ap-materials-meta`, `--ap-materials-kicker`, `--ap-materials-substitution-*`, `--ap-materials-palette-*`, `--ap-materials-swatch-size*`, `--ap-materials-check-size`, `--ap-materials-mobile-gap`, `--ap-materials-filter-*`, `--ap-materials-ready-summary-background`
+
+### Hard-coded values removed
+
+- Workbench title/lead/action-primary colors → `--ap-materials-label` / `--ap-materials-meta`
+- Pill filters terre-verte/navy fills → tokenized filter active state with ochre rule
+- Palette atelier canvas/paper borders → `--ap-materials-palette-*`
+- Workbench item card shadows and yellow-ochre selection → restrained border emphasis
+- Ready state terre-verte fills → `--ap-materials-item-checked-*`
+- Uppercase `.eyebrow` on page header → `.materials-kicker`
+- Uppercase `.palette-detail-kicker` → sentence-case tokenized label
+- Workbench item image `object-fit: cover` → `contain` (scoped)
+- Palette chip hover lift/shadow → static border emphasis
+
+### Values intentionally retained
+
+- All material/palette data mapping and `buildItems()` logic unchanged
+- Category order (`WORKBENCH_ORDER`) and labels unchanged
+- Filter and readiness persistence unchanged
+- Substitution text content unchanged (presentation label only)
+- Quantity/specification fields in data model not rendered (pre-existing — not added)
+- Legacy materials CSS blocks for stage collapse / palette-supplies remain for other surfaces
+- Small material SVG thumbnails retained at 40px when resolved
+
+### Page hierarchy improvements
+
+- `.materials-kicker` + clear page title/lead
+- Empty state uses semantic `materials-empty` (not generic `.card`)
+- Checklist summary and reset remain subordinate to header
+
+### Palette improvements
+
+- Restrained inset-paper palette section; daub swatches sized via tokens
+- Removed glossy hover lift; ready/selected states use inset paper + border
+- Color chip `aria-label` includes name and role
+- Mix toggle and legend preserved
+
+### Material-item improvements
+
+- Quiet item rows without heavy card shadow
+- Essential/optional tags sentence case, muted
+- Substitution uses inset-paper block with “Substitution” label when item selected
+- Thumbnail `object-fit: contain`
+
+### Category improvements
+
+- Section toggles use tokenized borders and sentence-case headings
+- List grid collapses to one column on narrow viewports
+
+### Substitution improvements
+
+- Inset-paper treatment with labeled block (replacing inline “Substitute:” prefix)
+- Still shown only when item is selected (behavior preserved)
+
+### Interaction improvements
+
+- 44px min-height on filters, ready buttons, reset
+- Focus-visible rings on interactive controls
+- `aria-pressed` on filters and ready buttons preserved
+
+### Responsive improvements
+
+- Max width via `--ap-materials-max-width`
+- Single-column lists and palette grid ≤900px
+- Smaller swatches on very narrow mobile
+
+### Accessibility improvements
+
+- Palette chip buttons labeled with color name + role
+- Empty state `role="status"`
+- Filter toolbar `aria-pressed` preserved
+- Category sections `aria-labelledby` preserved
+- Focus rings tokenized
+
+### Data-quality concerns observed but intentionally not changed
+
+- `quantity` and `specification` exist on `WorkbenchItem` but are not displayed in UI (pre-existing)
+- Generated materials may have incomplete normalization fields (see `tutorial-materials` tests)
+- Duplicate or vague generated material names possible from API output
+
+### Unresolved Materials inconsistencies
+
+- Duplicate materials CSS blocks (legacy ~8432 + polish ~11728 + token block ~11788) — cascade intentional
+- Historical `palette-supplies` and `project-materials-*` selectors remain for unused/legacy paths
+- Stage materials chips not migrated in this pass
+
+### Exact next migration target
+
+Progress — completion status, progress uploads, and Progress tab presentation.
+
+Relevant files:
+
+- `src/components/progression/ProgressUpload.tsx`
+- `src/components/project/StatusPill.tsx`
+- Progress tab wiring in `src/components/studio/LessonView.tsx`
+- progress-related styles in `src/app/globals.css`
+
+Reason:
+
+Materials workbench is tokenized. Notes audit (below) found no learner Notes surface to migrate.
+
+## Audited: Notes not currently implemented
+
+### Files inspected
+
+- `src/components/studio/LessonView.tsx` (tab list, tab rendering)
+- `src/components/shell/LessonShell.tsx`
+- `src/components/studio/LessonExperience.tsx`
+- `src/components/progression/StageGuideColumn.tsx`
+- `src/components/progression/LessonSummaryGrid.tsx`
+- `src/components/progression/GuideNoteCard.tsx`
+- `src/components/progression/StageInstructorNote.tsx`
+- `src/components/progression/StageCheckpoint.tsx`
+- `src/components/project/ProjectMaterials.tsx` (read-only — mixingNote is palette copy, not learner notes)
+- `src/lib/lessons.ts` (Firestore schema + CRUD helpers)
+- `src/lib/tutorial-schema.ts` (read-only)
+- `src/lib/progression.ts` (read-only — stage copy uses “notes” in prose only)
+- `src/lib/stage-copy.ts` (read-only)
+- `src/hooks/` (only `useRecentLessons.ts` — no note hooks)
+- `src/types/` (no note types)
+- `src/app/globals.css` (note-related selectors)
+- `src/app/globals-app-shell.css`
+- `src/styles/artpraxis-tokens.css`
+- `src/app/stability-preview/StabilityPreviewClient.tsx` (mock `notes: ""`)
+- `tests/stability-architecture.test.ts`
+- `docs/design/ui-patterns.md` (legacy mention of disabled Notes tab during generation)
+- git history (`git log --grep=notes`, `--grep=Notes`) — no commits found
+
+Repository searches: `Notes`, `notes`, `lessonNote`, `lessonNotes`, `stageNote`, `stageNotes`, `notebook`, `journal`, `ProjectNotes`, `LessonNotes`, `textarea`, `contentEditable`, `autosave`, `localStorage` + note keys, `updateDoc`/`setDoc` + notes field.
+
+### Notes implementation classification
+
+**E. No Notes implementation** — there is no learner notebook surface, editor, save/autosave flow, or Notes tab/route to migrate.
+
+Supporting evidence:
+
+- `LessonView` `TABS` = Overview, Lesson, Studio Reference, Materials, Progress only — no Notes id, label, or render branch.
+- `tests/stability-architecture.test.ts` explicitly asserts `LessonView.tsx` does **not** match `/Notes/`.
+- No `ProjectNotes`, `LessonNotes`, `NotesPage`, `NotesPanel`, or similar component anywhere under `src/components`.
+- No `<textarea>` or `contentEditable` in `src/components` (no note editor mount point).
+- No autosave, debounce-save, dirty-state, `beforeunload`, or note-specific `localStorage` keys.
+- No `updateDoc` / helper that writes `summary.notes` after project creation.
+- No Notes-specific tests beyond the architecture guard above.
+
+### Active or inactive components found (not learner Notes)
+
+These use “note/notes” in naming or copy but are **instructor or UI chrome**, not a private learner notebook:
+
+| Artifact | Role | Mounted? |
+| --- | --- | --- |
+| `GuideNoteCard` + `LessonSummaryGrid` | Technique / Watch-for glance cards from stage data | Yes — Study guide column |
+| `StageGuideColumn` `.study-stage-notes` | Collapsible “Practical tips” (setup strip, explanation, checkpoint) | Yes — Study/Paint guide |
+| `StageInstructorNote` | Single “Insight” line from `stage.paint.insight` | **No** — exported, zero imports |
+| `ProjectMaterials` `mixingNote` | Palette mixing copy on Materials tab | Yes — Materials only |
+| `studio-ref-notes` / `.studio-ref-notes-body` CSS | Reference viewer footnote styling | **No** — CSS only, no TSX reference |
+| `.atelier-studio-note-*` CSS | Loading/wait layout beside painting | **No** — CSS only, no TSX reference |
+| `.margin-notes`, glance/integrated note CSS blocks | Atelier/stage instructional layout | Yes — unrelated to learner notes |
+
+### Data and persistence behavior found
+
+- **Firestore reserved field:** `LessonSummary.notes: string` in `src/lib/lessons.ts`, initialized to `""` on `createLesson`, read in `toSummary` from `data.notes ?? ""`.
+- **Comment in schema:** “Reserved for future milestones (persisted now, not yet surfaced in UI)”.
+- **No write path:** no `saveNotes`, `updateNotes`, or `updateDoc(..., { notes })` helper; field is never updated after create.
+- **No read path in UI:** `summary.notes` is never referenced outside `lessons.ts` / stability preview mock.
+- **Scope:** field is lesson-wide on the project summary document, not stage-specific; no stage note map exists.
+- **Stability preview:** mock summary includes `notes: ""` only for fixture completeness.
+
+### Files migrated
+
+None. No Notes presentation exists to tokenize without inventing a feature.
+
+### Tokens introduced or reused
+
+None. No `--ap-notes-*` tokens added (no consuming UI).
+
+### Hard-coded values removed
+
+None.
+
+### Values intentionally retained
+
+- Reserved `notes` Firestore field and read/create defaults unchanged.
+- Instructor “Practical tips” / glance-note surfaces unchanged (Study Mode scope, already migrated).
+- Orphan CSS (`.studio-ref-notes`, `.atelier-studio-note-*`, unmounted `StageInstructorNote`) left in place — removal is out of scope for this audit pass.
+
+### Structural / editor / save / empty / error / responsive / accessibility changes
+
+None — no Notes UI to modify.
+
+### Functional concerns observed but not changed
+
+- **Schema without surface:** `notes` is persisted on create but never loaded into an editor or saved back — implementing Notes later will need a write helper and UI mount, not just styling.
+- **Documentation drift:** `docs/design/ui-patterns.md` still lists “Reference / Materials / **Notes** / Progress” as disabled during generation, but `LessonView` has no Notes tab (Materials and Progress are live tabs when lesson is ready).
+- **Misleading migration list entry:** prior audit section 11 listed `StageInstructorNote` / `GuideNoteCard` under “Notes” — those are instructor guidance, not learner Notes.
+- **Orphan artifacts:** `StageInstructorNote.tsx`, `.studio-ref-notes*`, `.atelier-studio-note-*` appear unused; safe cleanup would be a separate hygiene pass, not a Notes migration.
+
+### Reason Notes was not exposed
+
+Product constraint: live `LessonView` tab list must not gain a Notes tab. Audit found no hidden or unmounted learner Notes surface to migrate without building new navigation, persistence, and editor behavior.
+
+### Unresolved Notes inconsistencies
+
+- Reserved Firestore `notes` field vs zero UI/API write path.
+- Orphan CSS and unmounted `StageInstructorNote` may confuse future Notes work — distinguish from learner notebook when implementing.
+- `ui-patterns.md` Notes tab reference is stale relative to `LessonView`.
+
+### Exact next migration target
+
+**Progress** — `ProgressUpload`, `StatusPill`, Progress tab in `LessonView`, and related completion/upload styles in `globals.css`.
+
+## Completed: Progress
+
+### Files inspected
+
+- `src/components/studio/LessonView.tsx` (Progress tab panel, `changeStatus`, `StatusPill` in eyebrow)
+- `src/components/progression/ProgressUpload.tsx`
+- `src/components/project/StatusPill.tsx`
+- `src/components/progression/AtelierRibbon.tsx`
+- `src/components/progression/StageCompletion.tsx` (final-upload placeholder + `progressSlot`)
+- `src/components/progression/StudyMode.tsx` (read-only — mounts `StageCompletion` + `AtelierRibbon` hint)
+- `src/components/progression/DeskStage.tsx` (read-only — `StageCompletion` without progress slot)
+- `src/lib/lessons.ts` (`ProjectStatus`, `setProjectStatus`, `finishedImageUrl` reserved field)
+- `src/lib/progression-images.ts` (read-only — stage image storage, not learner progress photos)
+- `src/app/globals.css` (legacy `.progress-upload*`, `.study-completion-upload*`, `.atelier-ribbon*`, `.status-pill`)
+- `src/app/globals-app-shell.css` (status pill shell overrides)
+- `src/styles/artpraxis-tokens.css`
+- `tests/stability-architecture.test.ts`
+- `src/app/stability-preview/StabilityPreviewClient.tsx` (read-only)
+
+### Active Progress components identified
+
+Live Progress tab path:
+
+- `LessonView` → `#lesson-panel-progress` → `ProgressUpload` (sole mounted progress surface)
+- `changeStatus` → optimistic `setStatus` + `setProjectStatus` Firestore write; reverts on error
+- `StatusPill` in lesson shell eyebrow (read-only display of same `projectStatus`)
+
+Related but not duplicate controls:
+
+- `StudyMode` end → `StageCompletion` + `AtelierRibbon` hint (redirect copy only; no status buttons or upload)
+- `DeskStage` / Paint path → `StageCompletion` without `progressSlot` (not live)
+
+**Not implemented in UI (documented, not invented):**
+
+- Stage-by-stage progress rows or timeline
+- Per-stage photo uploads, replace/remove, or previews
+- Final painting upload with Firebase Storage (file input is UI-only stub; `onChange` no-op)
+- `finishedImageUrl` read/write in UI
+- `completionPercentage` display
+- Loading/error states for uploads (no storage wiring)
+
+Status model:
+
+- Values: `not-started` | `in-progress` | `completed` (Firestore `projectStatus`)
+- User-set via segmented buttons on Progress tab only
+- `StatusPill` label for `completed` remains “Completed”; Progress buttons label it “Finished” (pre-existing)
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/progression/ProgressUpload.tsx`
+- `src/components/project/StatusPill.tsx`
+- `src/components/progression/AtelierRibbon.tsx`
+- `src/components/progression/StageCompletion.tsx` (placeholder semantics/classes only)
+- `src/app/globals.css` (scoped `.progress-workbench` block)
+- `src/app/globals-app-shell.css` (status pill token aliases)
+- `docs/design/TOKEN_MIGRATION_AUDIT.md`
+
+### Tokens introduced or reused
+
+Introduced `--ap-progress-*` (max-width, section gap, kicker, label, meta, summary surface, status colors for not-started / in-progress / finished, control surfaces, upload zone, final placeholder, ribbon border, mobile gap, control min-height).
+
+Reused: `--ap-color-paper-*`, `--ap-kit-*`, `--ap-overview-body`, `--ap-study-image-*`, `--ap-radius-control`, `--ap-shadow-resting`, `--ap-color-focus-ring`, motion tokens.
+
+### Hard-coded values removed
+
+- Progress tab: legacy `.progress-upload--compact` uppercase title styling bypassed via new workbench structure
+- Status pill shell overrides: hard-coded `rgba` / `#72501f` replaced with `--ap-progress-status-*` tokens
+- Atelier ribbon hint: uppercase kicker / italic status replaced with tokenized sentence-case presentation in scoped block
+- Stage completion upload placeholder: dashed `rgba(13,27,42,*)` and uppercase label styling superseded by `.progress-final-*` tokens
+
+### Values intentionally retained
+
+- `ProjectStatus` values and Firestore field names unchanged
+- `setProjectStatus` persistence and optimistic revert on error unchanged
+- File input `accept` list unchanged; `onChange` remains no-op (storage not wired)
+- `projectStatusLabels.completed` = “Completed” in `StatusPill`; button label “Finished” preserved
+- Legacy `.progress-upload*` rules left in cascade (older paths / stability preview); new tab uses `.progress-workbench`
+- `finishedImageUrl`, `completionPercentage` schema fields untouched
+- No stage-by-stage progress UI added
+
+### Page hierarchy improvements
+
+- Progress tab now uses `progress-workbench` with kicker, serif title, lead, and summary card (`StatusPill` + saving status)
+- Lesson status and photo upload split into two semantic sections with `h3` headings
+
+### Overall-status improvements
+
+- `StatusPill` gains `status-pill--progress` modifier with tokenized state colors and dot indicator
+- Saving state exposed with `role="status"` / `aria-live="polite"`
+
+### Stage-progress improvements
+
+None — no stage-by-stage progress surface exists in the mounted UI; documented for future milestone.
+
+### Upload improvements
+
+- File input uses stable `id` + `htmlFor`, visually hidden via clip pattern (not `hidden` attribute)
+- Upload trigger uses inset-paper dashed zone with tokenized border/hover/focus
+- No `object-fit: cover` added (no preview surface yet)
+
+### Final-painting upload improvements
+
+- `StageCompletion` placeholder uses `progress-final-placeholder` + `aria-labelledby` (label preserved: “Your finished work”)
+- Tokenized dashed inset surface; sentence-case label via CSS
+
+### StatusPill improvements
+
+- Shared component: added `--progress` modifier class; tokenized state fills in workbench block and shell overrides
+- Non-color dot indicator retained; `white-space: normal` for narrow mobile wrap
+
+### Completion improvements
+
+- `AtelierRibbon` hint tokenized; no duplicate status/upload controls at Study end (unchanged behavior)
+- `StageCompletion` compare/review actions untouched
+
+### Empty/loading/error improvements
+
+- Saving indicator on Progress tab during `setProjectStatus`
+- No upload error/loading UI added (no storage path)
+
+### Responsive improvements
+
+- Mobile: status controls stack full-width; summary card stretches; upload trigger full width
+- Workbench max-width prevents overly wide line lengths
+
+### Accessibility improvements
+
+- Progress page heading hierarchy (`h2` page, `h3` sections)
+- Status toggle `aria-pressed` preserved
+- File input labeled via `htmlFor`
+- Final placeholder uses labelled-by instead of generic `aria-label`
+- Focus-visible on status options and upload trigger
+
+### Functional concerns observed but intentionally not changed
+
+- Photo upload is UI-only; no `uploadBytes`, preview URLs, or `finishedImageUrl` persistence
+- No per-stage progress photos or replace/remove flows
+- `completionPercentage` on lesson summary never surfaced
+- `changeStatus` does not set `finishedImageUrl` when marking completed
+- Study end `StageCompletion` upload area remains placeholder text
+- Pre-existing label mismatch: StatusPill “Completed” vs Progress button “Finished”
+- Legacy duplicate `.progress-upload` CSS blocks remain in `globals.css` cascade
+
+### Unresolved Progress inconsistencies
+
+- Task brief assumes richer progress UX than currently mounted; migration tokenized what exists
+- `ui-patterns.md` may still describe progress features not yet built
+- Orphan `.atelier-ribbon-option` / upload styles unused by live `AtelierRibbon` hint variant
+
+### Exact next migration target
+
+**Empty, error, and completion states** — `ProjectPlaceholder`, `ComingSoon`, `StageCompletion` celebration chrome, generation/error surfaces, and related styles in `globals.css`.
+
+## Completed: Empty, error, and completion states
+
+### Files inspected
+
+- `src/components/project/ProjectPlaceholder.tsx` (unmounted)
+- `src/components/studio/ComingSoon.tsx`
+- `src/components/dashboard/EmptyState.tsx`
+- `src/components/progression/StageCompletion.tsx`
+- `src/components/progression/AtelierRibbon.tsx`
+- `src/components/project/StatusPill.tsx`
+- `src/components/studio/LessonView.tsx` (load error, not-found)
+- `src/components/studio/LessonExperience.tsx` (generation error view)
+- `src/components/studio/LessonLoadingView.tsx` (read-only)
+- `src/components/studio/LessonCreator.tsx` (submit error)
+- `src/components/studio/FinalPaintingRegenStatus.tsx`
+- `src/components/progression/StageComparison.tsx` (cmp-pending / cmp-empty)
+- `src/components/project/ProjectMaterials.tsx` (materials-empty)
+- `src/components/AuthPanel.tsx` (read-only — already tokenized)
+- `src/lib/lessons.ts` (`projectStatusLabels`)
+- `src/app/globals.css` (empty-state, coming-soon, lesson-state, study-completion, cmp-pending, fp-regen)
+- `src/styles/artpraxis-tokens.css`
+- Route-level `error.tsx` / `not-found.tsx` / `loading.tsx` — **not present** in `src/app`
+
+### Active state components identified
+
+| Component | State type | Mounted? |
+| --- | --- | --- |
+| `EmptyState` | Dashboard empty | Yes |
+| `ComingSoon` | Placeholder pages (coach, collections, favorites, practice, search) | Yes |
+| `LessonView` not-found | Empty | Yes |
+| `LessonView` load error | Error | Yes |
+| `LessonExperience` `lesson-error-view` | Generation error + retry | Yes |
+| `StageComparison` `cmp-pending` / `cmp-empty` | Image loading/unavailable/failed | Yes |
+| `FinalPaintingRegenStatus` | Regeneration progress/error | Yes (when regen active) |
+| `LessonCreator` `creator-error` | Form error | Yes |
+| `ProjectMaterials` `materials-empty` | Empty list | Yes |
+| `StageCompletion` + `AtelierRibbon` | Completion + hint | Yes (Study end) |
+| `ProgressUpload` saving status | Passive status | Yes (Progress tab) |
+| `AuthPanel` | Auth error | Yes |
+| `ProjectPlaceholder` | Coming soon card | **No** (zero imports) |
+
+### Classification
+
+- **A. Active shared:** `EmptyState`, `ComingSoon`, `LessonView` empty/error wrappers, `lesson-error-view`, `cmp-pending`/`cmp-empty`, `materials-empty`
+- **B. Active screen-specific:** `LessonCreator` error, `FinalPaintingRegenStatus`, `StageCompletion`
+- **C. Active completion:** `StageCompletion`, `AtelierRibbon` hint, Progress “Finished” control
+- **D. Legacy mounted:** Legacy `.cmp-pending` duplicate CSS blocks (cascade retained)
+- **E. Legacy unmounted:** `ProjectPlaceholder`
+- **F. Placeholder unimplemented:** `ComingSoon` studio routes (coach, collections, etc.)
+
+### Files migrated
+
+- `src/styles/artpraxis-tokens.css`
+- `src/components/dashboard/EmptyState.tsx`
+- `src/components/studio/ComingSoon.tsx`
+- `src/components/studio/LessonView.tsx`
+- `src/components/studio/LessonExperience.tsx`
+- `src/components/studio/LessonCreator.tsx`
+- `src/components/studio/FinalPaintingRegenStatus.tsx`
+- `src/components/progression/StageCompletion.tsx`
+- `src/components/progression/StageComparison.tsx`
+- `src/components/project/ProjectMaterials.tsx`
+- `src/lib/lessons.ts` (display label only)
+- `src/app/globals.css`
+
+### Tokens introduced or reused
+
+Introduced `--ap-state-*` and `--ap-completion-*` tokens. Reused `--ap-loading-error-*`, `--ap-overview-empty-background`, paper/ink, focus, progress control min-height.
+
+### Hard-coded values removed
+
+- `cmp-pending.error` `#f7e8e6` / `#7d2f28` superseded in scoped block
+- `study-completion-kicker` uppercase/umber styling superseded by `.ap-completion` tokens
+- `coming-soon` / `empty-state` hard-coded chrome partially tokenized via `.ap-state` modifiers
+- Lesson load error bare `.status.error` replaced with tokenized error panel
+
+### Values intentionally retained
+
+- All error strings, retry handlers, and generation logic unchanged
+- `LessonExperience` error `ui.headline` / `ui.detail` mapping unchanged
+- `FinalPaintingRegenStatus` may still surface raw `error` string in title when present (pre-existing)
+- `ProjectPlaceholder` unmounted — not redesigned
+- Legacy duplicate CSS blocks retained in cascade
+- `ComingSoon` pages remain placeholder routes (not product features)
+
+### Empty-state improvements
+
+- `EmptyState` and `LessonView` not-found use `ap-state--empty` with tokenized icon, title, body
+- `ComingSoon` uses `ap-state--placeholder` with sentence-case kicker
+- `materials-empty` aliased to `ap-state-empty` surface tokens
+
+### Error-state improvements
+
+- Lesson load error: semantic `role="alert"` panel with title + preserved message body
+- `lesson-error-view` + `LessonCreator` errors use `--ap-state-error-*` surfaces
+- Stage image failure: `ap-state-image-error` on `cmp-pending.error`
+- `fp-regen-status--error` tokenized; error title uses `role="alert"` (polite live region removed for errors only)
+
+### Image-unavailable improvements
+
+- `cmp-empty` + `ap-state-image-empty`: dashed inset border, stable aspect-ratio container preserved
+- `cmp-pending.error`: tokenized error surface without zero-height collapse
+
+### Generation-error improvements
+
+- `lesson-error-view` retains reference image + “Your reference is safe” caption
+- Retry button styling unchanged; error card uses state error tokens
+
+### Completion improvements
+
+- `StageCompletion` + `ap-completion`: sentence-case kicker, tokenized title/body, top rule separator
+- No confetti, badges, or green success cards added
+
+### Status-language decisions
+
+- `projectStatusLabels.completed` display text changed from **Completed** → **Finished** (enum `completed` unchanged)
+- Aligns with Progress status buttons and `AtelierRibbon` hint
+- Stage completion copy unchanged (“Painting complete”, “Compare finished work”)
+
+### Live-region improvements
+
+- `FinalPaintingRegenStatus`: `aria-live="polite"` only for non-error phases; `role="alert"` on error title
+- Passive Progress saving and materials summaries unchanged
+- No whole-page live regions added
+
+### Responsive improvements
+
+- State pages use mobile padding token; completion actions stack on narrow viewports
+- Image unavailable containers retain aspect ratio
+
+### Accessibility improvements
+
+- Lesson load error gains heading + alert semantics
+- Completion secondary action gets focus-visible ring
+- Decorative icons remain `aria-hidden`
+- Image empty/error copy remains visible text (not icon-only)
+
+### Functional concerns observed but intentionally not changed
+
+- `FinalPaintingRegenStatus` may render raw API error strings when `error` prop is set
+- No route-level `error.tsx` / `not-found.tsx` in app directory
+- `ProjectPlaceholder` duplicate of `ComingSoon` but unused
+- Photo upload placeholders at Study end and Progress tab still unwired
+- `cmp-pending` uses `aria-live="polite"` on whole pending block (pre-existing; not restructured)
+
+### Unresolved state inconsistencies
+
+- Multiple legacy `.cmp-empty`/`.cmp-pending` CSS blocks remain earlier in `globals.css`
+- `ComingSoon` practice page mentions “streak” in description (product copy, not migrated)
+- `EmptyState` headline “masterpiece” is marketing tone (pre-existing)
+
+### Exact next migration target
+
+**Mobile and tablet polish** — responsive sections in `globals.css`, `globals-app-shell.css`, lesson shell gutters, dock/FAB clearance, and narrow-viewport overflow fixes across migrated surfaces.

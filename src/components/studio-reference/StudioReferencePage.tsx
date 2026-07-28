@@ -21,7 +21,7 @@ export function StudioReferencePage({
   return (
     <div className="studio-ref-page">
       <header className="studio-ref-page-head">
-        <p className="eyebrow">Studio Reference</p>
+        <p className="studio-ref-kicker">Studio Reference</p>
         <h2 className="studio-ref-page-title">Reference &amp; Final Painting</h2>
       </header>
 

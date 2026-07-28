@@ -18,7 +18,7 @@ export function FinalPaintingEntry({
   if (!ctx?.available) return null;
 
   const thumb = ctx.finalPaintingUrl || ctx.referenceUrl;
-  const label = ctx.finalPaintingUrl ? "Final Painting" : "Reference Photo";
+  const label = ctx.finalPaintingUrl ? "Final painting" : "Reference photo";
   const open = () => {
     ctx.openPanel();
   };
@@ -58,7 +58,7 @@ export function FinalPaintingEntry({
           className="final-painting-entry-ref"
           onClick={() => ctx.openFullscreen()}
         >
-          Reference Photo
+          Reference photo
         </button>
       ) : null}
       <span className="visually-hidden">

@@ -74,7 +74,11 @@ export function FinalPaintingRegenStatus({
           <span className="fp-regen-status-pulse" aria-hidden="true" />
         ) : null}
         <div className="fp-regen-status-copy">
-          <p className="fp-regen-status-title" aria-live="polite">
+          <p
+            className="fp-regen-status-title"
+            aria-live={state === "error" ? undefined : "polite"}
+            role={state === "error" ? "alert" : undefined}
+          >
             {title}
           </p>
           {copy.reassurance ? (

@@ -772,13 +772,27 @@ export function LessonView({ id }: { id: string }) {
       <ArtPraxisLoadingMark label="Loading your project…" />
     </div>
   );
-  if (error) return <p className="status error">{error}</p>;
+  if (error) {
+    return (
+      <section className="ap-state ap-state--error ap-state--page" role="alert">
+        <h2 className="ap-state-title">Couldn&apos;t load this lesson</h2>
+        <p className="ap-state-body">{error}</p>
+      </section>
+    );
+  }
   if (!state) return (
-    <div className="empty-state">
-      <span className="empty-mark" aria-hidden="true"><Icon name="image" size={28} /></span>
-      <h2 className="empty-title">Project not found</h2>
-      <p className="empty-copy">This project may have been moved or removed.</p>
-      <Link href="/studio" className="btn-solid btn-lg"><Icon name="arrow-left" size={18} />Back to dashboard</Link>
+    <div className="ap-state ap-state--empty empty-state">
+      <span className="ap-state-icon empty-mark" aria-hidden="true">
+        <Icon name="image" size={28} />
+      </span>
+      <h2 className="ap-state-title empty-title">Project not found</h2>
+      <p className="ap-state-body empty-copy">
+        This project may have been moved or removed.
+      </p>
+      <Link href="/studio" className="btn-solid btn-lg">
+        <Icon name="arrow-left" size={18} />
+        Back to dashboard
+      </Link>
     </div>
   );
 

@@ -229,7 +229,7 @@ function TargetPanel({
         "cmp-pending",
         "cmp-stage-awaiting",
         "cmp-stage-awaiting--compact",
-        isFailed ? "error" : null,
+        isFailed ? "error ap-state-image-error" : null,
         generating ? "is-preparing" : null,
       ]
         .filter(Boolean)
@@ -356,7 +356,7 @@ export function StageComparison({
     </ReferenceColorSampler>
   ) : (
     <ComparisonFrame variant="reference">
-      <div className="cmp-empty">No reference image</div>
+      <div className="cmp-empty ap-state-image-empty">No reference image</div>
     </ComparisonFrame>
   );
 

@@ -15,10 +15,10 @@ export function StageCompletion({
   return (
     <section
       id={LESSON_COMPLETE_DOM_ID}
-      className="stage-completion study-completion"
+      className="stage-completion study-completion ap-completion"
       aria-labelledby="painting-complete-title"
     >
-      <p className="study-completion-kicker">Lesson complete</p>
+      <p className="ap-completion-kicker study-completion-kicker">Lesson complete</p>
       <h2 id="painting-complete-title" className="study-completion-title">
         Painting complete
       </h2>
@@ -36,9 +36,14 @@ export function StageCompletion({
         </button>
       </div>
 
-      <div className="study-completion-upload" aria-label="Finished work upload">
-        <p className="study-completion-upload-label">Your finished work</p>
-        <p className="study-completion-upload-hint">
+      <div
+        className="progress-final-placeholder study-completion-upload"
+        aria-labelledby="progress-final-upload-label"
+      >
+        <p id="progress-final-upload-label" className="progress-final-upload-label study-completion-upload-label">
+          Your finished work
+        </p>
+        <p className="progress-final-upload-hint study-completion-upload-hint">
           Photo upload will live here — for now, mark your progress below.
         </p>
       </div>

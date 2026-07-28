@@ -44,7 +44,7 @@ export function StudioReferencePanel() {
       >
         <header className="studio-ref-panel-head">
           <div>
-            <p className="eyebrow">Studio Reference</p>
+            <p className="studio-ref-kicker">Studio Reference</p>
             <h2 id={titleId} className="studio-ref-panel-title">
               Compare
             </h2>

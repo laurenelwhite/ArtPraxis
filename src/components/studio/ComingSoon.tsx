@@ -10,11 +10,13 @@ export function ComingSoon({
   icon?: IconName;
 }) {
   return (
-    <div className="card coming-soon">
-      <div className="coming-soon-badge"><Icon name={icon} size={20} /></div>
-      <p className="eyebrow">Coming soon</p>
-      <h1 className="dashboard-title">{title}</h1>
-      <p className="meta">{description}</p>
+    <div className="ap-state ap-state--placeholder card coming-soon">
+      <div className="ap-state-icon coming-soon-badge" aria-hidden="true">
+        <Icon name={icon} size={20} />
+      </div>
+      <p className="ap-state-kicker">Coming soon</p>
+      <h1 className="ap-state-title dashboard-title">{title}</h1>
+      <p className="ap-state-body meta">{description}</p>
     </div>
   );
 }

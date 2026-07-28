@@ -360,7 +360,7 @@ export function LessonCreator() {
             </details>
 
             {error ? (
-              <p id={errorId} className="creator-error" role="alert">
+              <p id={errorId} className="creator-error ap-state-error-inline" role="alert">
                 {error}
               </p>
             ) : null}

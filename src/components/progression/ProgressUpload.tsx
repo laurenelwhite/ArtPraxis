@@ -1,14 +1,20 @@
 "use client";
 
-import {
-  type ProjectStatus,
-} from "@/lib/lessons";
+import { StatusPill } from "@/components/project/StatusPill";
+import { type ProjectStatus } from "@/lib/lessons";
 
 const STATUS_ORDER: ProjectStatus[] = ["not-started", "in-progress", "completed"];
 
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  "not-started": "Not started",
+  "in-progress": "In progress",
+  completed: "Finished",
+};
+
+const PHOTO_INPUT_ID = "progress-photo-upload";
+
 /**
- * Compact progress upload strip for the lesson flow (slot F).
- * Visually secondary to stage instruction.
+ * Progress tab — lesson status and photo upload (storage wiring is UI-only for now).
  */
 export function ProgressUpload({
   status,
@@ -20,18 +26,34 @@ export function ProgressUpload({
   saving?: boolean;
 }) {
   return (
-    <section className="progress-upload progress-upload--compact" aria-labelledby="progress-upload-title">
-      <div className="progress-upload-copy">
-        <h3 id="progress-upload-title" className="progress-upload-title">
-          Progress
-        </h3>
-        <p className="progress-upload-lede">
-          Mark where you are, or save a photo of this stage.
-        </p>
-      </div>
+    <div className="progress-workbench">
+      <header className="progress-workbench-header">
+        <div>
+          <p className="progress-kicker">Progress</p>
+          <h2 className="progress-workbench-title">Your painting journey</h2>
+          <p className="progress-workbench-lead">
+            Mark where you are, or save a photo of your work.
+          </p>
+        </div>
+        <div className="progress-status-summary">
+          <p className="progress-status-summary-label">Current status</p>
+          <StatusPill status={status} />
+          {saving ? (
+            <p className="progress-saving" role="status" aria-live="polite">
+              Saving…
+            </p>
+          ) : null}
+        </div>
+      </header>
 
-      <div className="progress-upload-actions">
-        <div className="progress-upload-status" role="group" aria-label="Project status">
+      <section className="progress-section" aria-labelledby="progress-status-heading">
+        <h3 id="progress-status-heading" className="progress-section-title">
+          Lesson status
+        </h3>
+        <p className="progress-section-lead">
+          Choose the option that best matches where you are.
+        </p>
+        <div className="progress-status-controls" role="group" aria-label="Lesson status">
           {STATUS_ORDER.map((option) => (
             <button
               key={option}
@@ -39,32 +61,42 @@ export function ProgressUpload({
               aria-pressed={option === status}
               className={
                 option === status
-                  ? "progress-upload-option active"
-                  : "progress-upload-option"
+                  ? "progress-status-option is-active"
+                  : "progress-status-option"
               }
               disabled={saving}
               onClick={() => onStatusChange(option)}
             >
-              {option === "not-started"
-                ? "Not started"
-                : option === "in-progress"
-                  ? "In progress"
-                  : "Finished"}
+              {STATUS_LABEL[option]}
             </button>
           ))}
         </div>
+      </section>
 
-        <label className="progress-upload-file">
-          <span>Upload photo</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            /* Wire storage later; UI only for this redesign pass */
-            onChange={() => {}}
-          />
-        </label>
-      </div>
-    </section>
+      <section
+        className="progress-section progress-photo-section"
+        aria-labelledby="progress-photo-heading"
+      >
+        <h3 id="progress-photo-heading" className="progress-section-title">
+          Your painting
+        </h3>
+        <p className="progress-section-lead">
+          Save a photo when you are ready.
+        </p>
+        <div className="progress-upload-zone">
+          <label htmlFor={PHOTO_INPUT_ID} className="progress-upload-trigger">
+            <span>Upload photo</span>
+            <input
+              id={PHOTO_INPUT_ID}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="progress-upload-input"
+              /* Wire storage later; UI only for this redesign pass */
+              onChange={() => {}}
+            />
+          </label>
+        </div>
+      </section>
+    </div>
   );
 }

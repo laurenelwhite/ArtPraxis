@@ -30,7 +30,7 @@ export type ProjectStatus = "not-started" | "in-progress" | "completed";
 export const projectStatusLabels: Record<ProjectStatus, string> = {
   "not-started": "Not started",
   "in-progress": "In progress",
-  completed: "Completed",
+  completed: "Finished",
 };
 
 /** Adaptive logo fields — computed once from the accepted/usable master. */

@@ -236,8 +236,8 @@ export function ProjectMaterials({
 
   if (!tutorial || items.length === 0) {
     return (
-      <div className="card materials-empty">
-        <p className="meta">No materials were listed for this lesson.</p>
+      <div className="materials-empty ap-state-empty" role="status">
+        <p className="materials-empty-copy">No materials were listed for this lesson.</p>
       </div>
     );
   }
@@ -271,7 +271,7 @@ export function ProjectMaterials({
     <div className="materials-workbench" data-materials-scope={scopeKey || undefined}>
       <header className="materials-workbench-header">
         <div>
-          <p className="eyebrow">Materials</p>
+          <p className="materials-kicker">Materials</p>
           <h2 className="materials-workbench-title">Your atelier setup</h2>
           <p className="materials-workbench-lead">
             Gather what you need, mark items ready as you go. Checklist stays on
@@ -391,6 +391,7 @@ export function ProjectMaterials({
                       .filter(Boolean)
                       .join(" ")}
                     aria-pressed={isSelected}
+                    aria-label={`${color.name}, ${color.role}${isReady ? ", marked ready" : ""}`}
                     onClick={() =>
                       setSelectedId((cur) => (cur === color.id ? null : color.id))
                     }
@@ -510,8 +511,11 @@ export function ProjectMaterials({
                             <span className="workbench-item-purpose">{item.purpose}</span>
                           ) : null}
                           {isSelected && item.substitution?.trim() ? (
-                            <span className="workbench-item-note">
-                              Substitute: {item.substitution}
+                            <span className="workbench-item-substitution">
+                              <span className="workbench-item-substitution-label">
+                                Substitution
+                              </span>
+                              {item.substitution}
                             </span>
                           ) : null}
                         </span>

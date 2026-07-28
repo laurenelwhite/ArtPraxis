@@ -71,23 +71,7 @@ export function StudyStageSection({
           className="study-stage-final-entry"
         />
 
-        <div className="study-stage-workspace">
-          <p className="study-stage-canvas-label eyebrow">This stage</p>
-          <div className="study-stage-canvas" id={`${stage.id}-compare`}>
-            <StageComparison
-              stage={stage}
-              tutorial={tutorial}
-              medium={medium}
-              referenceUrl={referenceUrl}
-              compare={compare}
-              onCompareChange={onCompareChange}
-              onRetry={onRetry}
-              retrying={retrying}
-            />
-          </div>
-        </div>
-
-        <div className="study-stage-guide">
+        <aside className="study-stage-guide" aria-label="Stage guidance">
           {todaysFocus ? (
             <section className="study-stage-focus" aria-label="Today’s focus">
               <p className="study-stage-focus-kicker">Today’s focus</p>
@@ -114,6 +98,22 @@ export function StudyStageSection({
             medium={medium}
             onOpenMaterials={onOpenMaterials}
           />
+        </aside>
+
+        <div className="study-stage-workspace">
+          <h3 className="study-stage-canvas-label">This stage</h3>
+          <div className="study-stage-canvas" id={`${stage.id}-compare`}>
+            <StageComparison
+              stage={stage}
+              tutorial={tutorial}
+              medium={medium}
+              referenceUrl={referenceUrl}
+              compare={compare}
+              onCompareChange={onCompareChange}
+              onRetry={onRetry}
+              retrying={retrying}
+            />
+          </div>
         </div>
       </div>
 

@@ -176,7 +176,7 @@ export function LessonExperience({
         className="lesson-experience lesson-experience--atelier lesson-experience--state"
         data-lesson-medium={lessonMedium}
       >
-        <section className="lesson-state-view lesson-error-view" role="alert">
+        <section className="lesson-state-view lesson-error-view ap-state ap-state--error" role="alert">
           <div className="lesson-state-card">
             <p className="lesson-state-kicker">Something went wrong</p>
             <h2 className="lesson-state-title">{ui.headline}</h2>

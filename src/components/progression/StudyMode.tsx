@@ -46,7 +46,11 @@ export function StudyMode({
   }, [active]);
 
   return (
-    <div className="study-mode study-mode--continuous studio-mode studio-mode--atelier lesson-document">
+    <div
+      className="study-mode study-mode--continuous studio-mode studio-mode--atelier lesson-document"
+      role="region"
+      aria-label="Study lesson"
+    >
       <StageScrollNav
         className="stage-scroll-nav--quiet"
         stages={stages}

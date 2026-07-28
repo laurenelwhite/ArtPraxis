@@ -545,19 +545,19 @@
   border-block:1px solid var(--ap-overview-fact-border);
 }
 .status-pill.not-started{
-  color:var(--ap-kit-ink);
-  background:rgba(44,62,86,.06);
-  border-color:rgba(44,62,86,.14);
+  color:var(--ap-progress-status-not-started-text);
+  background:var(--ap-progress-status-not-started-background);
+  border-color:var(--ap-progress-status-not-started-border);
 }
 .status-pill.in-progress{
-  color:#72501f;
-  background:rgba(218,163,90,.18);
-  border-color:rgba(218,163,90,.30);
+  color:var(--ap-progress-status-in-progress-text);
+  background:var(--ap-progress-status-in-progress-background);
+  border-color:var(--ap-progress-status-in-progress-border);
 }
 .status-pill.completed{
-  color:var(--ap-kit-ink);
-  background:rgba(44,62,86,.12);
-  border-color:rgba(44,62,86,.15);
+  color:var(--ap-progress-status-finished-text);
+  background:var(--ap-progress-status-finished-background);
+  border-color:var(--ap-progress-status-finished-border);
 }
 
 .studio-home,
@@ -569,10 +569,25 @@
 .card,
 .lesson-card,
 .lead-project,
-.creator-panel,
-.study-stage-section{
+.creator-panel{
   border-color:rgba(44,62,86,.14);
   background:rgba(248,243,235,.58);
+  box-shadow:none;
+}
+.study-mode--continuous .study-stage-section{
+  background:transparent !important;
+  border-color:transparent;
+  box-shadow:none;
+}
+.study-mode--continuous .study-stage-section{
+  border-bottom:1px solid var(--ap-study-stage-divider);
+}
+.study-mode--continuous .study-stage-section + .study-stage-section{
+  border-top:1px solid var(--ap-study-stage-divider);
+}
+.paint-mode .paint-stage-section{
+  background:transparent !important;
+  border-color:transparent;
   box-shadow:none;
 }
 
