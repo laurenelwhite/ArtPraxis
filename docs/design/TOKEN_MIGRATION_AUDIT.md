@@ -2486,3 +2486,11 @@ At ≤720px, minimum ~44px applied to: overflow menu trigger/items, dock close, 
 ### Exact next step
 
 Verify Create at `/studio/new` without generating; finish keyboard/focus proof or defer as a11y debt; confirm Progress status for capture; then capture candidates 3–13 or reassess.
+
+## 2026-08-03 — Continuous lesson document redesign (UI pass)
+
+Presentation-only redesign of the Studio Lesson tab into one continuous pedagogical document with a nine-step lesson map (Plan → Finish). Stored six-stage progression, generation schema, auth, and persistence were not changed. See `docs/design/LESSON_DOCUMENT_REDESIGN.md`.
+
+## 2026-08-03 — Lesson document visual art-direction pass
+
+Visual hierarchy polish on the continuous lesson document using ready lesson `eJcl58mY5ox6TRlizyB5`. No schema/generation/auth changes. Details and physical-art audit: `docs/design/LESSON_DOCUMENT_REDESIGN.md`.

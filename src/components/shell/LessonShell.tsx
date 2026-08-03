@@ -32,7 +32,8 @@ function prefersReducedMotion(): boolean {
 
 /**
  * Unified lesson page chrome under the global AppShell.
- * Hero: Title → Metadata/Status → Tabs. Secondary actions live in overflow.
+ * Compact identity: Title → Metadata/Status → Destination tabs.
+ * Within-Lesson step map lives in the continuous document, not here.
  */
 export function LessonShell({
   title,

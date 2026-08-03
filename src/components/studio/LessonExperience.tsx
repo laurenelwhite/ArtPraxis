@@ -98,7 +98,7 @@ export function LessonExperience({
     [tutorial, imageUrl, medium, progression],
   );
 
-  const [compare, setCompare] = useState<CompareMode>("both");
+  const [compare, setCompare] = useState<CompareMode>("target");
   const lang = useMemo(() => getMediumLanguage(medium), [medium]);
 
   const ui = useMemo(

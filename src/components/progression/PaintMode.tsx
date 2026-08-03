@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { STAGE_DOM_ID } from "@/lib/stage-icons";
+import {
+  sectionIdForStage,
+  resolveDocumentSectionTitle,
+  type LessonDocumentStep,
+} from "@/lib/lesson-document";
 import { StageScrollNav } from "@/components/progression/StageScrollNav";
 import { DeskStage } from "@/components/progression/DeskStage";
 import type { StageModeBaseProps } from "@/components/progression/stage-shell-props";
 
 /**
  * Paint mode — one active stage at a time.
- * Shares StageScrollNav with Study (no separate process rail / picker sheet).
+ * Retained for compatibility; continuous Study Mode is the live lesson path.
  */
 export function PaintMode({
   stages,
@@ -24,6 +29,22 @@ export function PaintMode({
 }: StageModeBaseProps) {
   const [active, setActive] = useState(0);
   const [visitedMax, setVisitedMax] = useState(0);
+
+  const steps = useMemo<LessonDocumentStep[]>(
+    () =>
+      stages.map((stage, index) => {
+        const sectionId = sectionIdForStage(stage.id);
+        return {
+          id: sectionId,
+          number: index + 1,
+          label: resolveDocumentSectionTitle(sectionId, medium),
+          shortLabel: resolveDocumentSectionTitle(sectionId, medium),
+          domId: STAGE_DOM_ID[stage.id],
+          stageId: stage.id,
+        };
+      }),
+    [stages, medium],
+  );
 
   const safeActive = Math.max(0, Math.min(active, Math.max(stages.length - 1, 0)));
   const activeStage = stages[safeActive];
@@ -44,11 +65,10 @@ export function PaintMode({
     >
       <StageScrollNav
         className="stage-scroll-nav--quiet"
-        stages={stages}
+        steps={steps}
         active={safeActive}
         visitedMax={visitedMax}
         onSelect={selectStage}
-        medium={medium}
       />
 
       <div className="desk-stages studio-stage-host atelier-stage-host paint-stage-host">

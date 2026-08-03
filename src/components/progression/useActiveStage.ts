@@ -11,19 +11,14 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Scroll-linked chapter navigation for the six lesson stages.
+ * Scroll-linked chapter navigation for the continuous lesson document.
  *
- * - `domIds` are the stable element ids of each stage section (e.g.
- *   "lesson-stage-sketch"). They double as URL hashes for deep-linking.
- * - The active stage is whichever section is crossing the vertical centre of
- *   the viewport (IntersectionObserver — no scroll hijacking, no snap).
- * - `scrollTo` scrolls the nearest scrollport (`.app-main`) to a stage. Offset
- *   beneath sticky project tabs + stage nav is handled by each section's CSS
- *   `scroll-margin-top`, so headings are never hidden. Clicking pushes a history
- *   entry (so browser back/forward step through visited stages); scrolling only
- *   updates the highlight.
- * - On mount, an incoming `#stage-…` hash deep-links to that stage; `popstate`
- *   keeps back/forward in sync.
+ * - `domIds` are stable section element ids (Plan / Observe / stages / Color).
+ * - The active section is whichever section is crossing the upper workspace band
+ *   (IntersectionObserver — no scroll hijacking, no snap).
+ * - `scrollTo` scrolls the nearest scrollport (`.app-main`) to a section. Offset
+ *   is handled by each section's CSS `scroll-margin-top`. Clicking may push a
+ *   history entry; scrolling only updates the highlight.
  */
 export function useActiveStage(domIds: string[]) {
   const [active, setActive] = useState(0);
