@@ -964,6 +964,8 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      // Composition checks are one vision-model JSON response, not independent
+      // I/O tasks — do not Promise.all them without changing retry semantics.
       const validationStarted = Date.now();
       const validation = await validateComposition(
         client,

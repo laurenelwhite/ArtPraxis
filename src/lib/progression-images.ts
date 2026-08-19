@@ -1987,7 +1987,9 @@ async function orchestrateProgressionInner(params: {
     referenceImageUrl,
     params.size ?? "1024x1024",
   );
-  // Re-read after ensure so we never treat a racey create as "no master".
+  // Keep this extra read: ensureProgression can race with another tab that
+  // writes a master between create and orchestration. Returning `base` alone
+  // could skip an already-usable master. Cheap vs. generation; not safe to drop.
   const hydrated = (await getProgressionDoc(uid, projectId)) ?? base;
   logProgression("progression_hydration_resolved", {
     projectId,

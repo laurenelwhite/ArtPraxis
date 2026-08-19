@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
 import { withNormalizedMaterials } from "@/lib/tutorial-schema";
 import type { BrandThemeStored } from "@/lib/branding/brand-theme";
+import { buildLessonShellFields, normalizedTutorialWithTitle } from "@/lib/lesson-creation";
 
 // Generation/image lifecycle of the reference asset.
 export type LessonStatus = "generating" | "ready" | "error";
@@ -162,40 +163,77 @@ export async function getLesson(uid: string, id: string): Promise<LessonDetail |
   return { summary: toSummary(summarySnap), tutorial };
 }
 
+/** Lightweight project row so upload and tutorial generation can overlap. */
+export async function createLessonShell(
+  uid: string,
+  input: { medium: Medium; skillLevel: string },
+): Promise<string> {
+  const created = await addDoc(projectsCol(uid), {
+    ...buildLessonShellFields(uid, input),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    lastOpenedAt: serverTimestamp(),
+  });
+  return created.id;
+}
+
+/** Persist the generated tutorial without marking the lesson ready. */
+export async function attachLessonTutorial(
+  uid: string,
+  id: string,
+  tutorial: Tutorial,
+): Promise<void> {
+  const { tutorial: normalized, title, titleLower } = normalizedTutorialWithTitle(tutorial);
+  await Promise.all([
+    setDoc(tutorialRef(uid, id), { tutorial: normalized }),
+    updateDoc(summaryRef(uid, id), {
+      title,
+      titleLower,
+      updatedAt: serverTimestamp(),
+    }),
+  ]);
+}
+
+/**
+ * Write tutorial + reference URL in one summary update so the lesson is never
+ * marked ready without both prerequisites.
+ */
+export async function persistLessonCreationAssets(
+  uid: string,
+  id: string,
+  input: { tutorial: Tutorial; imageUrl: string },
+): Promise<{ tutorialPersistMs: number; referenceAttachMs: number }> {
+  const { tutorial: normalized, title, titleLower } = normalizedTutorialWithTitle(input.tutorial);
+  const tutorialStarted = Date.now();
+  await setDoc(tutorialRef(uid, id), { tutorial: normalized });
+  const tutorialPersistMs = Date.now() - tutorialStarted;
+  const attachStarted = Date.now();
+  await updateDoc(summaryRef(uid, id), {
+    title,
+    titleLower,
+    imageUrl: input.imageUrl,
+    thumbnailUrl: input.imageUrl,
+    status: "ready" as LessonStatus,
+    updatedAt: serverTimestamp(),
+  });
+  const referenceAttachMs = Date.now() - attachStarted;
+  return { tutorialPersistMs, referenceAttachMs };
+}
+
+export async function markLessonGenerationError(uid: string, id: string): Promise<void> {
+  await updateDoc(summaryRef(uid, id), {
+    status: "error" as LessonStatus,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function createLesson(
   uid: string,
   input: { medium: Medium; skillLevel: string; tutorial: Tutorial }
 ): Promise<string> {
-  const { medium, skillLevel } = input;
-  const tutorial = withNormalizedMaterials(input.tutorial);
-  const created = await addDoc(projectsCol(uid), {
-    userId: uid,
-    title: tutorial.title,
-    titleLower: tutorial.title.toLowerCase(),
-    thumbnailUrl: "",
-    imageUrl: "",
-    medium,
-    skillLevel,
-    status: "generating" as LessonStatus,
-    projectStatus: "not-started" as ProjectStatus,
-    favorite: false,
-    collectionIds: [],
-    tags: [medium, skillLevel],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    lastOpenedAt: serverTimestamp(),
-    // Reserved schema for upcoming milestones; kept consistent on every doc.
-    progressionImages: [],
-    notes: "",
-    finishedImageUrl: null,
-    aiCoachConversation: [],
-    completionPercentage: 0,
-    brandAccent: null,
-    brandTheme: null,
-  });
-
-  await setDoc(tutorialRef(uid, created.id), { tutorial });
-  return created.id;
+  const id = await createLessonShell(uid, { medium: input.medium, skillLevel: input.skillLevel });
+  await attachLessonTutorial(uid, id, input.tutorial);
+  return id;
 }
 
 /** Read only adaptive branding fields (cheap when summary is not already loaded). */
@@ -233,11 +271,16 @@ export async function persistLessonBrand(
   });
 }
 
-export async function attachLessonImage(uid: string, id: string, imageUrl: string): Promise<void> {
+export async function attachLessonImage(
+  uid: string,
+  id: string,
+  imageUrl: string,
+  status: LessonStatus = "ready",
+): Promise<void> {
   await updateDoc(summaryRef(uid, id), {
     imageUrl,
     thumbnailUrl: imageUrl,
-    status: "ready" as LessonStatus,
+    status,
     updatedAt: serverTimestamp(),
   });
 }

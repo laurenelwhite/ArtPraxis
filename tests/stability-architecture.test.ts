@@ -69,6 +69,30 @@ describe("studio and lesson architecture stability", () => {
   });
 });
 
+describe("new lesson creation pipeline", () => {
+  it("creates a lesson shell then overlaps tutorial generation with reference upload", () => {
+    const creator = read("components/studio/LessonCreator.tsx");
+    const lessons = read("lib/lessons.ts");
+    assert.match(lessons, /export async function createLessonShell/);
+    assert.match(lessons, /export async function attachLessonTutorial/);
+    assert.match(lessons, /export async function persistLessonCreationAssets/);
+    assert.match(lessons, /export async function createLesson\(/);
+    assert.match(creator, /createLessonShell/);
+    assert.match(creator, /Promise\.allSettled/);
+    assert.match(creator, /\/api\/generate-tutorial/);
+    assert.match(creator, /uploadBytes/);
+    assert.match(creator, /creatorGenerationTimingLog/);
+    assert.match(read("lib/lesson-creation.ts"), /creator_generation_timing/);
+    assert.doesNotMatch(creator, /createLesson\(/);
+  });
+
+  it("keeps AI stage refinement off by default", () => {
+    const flags = read("lib/feature-flags.ts");
+    assert.match(flags, /Default: false/);
+    assert.doesNotMatch(flags, /ENABLE_AI_STAGE_REFINEMENT = true/);
+  });
+});
+
 describe("lesson chrome CSS", () => {
   it("keeps stage nav and tabs in document flow (no sticky stack)", () => {
     const css = read("app/globals.css");
