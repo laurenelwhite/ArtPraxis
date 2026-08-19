@@ -152,8 +152,9 @@ export function LessonExperience({
     regenerationState !== "idle" &&
     Boolean(masterImageUrl);
 
-  // —— Finite views: atelier mounts after Accept; stages may still be landing ——
-  if (ui.state === "creating" || ui.state === "masterGenerating") {
+  // —— Finite views: full-screen wait only when the studio has nothing to show ——
+  const canRenderStudio = Boolean(tutorial && imageUrl);
+  if ((ui.state === "creating" || ui.state === "masterGenerating") && !canRenderStudio) {
     return (
       <div
         className="lesson-experience lesson-experience--atelier lesson-experience--state lesson-experience--generating"
@@ -169,6 +170,11 @@ export function LessonExperience({
       </div>
     );
   }
+
+  const awaitingFinalPainting =
+    (ui.state === "creating" || ui.state === "masterGenerating") &&
+    canRenderStudio &&
+    !masterImageUrl;
 
   if (ui.state === "error") {
     return (
@@ -272,6 +278,19 @@ export function LessonExperience({
           onUseNew={onAcceptCandidate}
           onKeepCurrent={onKeepCurrentPainting}
           onTryAnother={onTryAnotherCandidate}
+        />
+      ) : null}
+
+      {awaitingFinalPainting ? (
+        <LessonLoadingView
+          mode="masterGenerating"
+          medium={medium}
+          skillLevel={tutorial.difficulty}
+          referenceUrl={imageUrl}
+          compact
+          eyebrow="Creating your final painting"
+          headline="Painting your finished inspiration"
+          detail="Your lesson is open. Composition-locked final painting is on the way."
         />
       ) : null}
 

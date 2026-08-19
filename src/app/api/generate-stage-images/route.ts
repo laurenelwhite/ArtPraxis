@@ -130,6 +130,8 @@ interface PreparedImage {
     height: number;
     bytes: number;
   };
+  fetchMs?: number;
+  normalizeMs?: number;
 }
 
 async function bufferToPrepared(
@@ -137,13 +139,12 @@ async function bufferToPrepared(
   role: string,
   filename: string,
 ): Promise<PreparedImage> {
-  const normalizedBuffer = await sharp(buffer)
+  const { data: normalizedBuffer, info } = await sharp(buffer)
     .rotate()
     .toColourspace("srgb")
     .flatten({ background: "#ffffff" })
     .png()
-    .toBuffer();
-  const metaInfo = await sharp(normalizedBuffer).metadata();
+    .toBuffer({ resolveWithObject: true });
   const contentType = "image/png";
   return {
     file: await toFile(normalizedBuffer, filename, { type: contentType }),
@@ -152,20 +153,24 @@ async function bufferToPrepared(
       role,
       filename,
       mime: contentType,
-      width: metaInfo.width ?? 0,
-      height: metaInfo.height ?? 0,
+      width: info.width ?? 0,
+      height: info.height ?? 0,
       bytes: normalizedBuffer.length,
     },
   };
 }
 
 async function urlToParts(url: string, name: string): Promise<PreparedImage> {
+  const fetchStarted = Date.now();
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Could not fetch input image "${name}": ${response.status}`);
   }
   const originalBuffer = Buffer.from(await response.arrayBuffer());
-  return bufferToPrepared(originalBuffer, name, `${name}.png`);
+  const fetchMs = Date.now() - fetchStarted;
+  const normalizeStarted = Date.now();
+  const prepared = await bufferToPrepared(originalBuffer, name, `${name}.png`);
+  return { ...prepared, fetchMs, normalizeMs: Date.now() - normalizeStarted };
 }
 
 /** Request-scoped buffer cache — reuse identical URLs within one POST. */
@@ -636,7 +641,9 @@ async function generateValidated(
 }
 
 export async function POST(request: NextRequest) {
+  const requestStartedAt = Date.now();
   try {
+    const parseStarted = Date.now();
     const rawInput = (await request.json()) as Record<string, unknown>;
     const normalizedInput = normalizeTutorialInput(rawInput);
     const parsed = bodySchema.safeParse(normalizedInput);
@@ -653,10 +660,10 @@ export async function POST(request: NextRequest) {
       });
     }
     const body = parsed.data;
+    const requestParseMs = Date.now() - parseStarted;
     const { medium, tutorial, size, referenceImageUrl, stageId, masterImageUrl, precedingImageUrl } = body;
     const mode = body.mode ?? (stageId ? "stage" : "master");
     const imageSize: Size = size ?? "1024x1024";
-    const requestStartedAt = Date.now();
     const imageCache = createRequestImageCache();
     console.warn(
       JSON.stringify({
@@ -895,11 +902,12 @@ export async function POST(request: NextRequest) {
       });
     }
     let referenceFetchMs = 0;
+    let referenceNormalizeMs = 0;
     let editMs = 0;
     let validationMs = 0;
-    const fetchStarted = Date.now();
     const reference = await imageCache.urlToParts(referenceImageUrl, "reference");
-    referenceFetchMs = Date.now() - fetchStarted;
+    referenceFetchMs = reference.fetchMs ?? 0;
+    referenceNormalizeMs = reference.normalizeMs ?? 0;
     const masterPrompt = buildMasterPrompt(tutorial, medium);
 
     let bestCandidate: string | null = null;
@@ -1001,18 +1009,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const encodeStarted = Date.now();
     const totalMs = Date.now() - requestStartedAt;
+    const timing = {
+      requestParseMs,
+      referenceFetchMs,
+      referenceNormalizeMs,
+      editMs,
+      validationMs,
+      responseEncodeMs: 0,
+      totalMs,
+      attempts: attemptCount,
+      referenceSource: "http_fetch",
+      requestedSize: imageSize,
+    };
     console.warn(
       JSON.stringify({
         event: "master_generation_timing",
-        referenceFetchMs,
-        editMs,
-        validationMs,
+        ...timing,
         uploadMs: null,
-        totalMs,
-        attempts: attemptCount,
         accepted: Boolean(acceptedCandidate),
         "regeneration.reference_fetch_ms": referenceFetchMs,
+        "regeneration.reference_normalize_ms": referenceNormalizeMs,
         "regeneration.master_generation_ms": editMs,
         "regeneration.validation_ms": validationMs,
         "regeneration.total_ms": totalMs,
@@ -1043,11 +1061,9 @@ export async function POST(request: NextRequest) {
         inputFidelity: supportsInputFidelity(imageModel) ? "high" : "omitted",
         images: [],
         timing: {
-          referenceFetchMs,
-          editMs,
-          validationMs,
-          totalMs,
-          attempts: attemptCount,
+          ...timing,
+          responseEncodeMs: Date.now() - encodeStarted,
+          totalMs: Date.now() - requestStartedAt,
         },
       });
     }
@@ -1076,11 +1092,9 @@ export async function POST(request: NextRequest) {
       inputFidelity: supportsInputFidelity(imageModel) ? "high" : "omitted",
       images: [],
       timing: {
-        referenceFetchMs,
-        editMs,
-        validationMs,
-        totalMs,
-        attempts: attemptCount,
+        ...timing,
+        responseEncodeMs: Date.now() - encodeStarted,
+        totalMs: Date.now() - requestStartedAt,
       },
     });
   } catch (error) {

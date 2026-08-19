@@ -42,15 +42,20 @@ export function isProvisionalStageTarget(stage: StageImageRecord): boolean {
   return stage.previewSource === "reference";
 }
 
-/**
- * A master counts as generated only with a real saved image in ready/review.
+/** A master counts as generated only with a real saved image in ready/review.
  * Reference-seeded stage previews never qualify.
  */
+export function isSessionMasterPreviewUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return url.startsWith("blob:") || url.startsWith("data:image/");
+}
+
 export function hasValidGeneratedMaster(input: {
   masterStatus: GenerationStatus;
   masterImageUrl: string | null | undefined;
 }): boolean {
   if (!input.masterImageUrl) return false;
+  if (isSessionMasterPreviewUrl(input.masterImageUrl)) return false;
   if (input.masterStatus === "ready" || input.masterStatus === "needsReview") {
     return true;
   }
@@ -63,6 +68,22 @@ export function hasValidGeneratedMaster(input: {
     return true;
   }
   return false;
+}
+
+/** Session blob/data preview after validation — usable now, not yet durable. */
+export function hasDisplayableMaster(input: {
+  masterStatus: GenerationStatus;
+  masterImageUrl: string | null | undefined;
+}): boolean {
+  if (hasValidGeneratedMaster(input)) return true;
+  if (!input.masterImageUrl || !isSessionMasterPreviewUrl(input.masterImageUrl)) {
+    return false;
+  }
+  return (
+    input.masterStatus === "ready" ||
+    input.masterStatus === "needsReview" ||
+    input.masterStatus === "generating"
+  );
 }
 
 /** Whether LessonView should kick off master orchestration. */
@@ -80,6 +101,9 @@ export function shouldStartMasterGeneration(input: {
   if (input.masterRequestInFlight) return false;
   if (input.generationError) return false;
   if (hasValidGeneratedMaster(input)) return false;
+  if (isSessionMasterPreviewUrl(input.masterImageUrl) && input.masterStatus === "failed") {
+    return false;
+  }
   // Terminal failure without an image — wait for explicit Retry.
   if (input.masterStatus === "failed" && !input.masterImageUrl) return false;
   return true;
@@ -202,6 +226,7 @@ export function resolveLessonUiState(input: {
     ? resolveStageDisplayLabel(activeStageId, medium)
     : null;
   const validMaster = hasValidGeneratedMaster({ masterStatus, masterImageUrl });
+  const displayableMaster = hasDisplayableMaster({ masterStatus, masterImageUrl });
   const stagesGeneratingInBackground =
     validMaster && stagesNeedGeneration(stages);
 
@@ -216,16 +241,16 @@ export function resolveLessonUiState(input: {
   if (!hasTutorial || !progressionHydrated) {
     return {
       state: "creating",
-      headline: "Creating your lesson",
+      headline: "Preparing your studio",
       detail: hasTutorial
-        ? "Preparing the painting workspace…"
+        ? "Preparing your studio…"
         : "Analyzing your reference and building the lesson…",
       progress: hasTutorial ? 0.18 : 0.1,
       ...base,
     };
   }
 
-  if (generationError || (masterStatus === "failed" && !masterImageUrl)) {
+  if (generationError || (masterStatus === "failed" && !masterImageUrl && !displayableMaster)) {
     return {
       state: "error",
       headline: "Couldn’t create the target painting",
@@ -273,26 +298,9 @@ export function resolveLessonUiState(input: {
     };
   }
 
-  // Master still needed — only show ~35% when a request is genuinely in flight.
-  if (!validMaster && masterStatus !== "ready") {
-    const active = masterRequestInFlight || masterStatus === "generating";
-    return {
-      state: "masterGenerating",
-      headline: "Painting your finished inspiration",
-      detail: active
-        ? "Translating your reference into a finished painting — composition and placement stay locked."
-        : "Starting master generation from your reference…",
-      progress: masterRequestInFlight
-        ? 0.35
-        : masterStatus === "generating"
-          ? 0.28
-          : 0.18,
-      ...base,
-    };
-  }
-
-  // Accepted / recoverable master — open the atelier; stages arrive in the background.
-  if (validMaster) {
+  // Session-validated preview (blob) or durable master — open the atelier
+  // before Storage persistence finishes.
+  if (displayableMaster) {
     return {
       state: "ready",
       headline: stagesGeneratingInBackground ? "Lesson open" : "Lesson ready",
@@ -308,6 +316,24 @@ export function resolveLessonUiState(input: {
           : 1,
       ...base,
       stagesGeneratingInBackground,
+    };
+  }
+
+  // Master still needed — only show ~35% when a request is genuinely in flight.
+  if (!validMaster && masterStatus !== "ready") {
+    const active = masterRequestInFlight || masterStatus === "generating";
+    return {
+      state: "masterGenerating",
+      headline: "Creating your final painting",
+      detail: active
+        ? "Checking composition while we translate your reference into a finished painting."
+        : "Starting your final painting from the reference…",
+      progress: masterRequestInFlight
+        ? 0.35
+        : masterStatus === "generating"
+          ? 0.28
+          : 0.18,
+      ...base,
     };
   }
 

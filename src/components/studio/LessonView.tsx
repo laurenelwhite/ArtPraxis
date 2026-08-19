@@ -104,6 +104,9 @@ export function LessonView({ id }: { id: string }) {
   const leaseRetryStartedAtRef = useRef<number | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const masterUrlRef = useRef<string | null>(null);
+  const studioMountedAtRef = useRef(Date.now());
+  const hydrateStartedAtRef = useRef<number | null>(null);
+  const previewShownAtRef = useRef<number | null>(null);
   /** Sync lock — prevents double-click races before React state updates. */
   const regenLockRef = useRef(false);
 
@@ -121,12 +124,21 @@ export function LessonView({ id }: { id: string }) {
   }) => {
     revokePreview();
     previewUrlRef.current = info.previewUrl;
+    previewShownAtRef.current = Date.now();
     setMasterImageUrl(info.previewUrl);
     setMasterStatus(info.status);
     setMasterReviewReasons(info.reasons);
     setMasterReadyToAccept(false);
     setGenerationError(null);
-  }, [revokePreview]);
+    console.warn(JSON.stringify({
+      scope: "LessonView",
+      event: "master_preview_visible",
+      projectId: id,
+      previewKind: "session_blob",
+      persisted: false,
+      t: Date.now(),
+    }));
+  }, [revokePreview, id]);
 
   // Reset per-project guards when navigating between lessons.
   useEffect(() => {
@@ -134,6 +146,9 @@ export function LessonView({ id }: { id: string }) {
     leaseRetryRef.current = 0;
     leaseRetryStartedAtRef.current = null;
     masterUrlRef.current = null;
+    studioMountedAtRef.current = Date.now();
+    hydrateStartedAtRef.current = null;
+    previewShownAtRef.current = null;
     setMasterRequestInFlight(false);
     setGenerationError(null);
     setProgression([]);
@@ -197,6 +212,7 @@ export function LessonView({ id }: { id: string }) {
   useEffect(() => {
     if (authLoading || !user) return;
     setProgressionHydrated(false);
+    hydrateStartedAtRef.current = Date.now();
     console.warn(JSON.stringify({
       scope: "LessonView",
       event: "progression_hydration_started",
@@ -205,7 +221,14 @@ export function LessonView({ id }: { id: string }) {
     const unsubscribe = subscribeProgression(user.uid, id, (p) => {
       setProgressionHydrated(true);
       setProgression(p?.stages ?? []);
-      setMasterStatus(p?.masterStatus ?? "pending");
+      const incomingStatus = (p?.masterStatus ?? "pending") as GenerationStatus;
+      const keepSessionPreview =
+        Boolean(previewUrlRef.current) &&
+        !p?.masterImageUrl &&
+        (incomingStatus === "generating" || incomingStatus === "pending");
+      if (!keepSessionPreview) {
+        setMasterStatus(incomingStatus);
+      }
       setMasterError(p?.masterError ?? null);
       setMasterReviewReasons(p?.masterReviewReasons ?? []);
       setMasterReadyToAccept(Boolean(p?.masterImageUrl && p.masterStatus === "needsReview"));
@@ -238,12 +261,18 @@ export function LessonView({ id }: { id: string }) {
         hasMasterImageUrl: Boolean(p?.masterImageUrl),
         regenerationState: nextRegen,
         hydratedValid,
+        progressionHydrateMs: hydrateStartedAtRef.current
+          ? Date.now() - hydrateStartedAtRef.current
+          : null,
+        keepSessionPreview,
       }));
       // Prefer the persisted Storage URL; keep a local blob preview until it arrives.
       if (p?.masterImageUrl) {
         revokePreview();
         masterUrlRef.current = p.masterImageUrl;
         setMasterImageUrl(p.masterImageUrl);
+      } else if (keepSessionPreview) {
+        /* validated session preview stays visible while Storage upload finishes */
       } else if (
         p &&
         p.masterStatus !== "needsReview" &&
@@ -312,10 +341,22 @@ export function LessonView({ id }: { id: string }) {
         referenceImageUrl: state.summary.imageUrl,
         size,
         onMasterCandidate,
-        // Never pass a stale in-memory URL for auto-start — that skips the master POST.
         inMemoryMasterUrl: null,
         forceRegenerate: staleGenerating,
       });
+
+      console.warn(JSON.stringify({
+        scope: "LessonView",
+        event: "master_client_timing",
+        projectId: id,
+        outcome,
+        requestedSize: size,
+        studioMountToNowMs: Date.now() - studioMountedAtRef.current,
+        studioMountToPreviewMs: previewShownAtRef.current
+          ? previewShownAtRef.current - studioMountedAtRef.current
+          : null,
+        previewBeforePersist: Boolean(previewShownAtRef.current),
+      }));
 
       console.info("[lesson-generation]", {
         projectId: id,
@@ -698,9 +739,8 @@ export function LessonView({ id }: { id: string }) {
     masterRequestInFlight,
     generationError,
   });
-  const lessonReady = lessonUi.state === "ready";
-  /** Overview stays available; other sections wait until the atelier is ready. */
-  const tabsLocked = Boolean(state) && !lessonReady;
+  /** Overview, materials, and lesson copy stay available once the tutorial exists. */
+  const tabsLocked = Boolean(state) && !state?.tutorial;
 
   /**
    * Adaptive logo only after a usable master exists and the lesson has left
@@ -841,7 +881,7 @@ export function LessonView({ id }: { id: string }) {
       >
         <LessonShell
           title={summary.title}
-          generating={tabsLocked}
+          generating={lessonUi.state === "masterGenerating" || lessonUi.state === "creating"}
           tabsLocked={tabsLocked}
           tabs={TABS}
           activeTab={tab}

@@ -94,6 +94,20 @@ describe("new lesson creation pipeline", () => {
     assert.match(flags, /Default: false/);
     assert.doesNotMatch(flags, /ENABLE_AI_STAGE_REFINEMENT = true/);
   });
+
+  it("excludes captured Chrome profile artifacts from ESLint", () => {
+    const eslint = readFileSync(join(process.cwd(), "eslint.config.mjs"), "utf8");
+    assert.match(eslint, /docs\/stability-shots\/\*\*/);
+  });
+
+  it("opens the studio shell while the final painting generates", () => {
+    const experience = read("components/studio/LessonExperience.tsx");
+    assert.match(experience, /canRenderStudio/);
+    assert.match(experience, /awaitingFinalPainting/);
+    const view = read("components/studio/LessonView.tsx");
+    assert.match(view, /keepSessionPreview/);
+    assert.match(view, /previewBeforePersist/);
+  });
 });
 
 describe("lesson chrome CSS", () => {

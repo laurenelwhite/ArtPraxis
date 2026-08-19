@@ -23,6 +23,8 @@ const eslintConfig = [
       // Standalone email-generation tooling and generated artifacts.
       "scripts/**",
       "emails/**",
+      // Captured browser profiles / screenshots — not application source.
+      "docs/stability-shots/**",
     ],
   },
   // Next.js 15 + React 19 + TypeScript rules (Core Web Vitals + TS).

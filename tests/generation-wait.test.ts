@@ -49,9 +49,9 @@ describe("generation-wait", () => {
 
   it("builds medium-aware master pipeline labels", () => {
     const paint = getMasterWaitPipeline("painting");
-    assert.equal(paint[1]?.label, "Creating master painting");
+    assert.equal(paint[1]?.label, "Creating your final painting");
     const draw = getMasterWaitPipeline("drawing");
-    assert.equal(draw[1]?.label, "Creating master drawing");
-    assert.match(draw[2]?.label ?? "", /drawing steps/);
+    assert.equal(draw[1]?.label, "Creating your final drawing");
+    assert.equal(draw[2]?.label, "Checking composition");
   });
 });
