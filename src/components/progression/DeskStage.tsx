@@ -14,8 +14,7 @@ import type { ProgressionStage } from "@/lib/progression";
 
 /**
  * Paint-mode stage shell.
- * Hierarchy: Header → Final Painting entry → This stage → Focus / Technique /
- * Watch for → Tips → Continue.
+ * Hierarchy: Header → Final Painting entry → Artwork → Guidance → Continue.
  */
 export function DeskStage({
   stage,
@@ -24,6 +23,7 @@ export function DeskStage({
   total,
   isLast,
   nextStage,
+  titleId,
   onNext,
   onReviewPrevious,
   onCompareFinished,
@@ -37,6 +37,7 @@ export function DeskStage({
   total: number;
   isLast: boolean;
   nextStage?: ProgressionStage;
+  titleId: string;
   onNext?: () => void;
   onReviewPrevious: () => void;
   onCompareFinished: () => void;
@@ -50,7 +51,7 @@ export function DeskStage({
 
   return (
     <div
-      className="desk-stage-inner atelier-layout atelier-layout--simplified atelier-layout--teaching"
+      className="paint-stage-grid desk-stage-inner atelier-layout--simplified"
       data-stage={stage.id}
     >
       <StageTeachingHeader
@@ -59,17 +60,18 @@ export function DeskStage({
         total={total}
         processLabel={processLabel}
         goal={goal}
+        titleId={titleId}
       />
 
       <FinalPaintingEntry
         title={processLabel}
-        className="desk-stage-final-entry"
+        className="paint-stage-final-entry"
       />
 
-      <div className="atelier-workspace">
-        <p className="study-stage-canvas-label eyebrow">This stage</p>
+      <div className="paint-stage-workspace">
+        <h3 className="paint-stage-canvas-label">This stage</h3>
         <div
-          className="atelier-canvas studio-workspace-canvas"
+          className="paint-stage-canvas studio-workspace-canvas"
           id={`${stage.id}-compare`}
         >
           <StageComparison
@@ -85,11 +87,11 @@ export function DeskStage({
         </div>
       </div>
 
-      <div className="atelier-guide">
+      <aside className="paint-stage-guide" aria-label="Stage guidance">
         {todaysFocus ? (
-          <section className="study-stage-focus" aria-label="Today’s focus">
-            <p className="study-stage-focus-kicker">Today’s focus</p>
-            <p className="study-stage-focus-body">
+          <section className="paint-stage-focus" aria-label="Today’s focus">
+            <p className="paint-stage-focus-kicker">Today’s focus</p>
+            <p className="paint-stage-focus-body">
               <AutoTerms text={todaysFocus} />
             </p>
           </section>
@@ -103,9 +105,7 @@ export function DeskStage({
           medium={medium}
           onOpenMaterials={onOpenMaterials}
         />
-      </div>
 
-      <div className="atelier-guide atelier-guide--tips">
         <StageGuideColumn
           variant="paint"
           section="extras"
@@ -114,9 +114,9 @@ export function DeskStage({
           medium={medium}
           onOpenMaterials={onOpenMaterials}
         />
-      </div>
+      </aside>
 
-      <div className="atelier-next">
+      <div className="paint-stage-next">
         {isLast ? (
           <StageCompletion
             onReviewPrevious={onReviewPrevious}

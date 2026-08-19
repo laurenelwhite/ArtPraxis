@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 export type LessonTab = {
   id: string;
@@ -22,9 +22,18 @@ type LessonShellProps = {
   children: ReactNode;
 };
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 /**
  * Unified lesson page chrome under the global AppShell.
- * Hero: Title → Metadata/Status → Tabs. Secondary actions live in overflow.
+ * Compact identity: Title → Metadata/Status → Destination tabs.
+ * Within-Lesson step map lives in the continuous document, not here.
  */
 export function LessonShell({
   title,
@@ -38,6 +47,23 @@ export function LessonShell({
   generating = false,
   children,
 }: LessonShellProps) {
+  const tablistRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const tablist = tablistRef.current;
+    if (!tablist) return;
+    const activeButton = tablist.querySelector<HTMLElement>(
+      `[data-lesson-tab="${activeTab}"]`,
+    );
+    if (!activeButton) return;
+    if (tablist.scrollWidth <= tablist.clientWidth + 2) return;
+    activeButton.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [activeTab]);
+
   return (
     <div
       className={["lesson-shell", "lesson-view", generating ? "lesson-view--generating" : null]
@@ -58,10 +84,11 @@ export function LessonShell({
       </div>
 
       <nav
+        ref={tablistRef}
         id="lesson-section-tabs"
         className="project-tabs lesson-shell-tabs"
         role="tablist"
-        aria-label="Project sections"
+        aria-label="Lesson sections"
       >
         {tabs.map((t) => {
           const locked =
@@ -73,6 +100,7 @@ export function LessonShell({
               type="button"
               role="tab"
               id={`lesson-tab-${t.id}`}
+              data-lesson-tab={t.id}
               aria-controls={`lesson-panel-${t.id}`}
               aria-selected={selected}
               aria-disabled={locked || undefined}

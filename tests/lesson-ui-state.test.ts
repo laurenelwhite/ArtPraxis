@@ -40,6 +40,35 @@ describe("resolveLessonUiState", () => {
     assert.ok((snap.progress ?? 0) < 0.35);
   });
 
+  it("opens the atelier from a validated session preview before Storage URL exists", () => {
+    const snap = resolveLessonUiState({
+      hasTutorial: true,
+      progressionHydrated: true,
+      masterStatus: "generating",
+      masterImageUrl: "blob:http://localhost/preview",
+      stages: [],
+      masterRequestInFlight: true,
+    });
+    assert.equal(snap.state, "ready");
+  });
+
+  it("does not treat a session blob as a durable generated master", () => {
+    assert.equal(
+      hasValidGeneratedMaster({
+        masterStatus: "ready",
+        masterImageUrl: "blob:http://localhost/preview",
+      }),
+      false,
+    );
+    assert.equal(
+      hasValidGeneratedMaster({
+        masterStatus: "ready",
+        masterImageUrl: "https://example.com/master.webp",
+      }),
+      true,
+    );
+  });
+
   it("shows masterGenerating before a master exists", () => {
     const snap = resolveLessonUiState({
       hasTutorial: true,

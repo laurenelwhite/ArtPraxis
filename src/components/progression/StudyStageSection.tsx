@@ -1,31 +1,26 @@
 "use client";
 
-import {
-  STAGE_DOM_ID,
-  resolveStageDisplayLabel,
-} from "@/lib/stage-icons";
+import { STAGE_DOM_ID } from "@/lib/stage-icons";
 import { StageComparison } from "@/components/progression/StageComparison";
 import { StageGuideColumn } from "@/components/progression/StageGuideColumn";
 import { StageTeachingHeader } from "@/components/progression/StageTeachingHeader";
-import { StageContinueNav } from "@/components/progression/StageContinueNav";
 import { FinalPaintingEntry } from "@/components/progression/FinalPaintingEntry";
 import { AutoTerms } from "@/components/vocabulary/AutoTerms";
 import { buildStageGoal, buildTeachingPoint } from "@/lib/stage-copy";
 import type { StageShellBaseProps } from "@/components/progression/stage-shell-props";
-import type { ProgressionStage } from "@/lib/progression";
 
 /**
- * One stage in the continuous Study journey.
- * Hierarchy: Header → Final Painting entry → This stage → Focus / Technique /
- * Watch for → Tips → Continue.
+ * One generated stage in the continuous lesson document.
+ * Hierarchy: number/title → purpose → artwork → guidance → quiet cue.
  */
 export function StudyStageSection({
   stage,
   tutorial,
   medium,
-  total,
-  nextStage,
-  onContinue,
+  sectionNumber,
+  sectionTotal,
+  processLabel,
+  nextLabel,
   compare,
   onCompareChange,
   referenceUrl,
@@ -33,46 +28,47 @@ export function StudyStageSection({
   retrying = false,
   onOpenMaterials,
   sectionRef,
+  showFinalEntry = false,
 }: StageShellBaseProps & {
-  total: number;
-  nextStage?: ProgressionStage;
-  onContinue?: () => void;
+  sectionNumber: number;
+  sectionTotal: number;
+  processLabel: string;
+  nextLabel?: string;
   masterImageUrl?: string | null;
   sectionRef?: (el: HTMLElement | null) => void;
+  showFinalEntry?: boolean;
 }) {
-  const processLabel = resolveStageDisplayLabel(stage.id, medium, stage.title);
   const goal = buildStageGoal(stage, 120);
   const todaysFocus = buildTeachingPoint(stage, 160, medium);
   const domId = STAGE_DOM_ID[stage.id];
-  const nextLabel = nextStage
-    ? resolveStageDisplayLabel(nextStage.id, medium, nextStage.title)
-    : null;
 
   return (
     <section
       ref={sectionRef}
       id={domId}
-      className="study-stage-section"
+      className="study-stage-section lesson-doc-section"
       data-stage={stage.id}
       aria-labelledby={`${domId}-title`}
     >
       <div className="study-stage-grid">
         <StageTeachingHeader
           variant="study"
-          stageIndex={stage.index}
-          total={total}
+          stageIndex={sectionNumber}
+          total={sectionTotal}
           processLabel={processLabel}
           goal={goal}
           titleId={`${domId}-title`}
         />
 
-        <FinalPaintingEntry
-          title={processLabel}
-          className="study-stage-final-entry"
-        />
+        {showFinalEntry ? (
+          <FinalPaintingEntry
+            title={processLabel}
+            className="study-stage-final-entry"
+          />
+        ) : null}
 
         <div className="study-stage-workspace">
-          <p className="study-stage-canvas-label eyebrow">This stage</p>
+          <h3 className="study-stage-canvas-label">Target for this stage</h3>
           <div className="study-stage-canvas" id={`${stage.id}-compare`}>
             <StageComparison
               stage={stage}
@@ -87,10 +83,10 @@ export function StudyStageSection({
           </div>
         </div>
 
-        <div className="study-stage-guide">
+        <aside className="study-stage-guide" aria-label="Stage guidance">
           {todaysFocus ? (
-            <section className="study-stage-focus" aria-label="Today’s focus">
-              <p className="study-stage-focus-kicker">Today’s focus</p>
+            <section className="study-stage-focus" aria-label="What changes now">
+              <p className="study-stage-focus-kicker">What changes now</p>
               <p className="study-stage-focus-body">
                 <AutoTerms text={todaysFocus} />
               </p>
@@ -114,11 +110,11 @@ export function StudyStageSection({
             medium={medium}
             onOpenMaterials={onOpenMaterials}
           />
-        </div>
+        </aside>
       </div>
 
-      {nextStage && onContinue && nextLabel ? (
-        <StageContinueNav nextLabel={nextLabel} onContinue={onContinue} />
+      {nextLabel ? (
+        <p className="lesson-doc-cue study-stage-cue">Next: {nextLabel}</p>
       ) : null}
     </section>
   );

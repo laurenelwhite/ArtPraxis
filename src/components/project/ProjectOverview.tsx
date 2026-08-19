@@ -31,32 +31,32 @@ export function ProjectOverview({
       : status === "completed"
         ? "Review lesson"
         : "Begin lesson";
+  const headingId = "overview-orientation";
 
   return (
     <div className="project-overview project-overview--dashboard">
-      <StudioReferencePair
-        referenceUrl={summary.imageUrl}
-        finalPaintingUrl={masterImageUrl}
-        title={summary.title}
-        className="overview-ref-pair"
-      />
+      <section
+        className="overview-hero"
+        aria-labelledby={headingId}
+      >
+        <header className="overview-orientation">
+          <p id={headingId} className="overview-orientation-lead">
+            Your reference and the finished painting this lesson will teach.
+          </p>
+        </header>
+
+        <StudioReferencePair
+          referenceUrl={summary.imageUrl}
+          finalPaintingUrl={masterImageUrl}
+          title={summary.title}
+          className="overview-ref-pair"
+        />
+      </section>
 
       <div className="overview-dashboard">
-        <div className="overview-entry">
-          <div className="overview-entry-actions">
-            <button
-              type="button"
-              className="btn-solid btn-lg btn-branded"
-              onClick={onBeginStudy}
-            >
-              {primaryLabel}
-            </button>
-          </div>
-        </div>
-
         {tutorial?.overview ? (
           <div className="overview-block">
-            <p className="eyebrow">Lesson summary</p>
+            <h2 className="overview-label">Lesson summary</h2>
             <p className="overview-summary">{tutorial.overview}</p>
           </div>
         ) : null}
@@ -80,7 +80,7 @@ export function ProjectOverview({
 
         {materials.length > 0 ? (
           <div className="overview-block">
-            <p className="eyebrow">Materials</p>
+            <h2 className="overview-label">Materials</h2>
             <ul className="overview-materials-list">
               {materials.map((m) => (
                 <li key={m.item}>{m.item}</li>
@@ -96,7 +96,7 @@ export function ProjectOverview({
 
         {skills.length > 0 ? (
           <div className="overview-block">
-            <p className="eyebrow">Skills learned</p>
+            <h2 className="overview-label">Skills practiced</h2>
             <ul className="overview-skills-list">
               {skills.map((s) => (
                 <li key={s}>{s}</li>
@@ -105,9 +105,25 @@ export function ProjectOverview({
           </div>
         ) : null}
 
+        <p className="overview-liberty">
+          Use this painting as your guide, then make the final choices your own.
+        </p>
+
+        <div className="overview-entry">
+          <div className="overview-entry-actions">
+            <button
+              type="button"
+              className="ap-button-primary btn-lg btn-branded overview-begin"
+              onClick={onBeginStudy}
+            >
+              {primaryLabel}
+            </button>
+          </div>
+        </div>
+
         <div className="overview-status">
           <div className="overview-status-head">
-            <p className="eyebrow">Project status</p>
+            <h2 className="overview-label">Project status</h2>
             <StatusPill status={status} />
           </div>
           <p className="overview-status-hint">

@@ -37,7 +37,7 @@ export function StudioReferenceFullscreen() {
     >
       <header className="studio-ref-fullscreen-head">
         <div>
-          <p className="eyebrow">Studio Reference</p>
+          <p className="studio-ref-kicker">Studio Reference</p>
           <h2 id={titleId} className="studio-ref-fullscreen-title">
             {title}
           </h2>
@@ -47,6 +47,7 @@ export function StudioReferenceFullscreen() {
           type="button"
           className="studio-ref-fullscreen-close"
           onClick={closeFullscreen}
+          aria-label="Close fullscreen comparison"
         >
           Close
         </button>

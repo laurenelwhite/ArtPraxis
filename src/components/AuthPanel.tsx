@@ -16,6 +16,10 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
   const [error, setError] = useState(initialError ?? "");
   const [googlePending, setGooglePending] = useState(false);
 
+  const headingId = "auth-heading";
+  const errorId = "auth-error";
+  const isSignIn = mode === "signin";
+
   async function emailAuth() {
     try {
       setError("");
@@ -38,33 +42,92 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
     }
   }
 
+  function switchMode() {
+    setMode(isSignIn ? "signup" : "signin");
+  }
+
   return (
-    <section className="card auth">
-      <div className="auth-brand">
+    <section
+      className="ap-auth-panel ap-surface"
+      aria-labelledby={headingId}
+    >
+      <div className="ap-auth-brand">
         <ArtPraxisLogo variant="primary" size="primary" />
       </div>
-      <p className="eyebrow">Your studio</p>
-      <h2>{mode === "signin" ? "Sign in" : "Create account"}</h2>
-      <form className="form" onSubmit={(e) => { e.preventDefault(); emailAuth(); }}>
-        <label>Email
-          <input type="email" name="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label>Password
+
+      <header className="ap-auth-header">
+        <h2 id={headingId}>{isSignIn ? "Sign in" : "Create account"}</h2>
+        <p className="ap-auth-lead">
+          {isSignIn
+            ? "Sign in to open your studio and continue your lessons."
+            : "Create an account to save lessons and track your progress."}
+        </p>
+      </header>
+
+      <form
+        className="ap-auth-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          emailAuth();
+        }}
+        aria-describedby={error ? errorId : undefined}
+      >
+        <div className="ap-auth-field">
+          <label htmlFor="auth-email">Email</label>
           <input
+            id="auth-email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="ap-auth-field">
+          <label htmlFor="auth-password">Password</label>
+          <input
+            id="auth-password"
             type="password"
             name="password"
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            autoComplete={isSignIn ? "current-password" : "new-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        {error && <p className="status error" role="alert">{error}</p>}
-        <button className="primary btn-branded" type="submit">{mode === "signin" ? "Sign in" : "Create account"}</button>
-        <button className="secondary" type="button" onClick={googleAuth} disabled={googlePending}>
+        </div>
+
+        <div className="ap-auth-message" aria-live="polite">
+          {error ? (
+            <p id={errorId} className="ap-auth-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <button className="ap-button-primary btn-branded ap-auth-submit" type="submit">
+          {isSignIn ? "Sign in" : "Create account"}
+        </button>
+
+        <div className="ap-auth-divider" role="presentation">
+          <span>or</span>
+        </div>
+
+        <button
+          className="ap-button-secondary ap-auth-provider"
+          type="button"
+          onClick={googleAuth}
+          disabled={googlePending}
+        >
           {googlePending ? "Opening Google…" : "Continue with Google"}
         </button>
-        <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-          {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+
+        <button
+          className="ap-button-quiet ap-auth-mode-switch"
+          type="button"
+          onClick={switchMode}
+        >
+          {isSignIn ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>
       </form>
     </section>

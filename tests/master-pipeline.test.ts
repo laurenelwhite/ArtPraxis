@@ -26,8 +26,9 @@ describe("shouldGenerateMaster", () => {
     );
   });
 
-  it("2. unresolved / empty pending without url allows generation", () => {
-    assert.equal(shouldGenerateMaster({ masterImageUrl: null, masterStatus: "pending" }), true);
+  it("missing progression doc still allows master generation", () => {
+    assert.equal(shouldGenerateMaster(null), true);
+    assert.equal(shouldGenerateMaster({ masterImageUrl: null, masterStatus: "generating" }), true);
   });
 
   it("9. explicit user regeneration is still allowed", () => {

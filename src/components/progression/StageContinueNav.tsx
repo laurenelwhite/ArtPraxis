@@ -1,13 +1,22 @@
 /**
- * Shared “Next stage” control used by Study and Paint shells.
+ * Shared “Next stage” control used by Paint shells.
+ * Study Mode uses quiet text cues instead — continuous document has no pagination.
  */
 export function StageContinueNav({
   nextLabel,
   onContinue,
 }: {
   nextLabel: string;
-  onContinue: () => void;
+  onContinue?: () => void;
 }) {
+  if (!onContinue) {
+    return (
+      <p className="lesson-doc-cue study-stage-transition study-stage-transition--quiet">
+        Next: {nextLabel}
+      </p>
+    );
+  }
+
   return (
     <nav className="study-stage-transition" aria-label="Continue to next stage">
       <button

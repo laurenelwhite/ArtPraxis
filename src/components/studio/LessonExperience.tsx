@@ -98,7 +98,7 @@ export function LessonExperience({
     [tutorial, imageUrl, medium, progression],
   );
 
-  const [compare, setCompare] = useState<CompareMode>("both");
+  const [compare, setCompare] = useState<CompareMode>("target");
   const lang = useMemo(() => getMediumLanguage(medium), [medium]);
 
   const ui = useMemo(
@@ -152,8 +152,9 @@ export function LessonExperience({
     regenerationState !== "idle" &&
     Boolean(masterImageUrl);
 
-  // —— Finite views: atelier mounts after Accept; stages may still be landing ——
-  if (ui.state === "creating" || ui.state === "masterGenerating") {
+  // —— Finite views: full-screen wait only when the studio has nothing to show ——
+  const canRenderStudio = Boolean(tutorial && imageUrl);
+  if ((ui.state === "creating" || ui.state === "masterGenerating") && !canRenderStudio) {
     return (
       <div
         className="lesson-experience lesson-experience--atelier lesson-experience--state lesson-experience--generating"
@@ -170,13 +171,18 @@ export function LessonExperience({
     );
   }
 
+  const awaitingFinalPainting =
+    (ui.state === "creating" || ui.state === "masterGenerating") &&
+    canRenderStudio &&
+    !masterImageUrl;
+
   if (ui.state === "error") {
     return (
       <div
         className="lesson-experience lesson-experience--atelier lesson-experience--state"
         data-lesson-medium={lessonMedium}
       >
-        <section className="lesson-state-view lesson-error-view" role="alert">
+        <section className="lesson-state-view lesson-error-view ap-state ap-state--error" role="alert">
           <div className="lesson-state-card">
             <p className="lesson-state-kicker">Something went wrong</p>
             <h2 className="lesson-state-title">{ui.headline}</h2>
@@ -199,7 +205,7 @@ export function LessonExperience({
               {(onRetryGeneration || onRegenerateMaster || onRegenerate) && (
                 <button
                   type="button"
-                  className="primary btn-branded"
+                  className="ap-button-primary btn-branded lesson-error-retry"
                   onClick={onRetryGeneration || onRegenerateMaster || onRegenerate}
                   disabled={regenerateBusy || masterRequestInFlight}
                 >
@@ -272,6 +278,19 @@ export function LessonExperience({
           onUseNew={onAcceptCandidate}
           onKeepCurrent={onKeepCurrentPainting}
           onTryAnother={onTryAnotherCandidate}
+        />
+      ) : null}
+
+      {awaitingFinalPainting ? (
+        <LessonLoadingView
+          mode="masterGenerating"
+          medium={medium}
+          skillLevel={tutorial.difficulty}
+          referenceUrl={imageUrl}
+          compact
+          eyebrow="Creating your final painting"
+          headline="Painting your finished inspiration"
+          detail="Your lesson is open. Composition-locked final painting is on the way."
         />
       ) : null}
 

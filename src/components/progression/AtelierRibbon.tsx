@@ -20,12 +20,15 @@ export function AtelierRibbon({
   saving?: boolean;
 }) {
   return (
-    <aside className="atelier-ribbon atelier-ribbon--hint" aria-label="Progress">
-      <p className="atelier-ribbon-summary">
-        <span className="atelier-ribbon-kicker">Progress</span>
-        <span className="atelier-ribbon-status">{statusLabel(status)}</span>
+    <aside
+      className="progress-ribbon progress-ribbon--hint atelier-ribbon atelier-ribbon--hint"
+      aria-label="Progress"
+    >
+      <p className="progress-ribbon-summary atelier-ribbon-summary">
+        <span className="progress-ribbon-kicker atelier-ribbon-kicker">Progress</span>
+        <span className="progress-ribbon-status atelier-ribbon-status">{statusLabel(status)}</span>
       </p>
-      <p className="atelier-ribbon-hint">
+      <p className="progress-ribbon-hint atelier-ribbon-hint">
         Use the Progress tab to mark this lesson finished or upload a photo of your work.
       </p>
     </aside>

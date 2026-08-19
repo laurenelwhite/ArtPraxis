@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { useAuth } from "@/providers/AuthProvider";
-import { attachLessonImage, createLesson } from "@/lib/lessons";
-import { ensureProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
+import {
+  attachLessonImage,
+  attachLessonTutorial,
+  createLessonShell,
+  markLessonGenerationError,
+  persistLessonCreationAssets,
+} from "@/lib/lessons";
 import { MEDIA, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
@@ -14,28 +19,18 @@ import { AppImage } from "@/components/ui/AppImage";
 import { Icon } from "@/components/Icon";
 import { getLessonPreview } from "@/lib/lesson-preview";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
-import { getCreatorPipeline, getMediumLanguage } from "@/lib/medium-language";
+import { getMediumLanguage } from "@/lib/medium-language";
+import { pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
+import {
+  CREATOR_WAIT_PIPELINE,
+  creatorGenerationTimingLog,
+  creatorStepIndex,
+  type CreatorGenerationTimings,
+} from "@/lib/lesson-creation";
+import { prepareTutorialAnalysisImage } from "@/lib/tutorial-analysis-image";
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024;
-
-function dataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-/** Map existing status strings to the creator checklist (presentation only). */
-function creatorStepIndex(status: string): number {
-  const s = status.toLowerCase();
-  if (s.includes("opening") || s.includes("building your studio")) return 3;
-  if (s.includes("preparing your studio") || s.includes("preparing stage")) return 2;
-  if (s.includes("saving")) return 1;
-  return 0;
-}
 
 function validateImageFile(next: File | null): string | null {
   if (!next) return "Choose an image file to continue.";
@@ -90,46 +85,225 @@ export function LessonCreator() {
 
   async function generate() {
     if (!file || !user) return;
+    const startedAt = Date.now();
+    let lessonId: string | null = null;
+    let selectedOutputImageSize: string | null = null;
+    const failedBranches: string[] = [];
+    const timings: CreatorGenerationTimings = {
+      shellCreationMs: 0,
+      fileToDataUrlMs: 0,
+      tutorialApiMs: 0,
+      referenceUploadMs: 0,
+      tutorialPersistMs: 0,
+      referenceAttachMs: 0,
+      progressionInitMs: 0,
+      totalCreatorMs: 0,
+    };
+
+    const logTiming = () => {
+      timings.totalCreatorMs = Date.now() - startedAt;
+      console.warn(JSON.stringify(creatorGenerationTimingLog({
+        projectId: lessonId,
+        medium,
+        skillLevel: skill,
+        fileBytes: file.size,
+        selectedOutputImageSize,
+        failedBranches,
+        timings,
+      })));
+    };
+
     try {
       setBusy(true);
       setError("");
-      setStatus("Analyzing composition, light, color, and technique…");
+      setStatus("Studying your reference…");
 
-      const response = await fetch("/api/generate-tutorial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageDataUrl: await dataUrl(file), medium, skillLevel: skill }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Generation failed");
-      const tutorial = result.tutorial as Tutorial;
+      const ratioPromise = ratioForFile(file);
 
-      setStatus("Saving your lesson…");
-      const lessonId = await createLesson(user.uid, { medium, skillLevel: skill, tutorial });
+      const analysisPromise = (async () => {
+        const t = Date.now();
+        const analysis = await prepareTutorialAnalysisImage(file);
+        timings.fileToDataUrlMs = Date.now() - t;
+        timings.analysisOriginalBytes = analysis.originalBytes;
+        timings.analysisEncodedBytes = analysis.encodedBytes;
+        timings.analysisOutputWidth = analysis.outputWidth;
+        timings.analysisOutputHeight = analysis.outputHeight;
+        return analysis;
+      })();
 
-      const object = ref(storage, `users/${user.uid}/projects/${lessonId}/${file.name}`);
-      await uploadBytes(object, file, { contentType: file.type });
-      const referenceUrl = await getDownloadURL(object);
-      await attachLessonImage(user.uid, lessonId, referenceUrl);
+      const shellPromise = (async () => {
+        const t = Date.now();
+        try {
+          const id = await createLessonShell(user.uid, { medium, skillLevel: skill });
+          lessonId = id;
+          timings.shellCreationMs = Date.now() - t;
+          return id;
+        } catch (error) {
+          failedBranches.push("shell");
+          throw error;
+        }
+      })();
 
-      try {
+      const tutorialPromise = (async () => {
+        const analysis = await analysisPromise;
+        const t = Date.now();
+        try {
+          const response = await fetch("/api/generate-tutorial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageDataUrl: analysis.dataUrl, medium, skillLevel: skill }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Generation failed");
+          return result.tutorial as Tutorial;
+        } catch (error) {
+          failedBranches.push("tutorial");
+          throw error;
+        } finally {
+          timings.tutorialApiMs = Date.now() - t;
+        }
+      })();
+
+      const uploadPromise = (async () => {
+        const projectId = await shellPromise;
         setStatus("Preparing your studio…");
-        const size = pickSizeForRatio(await ratioForFile(file));
-        await ensureProgression(user.uid, lessonId, tutorial, medium, referenceUrl, size);
-        console.warn(JSON.stringify({
-          scope: "LessonCreator",
-          event: "progression_seeded",
-          projectId: lessonId,
-        }));
-        // LessonView owns orchestration after navigation. Starting it here races the
-        // lesson-route lease and can leave the UI stuck on a skipped_lease error.
-      } catch (genError) {
-        console.error("Could not initialize the stage progression", genError);
+        const t = Date.now();
+        try {
+          const object = ref(storage, `users/${user.uid}/projects/${projectId}/${file.name}`);
+          await uploadBytes(object, file, { contentType: file.type });
+          return await getDownloadURL(object);
+        } catch (error) {
+          failedBranches.push("referenceUpload");
+          throw error;
+        } finally {
+          timings.referenceUploadMs = Date.now() - t;
+        }
+      })();
+
+      const [tutorialResult, uploadResult] = await Promise.allSettled([
+        tutorialPromise,
+        uploadPromise,
+      ]);
+
+      let projectId: string | null = lessonId;
+      if (!projectId) {
+        try {
+          projectId = await shellPromise;
+        } catch {
+          /* shell failure already recorded */
+        }
+      }
+      if (!projectId) {
+        throw tutorialResult.status === "rejected"
+          ? tutorialResult.reason
+          : uploadResult.status === "rejected"
+            ? uploadResult.reason
+            : new Error("Could not create lesson");
       }
 
+      if (tutorialResult.status !== "fulfilled" || uploadResult.status !== "fulfilled") {
+        if (tutorialResult.status === "fulfilled") {
+          try {
+            const t = Date.now();
+            await attachLessonTutorial(user.uid, projectId, tutorialResult.value);
+            timings.tutorialPersistMs = Date.now() - t;
+          } catch (persistError) {
+            failedBranches.push("tutorialPersist");
+            console.error(JSON.stringify({
+              scope: "LessonCreator",
+              event: "creator_partial_persist_failed",
+              branch: "tutorial",
+              projectId: lessonId,
+              message: persistError instanceof Error ? persistError.message : String(persistError),
+              t: Date.now(),
+            }));
+          }
+        }
+        if (uploadResult.status === "fulfilled") {
+          try {
+            const t = Date.now();
+            await attachLessonImage(user.uid, projectId, uploadResult.value, "error");
+            timings.referenceAttachMs = Date.now() - t;
+          } catch (persistError) {
+            failedBranches.push("referenceAttach");
+            console.error(JSON.stringify({
+              scope: "LessonCreator",
+              event: "creator_partial_persist_failed",
+              branch: "referenceUpload",
+              projectId: lessonId,
+              message: persistError instanceof Error ? persistError.message : String(persistError),
+              t: Date.now(),
+            }));
+          }
+        } else if (tutorialResult.status === "fulfilled") {
+          try {
+            await markLessonGenerationError(user.uid, projectId);
+          } catch {
+            /* keep generating rather than lose the shell */
+          }
+        }
+
+        const firstError =
+          tutorialResult.status === "rejected"
+            ? tutorialResult.reason
+            : uploadResult.status === "rejected"
+              ? uploadResult.reason
+              : new Error("Lesson creation failed");
+        throw firstError instanceof Error ? firstError : new Error(String(firstError));
+      }
+
+      const tutorial = tutorialResult.value;
+      const referenceUrl = uploadResult.value;
+
+      setStatus("Building your lesson…");
+      try {
+        const persistMs = await persistLessonCreationAssets(user.uid, projectId, {
+          tutorial,
+          imageUrl: referenceUrl,
+        });
+        timings.tutorialPersistMs = persistMs.tutorialPersistMs;
+        timings.referenceAttachMs = persistMs.referenceAttachMs;
+      } catch (error) {
+        failedBranches.push("persistAssets");
+        try {
+          await markLessonGenerationError(user.uid, projectId);
+        } catch {
+          /* keep generating rather than lose the shell */
+        }
+        throw error;
+      }
+
+      if (timings.analysisOutputWidth && timings.analysisOutputHeight) {
+        selectedOutputImageSize = pickSizeForRatio(
+          timings.analysisOutputWidth / timings.analysisOutputHeight,
+        );
+      } else {
+        selectedOutputImageSize = pickSizeForRatio(await ratioPromise);
+      }
+
+      // LessonView calls ensureProgression inside orchestrateProgression, using
+      // size from the stored reference URL. Seeding here blocked navigation.
       setStatus("Opening your studio…");
-      router.push(`/studio/lessons/${lessonId}`);
+      timings.progressionInitMs = 0;
+      logTiming();
+      router.push(`/studio/lessons/${projectId}`);
     } catch (e) {
+      logTiming();
+      if (lessonId) {
+        try {
+          await markLessonGenerationError(user.uid, lessonId);
+        } catch {
+          /* preserve the generating shell rather than delete it */
+        }
+      }
+      console.error(JSON.stringify({
+        scope: "LessonCreator",
+        event: "creator_generation_failed",
+        projectId: lessonId,
+        failedBranches,
+        message: e instanceof Error ? e.message : String(e),
+        t: Date.now(),
+      }));
       setBusy(false);
       setStatus("");
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -181,6 +355,11 @@ export function LessonCreator() {
     onFileChange(next);
   }
 
+  function onPrepareSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    void generate();
+  }
+
   if (busy) {
     const lang = getMediumLanguage(medium);
     return (
@@ -193,7 +372,7 @@ export function LessonCreator() {
           medium={medium}
           skillLevel={skill}
           referenceUrl={preview || null}
-          pipeline={getCreatorPipeline(medium)}
+          pipeline={[...CREATOR_WAIT_PIPELINE]}
           activeStepIndex={creatorStepIndex(status)}
           eyebrow="Beginning your lesson"
           headline={lang.preparationHeading}
@@ -207,13 +386,16 @@ export function LessonCreator() {
   }
 
   const filled = Boolean(preview);
+  const canSubmit = Boolean(file) && !busy;
+  const headingId = "creator-heading";
+  const errorId = "creator-error";
+  const submitHintId = "creator-submit-hint";
 
   return (
     <div className="creator creator--atelier" data-lesson-medium={medium}>
       <header className="creator-header page-masthead">
         <div className="creator-header-copy">
-          <p className="eyebrow">New lesson</p>
-          <h1 className="dashboard-title creator-title">Choose your reference</h1>
+          <h1 id={headingId} className="dashboard-title creator-title">Choose your reference</h1>
           <p className="meta creator-lead">
             {emailMedium
               ? `Upload a photograph or artwork. ArtPraxis will turn it into a personalized ${MEDIUM_LABEL[emailMedium].toLowerCase()} atelier lesson.`
@@ -223,7 +405,7 @@ export function LessonCreator() {
       </header>
 
       <div className="creator-layout">
-        <section className="creator-stage" aria-label="Reference and lesson settings">
+        <section className="creator-stage" aria-labelledby={headingId}>
           <div
             className={[
               "creator-upload",
@@ -236,6 +418,8 @@ export function LessonCreator() {
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
+            aria-label="Reference image workspace"
+            data-dragging={dragging ? "true" : "false"}
           >
             <input
               ref={fileInputRef}
@@ -243,7 +427,11 @@ export function LessonCreator() {
               className="visually-hidden"
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              aria-describedby={filled ? "creator-ref-label" : "creator-empty-hint"}
+              aria-describedby={
+                filled
+                  ? "creator-ref-label"
+                  : "creator-empty-hint creator-empty-formats"
+              }
               aria-label="Upload a reference photo"
               onChange={(e) => onFileChange(e.target.files?.[0] || null)}
             />
@@ -261,7 +449,7 @@ export function LessonCreator() {
                 <figure className="creator-preview-frame">
                   <AppImage
                     src={preview}
-                    alt="Selected reference photo"
+                    alt="Selected reference preview"
                     width={1600}
                     height={1200}
                     sizes="(max-width: 900px) 100vw, 640px"
@@ -285,6 +473,9 @@ export function LessonCreator() {
                   </span>
                   <span className="creator-browse">Browse files</span>
                   <span className="creator-empty-drop">or drop an image here</span>
+                  <span className="creator-empty-drop" id="creator-empty-formats">
+                    JPEG, PNG, or WebP · under 10 MB
+                  </span>
                 </label>
               )}
             </div>
@@ -303,11 +494,11 @@ export function LessonCreator() {
             ) : null}
           </div>
 
-          <div className="creator-prepare">
+          <form className="creator-prepare" onSubmit={onPrepareSubmit} noValidate>
             <header className="creator-prepare-head">
-              <p className="eyebrow">About this lesson</p>
+              <h2 className="creator-prepare-title">Lesson settings</h2>
               <p className="creator-prepare-lead">
-                Choose a medium, then generate. Optional settings stay tucked away.
+                Choose a medium, then create your lesson. Experience level stays optional.
               </p>
             </header>
 
@@ -342,17 +533,32 @@ export function LessonCreator() {
               </label>
             </details>
 
-            {error ? <p className="status error" role="alert">{error}</p> : null}
+            {error ? (
+              <p id={errorId} className="creator-error ap-state-error-inline" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            {!canSubmit ? (
+              <p id={submitHintId} className="creator-submit-hint">
+                Add a reference image to create your lesson.
+              </p>
+            ) : null}
 
             <button
-              type="button"
-              className="primary creator-submit"
-              disabled={!file || busy}
-              onClick={generate}
+              type="submit"
+              className="ap-button-primary btn-branded creator-submit"
+              disabled={!canSubmit}
+              aria-describedby={[
+                !canSubmit ? submitHintId : null,
+                error ? errorId : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined}
             >
-              Generate lesson
+              Create lesson
             </button>
-          </div>
+          </form>
         </section>
 
         <aside className="creator-plan" aria-label="Lesson preview">

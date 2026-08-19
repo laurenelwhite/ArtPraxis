@@ -30,7 +30,7 @@ export function StudioReferencePair({
     >
       <figure className="studio-ref-pair-figure">
         <figcaption className="studio-ref-pair-caption">
-          Reference Photo
+          Reference
         </figcaption>
         {referenceUrl ? (
           <ArtworkFrame variant="reference">
@@ -56,9 +56,9 @@ export function StudioReferencePair({
         )}
       </figure>
 
-      <figure className="studio-ref-pair-figure">
+      <figure className="studio-ref-pair-figure studio-ref-pair-figure--final">
         <figcaption className="studio-ref-pair-caption">
-          Final Painting
+          Final painting
         </figcaption>
         {finalPaintingUrl ? (
           <ArtworkFrame variant="painting">
@@ -74,14 +74,14 @@ export function StudioReferencePair({
                 alt={`Final painting for ${title}`}
                 width={1200}
                 height={900}
-                sizes="(max-width: 820px) 100vw, 420px"
+                sizes="(max-width: 820px) 100vw, 480px"
                 className="studio-ref-img"
               />
             </button>
           </ArtworkFrame>
         ) : (
           <div className="studio-ref-empty">
-            Final painting arrives after review
+            Final painting is still being prepared
           </div>
         )}
       </figure>

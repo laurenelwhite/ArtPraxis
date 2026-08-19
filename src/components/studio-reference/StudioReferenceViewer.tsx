@@ -74,7 +74,7 @@ export function StudioReferenceViewer({
         {showOverlay && canOverlay ? (
           <figure className="studio-ref-panel studio-ref-panel--overlay">
             <figcaption className="studio-ref-caption">
-              Overlay · Reference + Final Painting
+              Overlay · reference + final painting
             </figcaption>
             <ArtworkFrame variant="painting">
               <div className="studio-ref-overlay-stack">
@@ -103,7 +103,7 @@ export function StudioReferenceViewer({
             {showReference ? (
               <figure className="studio-ref-panel">
                 <figcaption className="studio-ref-caption">
-                  Reference Photo
+                  Reference photo
                 </figcaption>
                 {referenceUrl ? (
                   <ArtworkFrame variant="reference">
@@ -123,7 +123,7 @@ export function StudioReferenceViewer({
             {showFinal ? (
               <figure className="studio-ref-panel">
                 <figcaption className="studio-ref-caption">
-                  Final Painting
+                  Final painting
                 </figcaption>
                 {finalPaintingUrl ? (
                   <ArtworkFrame variant="painting">

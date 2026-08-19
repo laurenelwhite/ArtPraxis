@@ -14,9 +14,8 @@ type StageTeachingHeaderProps = {
 
 /**
  * Stage visual anchor:
- * Stage N of M
- * Process label
- * Goal
+ * N · Title
+ * Purpose
  */
 export function StageTeachingHeader({
   stageIndex,
@@ -44,7 +43,7 @@ export function StageTeachingHeader({
   return (
     <header className={headClass}>
       <p className={`${indexClass} stage-eyebrow`}>
-        Stage {stageIndex} of {total}
+        {stageIndex} of {total}
       </p>
       <h2 id={titleId} className={titleClass}>
         {processLabel}

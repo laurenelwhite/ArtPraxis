@@ -153,6 +153,18 @@ export function ratioForFile(file: File): Promise<number> {
   });
 }
 
+/** Aspect ratio from a displayed reference URL (dimensions only; no canvas read). */
+export function ratioForImageUrl(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve(img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1);
+    };
+    img.onerror = () => resolve(1);
+    img.src = url;
+  });
+}
+
 function initialStages(tutorial: Tutorial, medium: Medium, referenceImageUrl: string): StageImageRecord[] {
   const total = STAGE_ORDER.length;
   return STAGE_ORDER.map((stageId, i) => ({
@@ -662,7 +674,13 @@ async function uploadStageBlobWithAuthRefresh(params: {
   }
 }
 
-async function uploadDataUrl(uid: string, projectId: string, name: string, dataUrl: string): Promise<string> {
+async function uploadDataUrl(
+  uid: string,
+  projectId: string,
+  name: string,
+  dataUrl: string,
+  reusedBlob?: Blob,
+): Promise<string> {
   await auth.authStateReady();
   const currentUser = auth.currentUser;
   if (!currentUser) {
@@ -700,7 +718,7 @@ async function uploadDataUrl(uid: string, projectId: string, name: string, dataU
     );
   }
 
-  const sourceBlob = dataUrlToBlob(dataUrl);
+  const sourceBlob = reusedBlob ?? dataUrlToBlob(dataUrl);
   let normalized: NormalizedStageImage;
   try {
     normalized = await normalizeStageImageForUpload(sourceBlob);
@@ -927,10 +945,15 @@ interface ApiResponse {
   inputFidelity?: string;
   timing?: {
     referenceFetchMs?: number;
+    referenceNormalizeMs?: number;
+    requestParseMs?: number;
     editMs?: number;
     validationMs?: number;
+    responseEncodeMs?: number;
     totalMs?: number;
     attempts?: number;
+    referenceSource?: string;
+    requestedSize?: string;
   };
 }
 
@@ -1756,7 +1779,6 @@ async function runMaster(
     });
 
     const validation = (response.masterValidation as CompositionValidation | null) ?? null;
-    // Preserve composition diagnostics for logging and future quality controls.
     const reasons = userFacingReasons(validation);
     const status: "ready" | "needsReview" = "ready";
 
@@ -1764,9 +1786,13 @@ async function runMaster(
       console.warn("[progression] master validation", JSON.stringify(response.masterValidation));
     }
 
+    let candidateToPreviewMs = 0;
+    const sourceBlob = dataUrlToBlob(response.master.dataUrl);
     try {
-      const previewUrl = URL.createObjectURL(dataUrlToBlob(response.master.dataUrl));
+      const previewStarted = Date.now();
+      const previewUrl = URL.createObjectURL(sourceBlob);
       onMasterCandidate?.({ previewUrl, status, reasons, validation });
+      candidateToPreviewMs = Date.now() - previewStarted;
     } catch (e) {
       console.error(
         "[progression] could not create master preview",
@@ -1779,7 +1805,7 @@ async function runMaster(
       );
     }
 
-    // Persist review state before upload so the UI can reveal the candidate early.
+    const persistPrepStarted = Date.now();
     await persist(
       uid,
       projectId,
@@ -1792,12 +1818,13 @@ async function runMaster(
       },
       true,
     );
+    const persistPrepMs = Date.now() - persistPrepStarted;
 
     let masterImageUrl: string;
     let uploadMs = 0;
     try {
       const uploadStarted = Date.now();
-      masterImageUrl = await uploadDataUrl(uid, projectId, "master", response.master.dataUrl);
+      masterImageUrl = await uploadDataUrl(uid, projectId, "master", response.master.dataUrl, sourceBlob);
       uploadMs = Date.now() - uploadStarted;
     } catch (e) {
       const normalized = normalizeProgressionError(e, {
@@ -1852,6 +1879,7 @@ async function runMaster(
     }
 
     const masterPrompt = response.master.prompt ?? null;
+    const persistReadyStarted = Date.now();
     await persist(
       uid,
       projectId,
@@ -1865,6 +1893,7 @@ async function runMaster(
       },
       true,
     );
+    const masterPersistMs = persistPrepMs + (Date.now() - persistReadyStarted);
 
     logProgression("master_persisted", {
       projectId,
@@ -1875,12 +1904,16 @@ async function runMaster(
       projectId,
       apiMs,
       uploadMs,
+      candidateToPreviewMs,
+      masterPersistMs,
+      previewBeforePersist: true,
       totalMs: Date.now() - clientStartedAt,
       serverTiming: response.timing ?? null,
       model: response.imageModel ?? null,
       input_fidelity: response.inputFidelity ?? null,
       retry_count: Math.max(0, (response.timing?.attempts ?? 1) - 1),
       validation_result: response.masterSeverity ?? (response.masterValidated ? "pass" : null),
+      requestedSize: docData.size,
     });
     // Structured regeneration.* keys (safe — no URLs, prompts, or image bytes).
     logProgression("regeneration.timing_snapshot", {
@@ -1979,6 +2012,7 @@ async function orchestrateProgressionInner(params: {
   const forceRegenerate = Boolean(params.forceRegenerate);
 
   logProgression("progression_hydration_started", { projectId });
+  const hydrateStarted = Date.now();
   const base = await ensureProgression(
     uid,
     projectId,
@@ -1987,12 +2021,15 @@ async function orchestrateProgressionInner(params: {
     referenceImageUrl,
     params.size ?? "1024x1024",
   );
-  // Re-read after ensure so we never treat a racey create as "no master".
+  // Keep this extra read: ensureProgression can race with another tab that
+  // writes a master between create and orchestration. Returning `base` alone
+  // could skip an already-usable master. Cheap vs. generation; not safe to drop.
   const hydrated = (await getProgressionDoc(uid, projectId)) ?? base;
   logProgression("progression_hydration_resolved", {
     projectId,
     masterStatus: hydrated.masterStatus,
     hasMasterImageUrl: Boolean(hydrated.masterImageUrl),
+    progressionHydrateMs: Date.now() - hydrateStarted,
   });
 
   // Failed master without an image: still allow deterministic fallbacks / retry path.
@@ -2027,10 +2064,17 @@ async function orchestrateProgressionInner(params: {
     return "skipped_complete";
   }
 
+  const leaseStarted = Date.now();
   if (!(await acquireLease(uid, projectId))) {
     logProgression("generation_skipped", { projectId, reason: "lease_held_by_another_client" });
     return "skipped_lease";
   }
+  const leaseAcquireMs = Date.now() - leaseStarted;
+  logProgression("master_client_timing", {
+    projectId,
+    eventPhase: "lease_acquired",
+    leaseAcquireMs,
+  });
 
   try {
     let docData = (await getProgressionDoc(uid, projectId)) ?? hydrated;

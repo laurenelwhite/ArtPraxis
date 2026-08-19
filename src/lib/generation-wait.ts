@@ -113,11 +113,10 @@ export function creatingPipelineIndex(elapsedSec: number): number {
 export function getMasterWaitPipeline(completedWorkNoun: string) {
   const noun =
     completedWorkNoun === "drawing" ? "drawing" : "painting";
-  const stepsWord = noun === "drawing" ? "drawing steps" : "painting steps";
   return [
-    { id: "composition", label: "Studying composition" },
-    { id: "master", label: `Creating master ${noun}` },
-    { id: "steps", label: `Building your ${stepsWord}` },
-    { id: "studio", label: "Preparing your studio" },
+    { id: "composition", label: "Preparing your studio" },
+    { id: "master", label: `Creating your final ${noun}` },
+    { id: "steps", label: "Checking composition" },
+    { id: "studio", label: "Preparing your painting stages" },
   ];
 }

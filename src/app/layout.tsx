@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
+import "../styles/artpraxis-tokens.css";
 import "./globals.css";
 import "./globals-app-shell.css";
 import { AuthProvider } from "@/providers/AuthProvider";
