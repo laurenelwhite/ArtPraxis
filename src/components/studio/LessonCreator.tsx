@@ -12,7 +12,6 @@ import {
   markLessonGenerationError,
   persistLessonCreationAssets,
 } from "@/lib/lessons";
-import { ensureProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
 import { MEDIA, MEDIUM_LABEL, parseMedium } from "@/lib/media";
 import { track } from "@/lib/analytics";
 import type { Medium, Tutorial } from "@/lib/tutorial-schema";
@@ -21,25 +20,17 @@ import { Icon } from "@/components/Icon";
 import { getLessonPreview } from "@/lib/lesson-preview";
 import { LessonLoadingView } from "@/components/studio/LessonLoadingView";
 import { getMediumLanguage } from "@/lib/medium-language";
+import { pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
 import {
   CREATOR_WAIT_PIPELINE,
   creatorGenerationTimingLog,
   creatorStepIndex,
   type CreatorGenerationTimings,
 } from "@/lib/lesson-creation";
+import { prepareTutorialAnalysisImage } from "@/lib/tutorial-analysis-image";
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024;
-
-function dataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 
 function validateImageFile(next: File | null): string | null {
   if (!next) return "Choose an image file to continue.";
@@ -127,22 +118,40 @@ export function LessonCreator() {
       setError("");
       setStatus("Studying your reference…");
 
-      const dataUrlPromise = (async () => {
-        const t = Date.now();
-        const url = await dataUrl(file);
-        timings.fileToDataUrlMs = Date.now() - t;
-        return url;
-      })();
       const ratioPromise = ratioForFile(file);
 
+      const analysisPromise = (async () => {
+        const t = Date.now();
+        const analysis = await prepareTutorialAnalysisImage(file);
+        timings.fileToDataUrlMs = Date.now() - t;
+        timings.analysisOriginalBytes = analysis.originalBytes;
+        timings.analysisEncodedBytes = analysis.encodedBytes;
+        timings.analysisOutputWidth = analysis.outputWidth;
+        timings.analysisOutputHeight = analysis.outputHeight;
+        return analysis;
+      })();
+
+      const shellPromise = (async () => {
+        const t = Date.now();
+        try {
+          const id = await createLessonShell(user.uid, { medium, skillLevel: skill });
+          lessonId = id;
+          timings.shellCreationMs = Date.now() - t;
+          return id;
+        } catch (error) {
+          failedBranches.push("shell");
+          throw error;
+        }
+      })();
+
       const tutorialPromise = (async () => {
-        const imageDataUrl = await dataUrlPromise;
+        const analysis = await analysisPromise;
         const t = Date.now();
         try {
           const response = await fetch("/api/generate-tutorial", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageDataUrl, medium, skillLevel: skill }),
+            body: JSON.stringify({ imageDataUrl: analysis.dataUrl, medium, skillLevel: skill }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "Generation failed");
@@ -155,21 +164,9 @@ export function LessonCreator() {
         }
       })();
 
-      try {
-        const t = Date.now();
-        lessonId = await createLessonShell(user.uid, { medium, skillLevel: skill });
-        timings.shellCreationMs = Date.now() - t;
-      } catch (error) {
-        failedBranches.push("shell");
-        throw error;
-      }
-
-      const projectId = lessonId;
-      if (!projectId) throw new Error("Could not create lesson");
-
-      setStatus("Preparing your studio…");
-
       const uploadPromise = (async () => {
+        const projectId = await shellPromise;
+        setStatus("Preparing your studio…");
         const t = Date.now();
         try {
           const object = ref(storage, `users/${user.uid}/projects/${projectId}/${file.name}`);
@@ -187,6 +184,22 @@ export function LessonCreator() {
         tutorialPromise,
         uploadPromise,
       ]);
+
+      let projectId: string | null = lessonId;
+      if (!projectId) {
+        try {
+          projectId = await shellPromise;
+        } catch {
+          /* shell failure already recorded */
+        }
+      }
+      if (!projectId) {
+        throw tutorialResult.status === "rejected"
+          ? tutorialResult.reason
+          : uploadResult.status === "rejected"
+            ? uploadResult.reason
+            : new Error("Could not create lesson");
+      }
 
       if (tutorialResult.status !== "fulfilled" || uploadResult.status !== "fulfilled") {
         if (tutorialResult.status === "fulfilled") {
@@ -260,24 +273,18 @@ export function LessonCreator() {
         throw error;
       }
 
-      try {
-        setStatus("Opening your studio…");
-        const size = pickSizeForRatio(await ratioPromise);
-        selectedOutputImageSize = size;
-        const t = Date.now();
-        await ensureProgression(user.uid, projectId, tutorial, medium, referenceUrl, size);
-        timings.progressionInitMs = Date.now() - t;
-        console.warn(JSON.stringify({
-          scope: "LessonCreator",
-          event: "progression_seeded",
-          projectId,
-        }));
-        // LessonView owns orchestration after navigation. Starting it here races the
-        // lesson-route lease and can leave the UI stuck on a skipped_lease error.
-      } catch (genError) {
-        console.error("Could not initialize the stage progression", genError);
+      if (timings.analysisOutputWidth && timings.analysisOutputHeight) {
+        selectedOutputImageSize = pickSizeForRatio(
+          timings.analysisOutputWidth / timings.analysisOutputHeight,
+        );
+      } else {
+        selectedOutputImageSize = pickSizeForRatio(await ratioPromise);
       }
 
+      // LessonView calls ensureProgression inside orchestrateProgression, using
+      // size from the stored reference URL. Seeding here blocked navigation.
+      setStatus("Opening your studio…");
+      timings.progressionInitMs = 0;
       logTiming();
       router.push(`/studio/lessons/${projectId}`);
     } catch (e) {

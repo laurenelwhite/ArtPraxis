@@ -69,6 +69,10 @@ export type CreatorGenerationTimings = {
   referenceAttachMs: number;
   progressionInitMs: number;
   totalCreatorMs: number;
+  analysisOriginalBytes?: number;
+  analysisEncodedBytes?: number;
+  analysisOutputWidth?: number;
+  analysisOutputHeight?: number;
 };
 
 export function creatorGenerationTimingLog(input: {

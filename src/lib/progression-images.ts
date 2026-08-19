@@ -153,6 +153,18 @@ export function ratioForFile(file: File): Promise<number> {
   });
 }
 
+/** Aspect ratio from a displayed reference URL (dimensions only; no canvas read). */
+export function ratioForImageUrl(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve(img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1);
+    };
+    img.onerror = () => resolve(1);
+    img.src = url;
+  });
+}
+
 function initialStages(tutorial: Tutorial, medium: Medium, referenceImageUrl: string): StageImageRecord[] {
   const total = STAGE_ORDER.length;
   return STAGE_ORDER.map((stageId, i) => ({

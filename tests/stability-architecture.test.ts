@@ -77,6 +77,7 @@ describe("new lesson creation pipeline", () => {
     assert.match(lessons, /export async function attachLessonTutorial/);
     assert.match(lessons, /export async function persistLessonCreationAssets/);
     assert.match(lessons, /export async function createLesson\(/);
+    assert.match(creator, /prepareTutorialAnalysisImage/);
     assert.match(creator, /createLessonShell/);
     assert.match(creator, /Promise\.allSettled/);
     assert.match(creator, /\/api\/generate-tutorial/);
@@ -84,6 +85,8 @@ describe("new lesson creation pipeline", () => {
     assert.match(creator, /creatorGenerationTimingLog/);
     assert.match(read("lib/lesson-creation.ts"), /creator_generation_timing/);
     assert.doesNotMatch(creator, /createLesson\(/);
+    assert.doesNotMatch(creator, /await ensureProgression/);
+    assert.match(read("app/api/generate-tutorial/route.ts"), /tutorial_generation_timing/);
   });
 
   it("keeps AI stage refinement off by default", () => {

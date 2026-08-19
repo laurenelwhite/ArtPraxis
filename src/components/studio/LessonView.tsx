@@ -20,7 +20,10 @@ import {
   acceptRegeneratedCandidate,
   dismissRegeneratedCandidate,
   orchestrateProgression,
+  pickSizeForRatio,
+  ratioForImageUrl,
   releaseProgressionLease,
+  type ImageSize,
   PROGRESSION_LEASE_MS,
   regenerateAllTargets,
   regenerateMasterCandidate,
@@ -295,12 +298,19 @@ export function LessonView({ id }: { id: string }) {
     }));
 
     try {
+      let size: ImageSize = "1024x1024";
+      try {
+        size = pickSizeForRatio(await ratioForImageUrl(state.summary.imageUrl));
+      } catch {
+        /* square default matches prior orchestrateProgression fallback */
+      }
       const outcome = await orchestrateProgression({
         uid: user.uid,
         projectId: id,
         tutorial: state.tutorial,
         medium: state.summary.medium,
         referenceImageUrl: state.summary.imageUrl,
+        size,
         onMasterCandidate,
         // Never pass a stale in-memory URL for auto-start — that skips the master POST.
         inMemoryMasterUrl: null,
