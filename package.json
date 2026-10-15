@@ -21,12 +21,12 @@
   "dependencies": {
     "firebase": "^12.0.0",
     "firebase-admin": "^13.10.0",
-    "next": "^15.0.0",
+    "next": "^15.5.28",
     "openai": "^5.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "zod": "^3.24.0"
   },
   "devDependencies": {
