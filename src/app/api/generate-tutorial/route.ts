@@ -3,14 +3,19 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { mediumSchema, tutorialSchema, normalizeTutorial } from "@/lib/tutorial-schema";
+import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import { authenticateRequest } from "@/lib/server/api-auth";
+import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
+import { getSecurityDeps } from "@/lib/server/security-deps";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 export async function POST(request: NextRequest) {
+  let reservation: Reservation | null = null;
   try {
+    const user = await authenticateRequest(request);
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
     }
@@ -25,7 +30,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "A valid image is required." }, { status: 400 });
     }
 
-    const response = await client.responses.parse({
+    const deps = getSecurityDeps();
+    reservation = await deps.quotaStore.reserve(user.uid, "tutorial", quotaConfigFromEnv());
+
+    const response = await deps.openai().responses.parse({
       model: process.env.OPENAI_MODEL || "gpt-5-mini",
       input: [
         {
@@ -71,6 +79,10 @@ export async function POST(request: NextRequest) {
     const tutorial = normalizeTutorial(response.output_parsed);
     return NextResponse.json({ tutorial });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return apiErrorJson(error);
+    }
+
     console.error("Tutorial generation failed", error);
 
     if (error instanceof OpenAI.APIError) {
@@ -87,5 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: "Could not generate the tutorial. Check the server logs." }, { status: 500 });
+  } finally {
+    await reservation?.release();
   }
 }

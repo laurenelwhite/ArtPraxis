@@ -36,6 +36,12 @@ import {
   type StructureSimilarityResult,
 } from "@/lib/stage-structure-similarity";
 import { measureValueStudyTonal } from "@/lib/value-study-tonal.server";
+import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import { authenticateRequest } from "@/lib/server/api-auth";
+import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
+import { fetchStorageImage } from "@/lib/server/safe-image-fetch";
+import { getSecurityDeps } from "@/lib/server/security-deps";
+import { allowedStorageBuckets, validateStorageImageUrl } from "@/lib/server/storage-url";
 
 /** Consistent non-2xx JSON shape for the progression client. */
 function apiErrorResponse(
@@ -160,12 +166,8 @@ async function bufferToPrepared(
 }
 
 async function urlToParts(url: string, name: string): Promise<PreparedImage> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Could not fetch input image "${name}": ${response.status}`);
-  }
-  const originalBuffer = Buffer.from(await response.arrayBuffer());
-  return bufferToPrepared(originalBuffer, name, `${name}.png`);
+  const { buffer } = await fetchStorageImage(url);
+  return bufferToPrepared(buffer, name, `${name}.png`);
 }
 
 /** Request-scoped buffer cache — reuse identical URLs within one POST. */
@@ -636,7 +638,9 @@ async function generateValidated(
 }
 
 export async function POST(request: NextRequest) {
+  let reservation: Reservation | null = null;
   try {
+    const user = await authenticateRequest(request);
     const rawInput = (await request.json()) as Record<string, unknown>;
     const normalizedInput = normalizeTutorialInput(rawInput);
     const parsed = bodySchema.safeParse(normalizedInput);
@@ -654,6 +658,30 @@ export async function POST(request: NextRequest) {
     }
     const body = parsed.data;
     const { medium, tutorial, size, referenceImageUrl, stageId, masterImageUrl, precedingImageUrl } = body;
+
+    const allowedBuckets = allowedStorageBuckets();
+    for (const [field, value] of Object.entries({ referenceImageUrl, masterImageUrl, precedingImageUrl })) {
+      if (value === undefined) continue;
+      const check = validateStorageImageUrl(value, { uid: user.uid, allowedBuckets });
+      if (!check.ok) {
+        console.warn(
+          JSON.stringify({
+            scope: "generate-stage-images",
+            event: "image_url_rejected",
+            field,
+            reason: check.reason,
+          }),
+        );
+        return apiErrorResponse(check.status, {
+          error:
+            check.status === 403
+              ? "You don't have access to that image."
+              : "The image URL is not permitted.",
+          code: check.code,
+          retryable: false,
+        });
+      }
+    }
     const mode = body.mode ?? (stageId ? "stage" : "master");
     const imageSize: Size = size ?? "1024x1024";
     const requestStartedAt = Date.now();
@@ -707,7 +735,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    reservation = await getSecurityDeps().quotaStore.reserve(user.uid, "image", quotaConfigFromEnv());
+
+    const client = getSecurityDeps().openai();
     const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
     const visionModel = process.env.OPENAI_VISION_MODEL || "gpt-4o-mini";
     console.warn(
@@ -1082,6 +1112,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof ApiError) {
+      return apiErrorJson(error);
+    }
     console.error(
       "Stage image generation failed",
       error instanceof Error
@@ -1112,5 +1145,7 @@ export async function POST(request: NextRequest) {
       code: "ERR_STAGE_GENERATE",
       retryable: true,
     });
+  } finally {
+    await reservation?.release();
   }
 }

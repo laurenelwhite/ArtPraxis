@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { authorizedFetch } from "@/lib/authorized-fetch";
 import { useAuth } from "@/providers/AuthProvider";
 import { attachLessonImage, createLesson } from "@/lib/lessons";
 import { ensureProgression, pickSizeForRatio, ratioForFile } from "@/lib/progression-images";
@@ -95,7 +96,7 @@ export function LessonCreator() {
       setError("");
       setStatus("Analyzing composition, light, color, and technique…");
 
-      const response = await fetch("/api/generate-tutorial", {
+      const response = await authorizedFetch("/api/generate-tutorial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageDataUrl: await dataUrl(file), medium, skillLevel: skill }),

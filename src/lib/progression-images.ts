@@ -3,6 +3,7 @@
 import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "@/lib/firebase";
+import { authorizedFetch } from "@/lib/authorized-fetch";
 import {
   ERR_IMAGE_SAFETY_REVIEW,
   MSG_IMAGE_SAFETY_REVIEW,
@@ -1018,7 +1019,7 @@ async function callApi(body: {
 
   let res: Response;
   try {
-    res = await fetch("/api/generate-stage-images", {
+    res = await authorizedFetch("/api/generate-stage-images", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
