@@ -176,7 +176,10 @@ async function fetchImageBlob(src: string): Promise<Blob> {
     return await tryFetch(src);
   } catch {
     const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(src)}`;
-    return tryFetch(proxyUrl);
+    const { authorizedFetch } = await import("@/lib/authorized-fetch");
+    const res = await authorizedFetch(proxyUrl);
+    if (!res.ok) throw new Error(`image fetch ${res.status}`);
+    return res.blob();
   }
 }
 

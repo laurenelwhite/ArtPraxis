@@ -8,11 +8,13 @@ import {
   parseTutorialImageDetail,
   resolveTutorialModel,
 } from "@/lib/tutorial-generation-config";
+import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import { authenticateRequest } from "@/lib/server/api-auth";
+import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
+import { getSecurityDeps } from "@/lib/server/security-deps";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function jsonByteLength(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value), "utf8");
@@ -27,6 +29,7 @@ export async function POST(request: NextRequest) {
   let approximateIncomingImageBytesEst = 0;
   let medium: string | null = null;
   let skillLevel: string | null = null;
+  let reservation: Reservation | null = null;
   const model = resolveTutorialModel();
   const imageDetail = parseTutorialImageDetail(process.env.OPENAI_TUTORIAL_IMAGE_DETAIL);
 
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
   };
 
   try {
+    const user = await authenticateRequest(request);
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
     }
@@ -71,8 +76,11 @@ export async function POST(request: NextRequest) {
     incomingImageDataUrlChars = imageSize.incomingImageDataUrlChars;
     approximateIncomingImageBytesEst = imageSize.approximateIncomingImageBytes;
 
+    const deps = getSecurityDeps();
+    reservation = await deps.quotaStore.reserve(user.uid, "tutorial", quotaConfigFromEnv());
+
     const modelStarted = Date.now();
-    const response = await client.responses.parse({
+    const response = await deps.openai().responses.parse({
       model,
       input: [
         {
@@ -150,6 +158,10 @@ export async function POST(request: NextRequest) {
       success: false,
       reason: error instanceof Error ? error.name : "unknown",
     });
+    if (error instanceof ApiError) {
+      return apiErrorJson(error);
+    }
+
     console.error("Tutorial generation failed", error);
 
     if (error instanceof OpenAI.APIError) {
@@ -166,5 +178,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: "Could not generate the tutorial. Check the server logs." }, { status: 500 });
+  } finally {
+    await reservation?.release();
   }
 }

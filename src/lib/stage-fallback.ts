@@ -1,6 +1,7 @@
 "use client";
 
 import type { StageId } from "@/lib/progression";
+import { authorizedFetch } from "@/lib/authorized-fetch";
 
 // ============================================================================
 // Deterministic, composition-safe stage fallbacks.
@@ -14,8 +15,8 @@ import type { StageId } from "@/lib/progression";
 export async function toDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:")) return src;
 
-  async function fetchImage(url: string): Promise<Blob> {
-    const response = await fetch(url);
+  async function fetchImage(url: string, viaProxy = false): Promise<Blob> {
+    const response = viaProxy ? await authorizedFetch(url) : await fetch(url);
 
     if (!response.ok) {
       throw new Error(
@@ -40,7 +41,7 @@ export async function toDataUrl(src: string): Promise<string> {
     const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(src)}`;
 
     try {
-      blob = await fetchImage(proxyUrl);
+      blob = await fetchImage(proxyUrl, true);
     } catch (proxyError) {
       console.error("[stage-fallback] Image conversion failed", {
         src,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } 
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { authorizedFetch } from "@/lib/authorized-fetch";
 import { useAuth } from "@/providers/AuthProvider";
 import {
   attachLessonImage,
@@ -148,7 +149,7 @@ export function LessonCreator() {
         const analysis = await analysisPromise;
         const t = Date.now();
         try {
-          const response = await fetch("/api/generate-tutorial", {
+          const response = await authorizedFetch("/api/generate-tutorial", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ imageDataUrl: analysis.dataUrl, medium, skillLevel: skill }),
