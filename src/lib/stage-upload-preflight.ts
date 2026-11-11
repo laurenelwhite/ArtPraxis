@@ -42,7 +42,7 @@ export function stageUploadOwnerMatches(
   );
 }
 
-function isConfiguredStorageBucket(value: string): boolean {
+export function isConfiguredStorageBucket(value: string): boolean {
   if (value.length > 222 || value.includes("..")) return false;
   if (!value.endsWith(".firebasestorage.app") && !value.endsWith(".appspot.com")) return false;
   return CONFIGURED_BUCKET.test(value);

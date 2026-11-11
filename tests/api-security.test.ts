@@ -162,12 +162,20 @@ describe("validateStorageImageUrl", () => {
     assert.equal(check.ok, false);
   });
 
-  it("reads allowed buckets from env", () => {
+  it("allows only the configured bucket, including a repeated server override", () => {
+    const set = allowedStorageBuckets({
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "A.appspot.com",
+      FIREBASE_STORAGE_BUCKET: "a.appspot.com",
+    });
+    assert.deepEqual([...set], ["a.appspot.com"]);
+  });
+
+  it("returns no buckets when an override names a different bucket", () => {
     const set = allowedStorageBuckets({
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "A.appspot.com",
       ALLOWED_STORAGE_BUCKETS: " b.app , c.app",
     });
-    assert.deepEqual([...set].sort(), ["a.appspot.com", "b.app", "c.app"]);
+    assert.equal(set.size, 0);
   });
 
   it("blocks internal hosts", () => {

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, getFirebaseClientProjectId } from "@/lib/firebase";
+import { checkConfiguredFirebaseProject } from "@/lib/firebase-project";
 import {
   AUTH_READY_TIMEOUT_MS,
   initialAuthUiState,
@@ -19,9 +20,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     let timeoutId = 0;
 
-    const projectId = getFirebaseClientProjectId();
-    if (projectId && projectId !== "artpraxis-33840") {
-      console.warn("[auth] Unexpected Firebase projectId:", projectId);
+    const projectCheck = checkConfiguredFirebaseProject(
+      getFirebaseClientProjectId(),
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    );
+    if (!projectCheck.ok) {
+      console.warn("[auth] Firebase project does not match the configured project.", projectCheck.reason);
     }
 
     // Absolute wall-clock recovery — do not depend on Firebase promises settling.

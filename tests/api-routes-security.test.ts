@@ -30,7 +30,9 @@ const TOKEN_A = "user-a.payload.signature";
 const TOKEN_B = "user-b.payload.signature";
 
 const savedEnv = { ...process.env };
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = BUCKET;
 process.env.FIREBASE_STORAGE_BUCKET = BUCKET;
+delete process.env.ALLOWED_STORAGE_BUCKETS;
 process.env.OPENAI_API_KEY = "test-key-not-used";
 process.env.ENABLE_STAGE_IMAGE_GEN = "false";
 

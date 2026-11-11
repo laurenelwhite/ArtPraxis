@@ -1,9 +1,12 @@
 /**
  * Allow-list policy for server-side image retrieval.
  *
- * Only Firebase Storage objects in an approved bucket, under the caller's own
+ * Only Firebase Storage objects in the configured bucket, under the caller's own
  * `users/{uid}/projects/{projectId}/…` prefix, may be fetched by the server.
+ * FIREBASE_STORAGE_BUCKET and ALLOWED_STORAGE_BUCKETS may repeat that bucket.
+ * Any other name clears the allow-list.
  */
+import { isConfiguredStorageBucket } from "../stage-upload-preflight";
 
 export const STORAGE_HOSTS = new Set([
   "firebasestorage.googleapis.com",
@@ -24,17 +27,21 @@ export type StorageUrlCheck =
 export function allowedStorageBuckets(
   env: Record<string, string | undefined> = process.env,
 ): Set<string> {
-  const buckets = new Set<string>();
-  const add = (value: string | undefined) => {
-    for (const part of (value ?? "").split(",")) {
-      const bucket = part.trim().toLowerCase();
-      if (bucket) buckets.add(bucket);
-    }
-  };
-  add(env.FIREBASE_STORAGE_BUCKET);
-  add(env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
-  add(env.ALLOWED_STORAGE_BUCKETS);
-  return buckets;
+  const configured = (env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "").trim().toLowerCase();
+  if (!configured || !isConfiguredStorageBucket(configured)) return new Set();
+  if (!bucketOverrideAgrees(env.FIREBASE_STORAGE_BUCKET, configured)) return new Set();
+  if (!bucketOverrideAgrees(env.ALLOWED_STORAGE_BUCKETS, configured)) return new Set();
+  return new Set([configured]);
+}
+
+function bucketOverrideAgrees(value: string | undefined, configured: string): boolean {
+  if (value === undefined || value.trim() === "") return true;
+  const parts = value
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) return true;
+  return parts.every((part) => part === configured);
 }
 
 function parseIPv4(host: string): number[] | null {
