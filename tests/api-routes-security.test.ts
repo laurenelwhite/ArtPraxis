@@ -55,6 +55,9 @@ let tutorialOutput: unknown;
 const realFetch = globalThis.fetch;
 
 beforeEach(() => {
+  process.env.GEN_QUOTA_TUTORIALS_PER_DAY = "10";
+  process.env.GEN_QUOTA_IMAGES_PER_DAY = "30";
+  process.env.GEN_QUOTA_MAX_CONCURRENT = "2";
   quotaStore = createMemoryQuotaStore();
   openaiCalls = 0;
   tutorialOutput = null;
@@ -87,6 +90,8 @@ afterEach(() => {
   setSecurityDepsForTesting(null);
   globalThis.fetch = realFetch;
   delete process.env.GEN_QUOTA_TUTORIALS_PER_DAY;
+  delete process.env.GEN_QUOTA_IMAGES_PER_DAY;
+  delete process.env.GEN_QUOTA_MAX_CONCURRENT;
 });
 
 function storageUrl(objectPath: string) {
@@ -190,6 +195,32 @@ describe("POST /api/generate-tutorial", () => {
     assert.equal((await res.json()).code, "ERR_QUOTA_EXCEEDED");
     assert.ok(res.headers.get("retry-after"));
     assert.equal(openaiCalls, 0);
+  });
+
+  it("returns 429 when paid quotas are missing", async () => {
+    delete process.env.GEN_QUOTA_TUTORIALS_PER_DAY;
+    delete process.env.GEN_QUOTA_IMAGES_PER_DAY;
+    delete process.env.GEN_QUOTA_MAX_CONCURRENT;
+    const res = await routes.tutorial.POST(post("/api/generate-tutorial", tutorialBody, TOKEN_A));
+    assert.equal(res.status, 429);
+    assert.equal((await res.json()).code, "ERR_QUOTA_EXCEEDED");
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("returns 413 for a reference over 10 MB without calling OpenAI", async () => {
+    const decoded = 10 * 1024 * 1024 + 3;
+    const payload = "A".repeat(Math.ceil((decoded * 4) / 3));
+    const res = await routes.tutorial.POST(
+      post(
+        "/api/generate-tutorial",
+        { ...tutorialBody, imageDataUrl: `data:image/png;base64,${payload}` },
+        TOKEN_A,
+      ),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_IMAGE_TOO_LARGE");
+    assert.equal(openaiCalls, 0);
+    assert.equal(quotaStore.state.get("user-a"), undefined);
   });
 
   it("lets an authorized request reach the handler and releases its slot", async () => {

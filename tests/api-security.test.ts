@@ -13,7 +13,11 @@ import {
   type QuotaConfig,
 } from "../src/lib/server/generation-quota";
 import { fetchStorageImage } from "../src/lib/server/safe-image-fetch";
-import { resolveQuotaStoreKind, setSecurityDepsForTesting } from "../src/lib/server/security-deps";
+import {
+  isPaidStageImageGenerationEnabled,
+  resolveQuotaStoreKind,
+  setSecurityDepsForTesting,
+} from "../src/lib/server/security-deps";
 import {
   allowedStorageBuckets,
   isBlockedNetworkHost,
@@ -233,16 +237,30 @@ describe("generation quota", () => {
   const config: QuotaConfig = { tutorialPerDay: 2, imagePerDay: 3, maxConcurrent: 1, leaseMs: 60_000 };
   const t0 = Date.UTC(2026, 9, 14, 12, 0, 0);
 
-  it("reads config from env with safe defaults", () => {
+  it("fails closed when paid quotas are missing or invalid", () => {
     assert.deepEqual(quotaConfigFromEnv({}), {
-      tutorialPerDay: 10,
-      imagePerDay: 30,
-      maxConcurrent: 2,
+      tutorialPerDay: 0,
+      imagePerDay: 0,
+      maxConcurrent: 0,
       leaseMs: 360_000,
     });
-    const custom = quotaConfigFromEnv({ GEN_QUOTA_TUTORIALS_PER_DAY: "1", GEN_QUOTA_MAX_CONCURRENT: "0" });
+    const invalid = quotaConfigFromEnv({
+      GEN_QUOTA_TUTORIALS_PER_DAY: "nope",
+      GEN_QUOTA_IMAGES_PER_DAY: "-5",
+      GEN_QUOTA_MAX_CONCURRENT: "",
+    });
+    assert.equal(invalid.tutorialPerDay, 0);
+    assert.equal(invalid.imagePerDay, 0);
+    assert.equal(invalid.maxConcurrent, 0);
+    assert.equal(invalid.leaseMs, 360_000);
+    const custom = quotaConfigFromEnv({
+      GEN_QUOTA_TUTORIALS_PER_DAY: "1",
+      GEN_QUOTA_IMAGES_PER_DAY: "4",
+      GEN_QUOTA_MAX_CONCURRENT: "2",
+    });
     assert.equal(custom.tutorialPerDay, 1);
-    assert.equal(custom.maxConcurrent, 1);
+    assert.equal(custom.imagePerDay, 4);
+    assert.equal(custom.maxConcurrent, 2);
   });
 
   it("returns 429 once the daily limit is reached", async () => {
@@ -283,6 +301,15 @@ describe("generation quota", () => {
     if (!first.allowed) return;
     assert.equal(decideReservation(first.next, "image", config, t0 + 1000, "r2").allowed, false);
     assert.equal(decideReservation(first.next, "image", config, t0 + 61_000, "r2").allowed, true);
+  });
+
+  it("keeps paid stage image generation off unless the flag is exactly true", () => {
+    assert.equal(isPaidStageImageGenerationEnabled(undefined), false);
+    assert.equal(isPaidStageImageGenerationEnabled(""), false);
+    assert.equal(isPaidStageImageGenerationEnabled("false"), false);
+    assert.equal(isPaidStageImageGenerationEnabled("TRUE"), false);
+    assert.equal(isPaidStageImageGenerationEnabled("1"), false);
+    assert.equal(isPaidStageImageGenerationEnabled("true"), true);
   });
 
   it("never selects production Firestore for local runs by default", () => {

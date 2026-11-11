@@ -11,6 +11,11 @@ export interface SecurityDeps {
 
 export type QuotaStoreKind = "firestore" | "memory";
 
+/** Paid stage and master images run only when the flag is exactly "true". */
+export function isPaidStageImageGenerationEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
 /**
  * Durable Firestore quota on App Hosting / Cloud Run (`K_SERVICE` is set there)
  * or when explicitly requested. Everywhere else — local `next dev` / `next start`

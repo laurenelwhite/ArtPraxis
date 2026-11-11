@@ -40,7 +40,7 @@ import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
 import { authenticateRequest } from "@/lib/server/api-auth";
 import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
 import { fetchStorageImage } from "@/lib/server/safe-image-fetch";
-import { getSecurityDeps } from "@/lib/server/security-deps";
+import { getSecurityDeps, isPaidStageImageGenerationEnabled } from "@/lib/server/security-deps";
 import { allowedStorageBuckets, validateStorageImageUrl } from "@/lib/server/storage-url";
 
 /** Consistent non-2xx JSON shape for the progression client. */
@@ -104,7 +104,7 @@ const bodySchema = z.object({
 type Size = z.infer<typeof sizeSchema>;
 type FileLike = Awaited<ReturnType<typeof toFile>>;
 
-const GEN_ENABLED = process.env.ENABLE_STAGE_IMAGE_GEN === "true";
+const GEN_ENABLED = isPaidStageImageGenerationEnabled(process.env.ENABLE_STAGE_IMAGE_GEN);
 // Master retries unchanged (validation still retries). Stage AI retries default
 // to 1 so progression / sketch failures can recover once.
 const MASTER_MAX_RETRIES = Math.max(0, Number(process.env.MASTER_GEN_MAX_RETRIES ?? 1));

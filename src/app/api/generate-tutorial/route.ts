@@ -7,6 +7,7 @@ import {
   approximateIncomingImageBytes,
   parseTutorialImageDetail,
   resolveTutorialModel,
+  tutorialUploadExceedsLimit,
 } from "@/lib/tutorial-generation-config";
 import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
 import { authenticateRequest } from "@/lib/server/api-auth";
@@ -75,6 +76,10 @@ export async function POST(request: NextRequest) {
     const imageSize = approximateIncomingImageBytes(imageDataUrl);
     incomingImageDataUrlChars = imageSize.incomingImageDataUrlChars;
     approximateIncomingImageBytesEst = imageSize.approximateIncomingImageBytes;
+    if (tutorialUploadExceedsLimit(imageDataUrl)) {
+      logTiming({ success: false, reason: "image_too_large" });
+      throw new ApiError(413, "ERR_IMAGE_TOO_LARGE", "Keep the reference under 10 MB.");
+    }
 
     const deps = getSecurityDeps();
     reservation = await deps.quotaStore.reserve(user.uid, "tutorial", quotaConfigFromEnv());

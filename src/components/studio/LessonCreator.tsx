@@ -29,9 +29,10 @@ import {
   type CreatorGenerationTimings,
 } from "@/lib/lesson-creation";
 import { prepareTutorialAnalysisImage } from "@/lib/tutorial-analysis-image";
+import { MAX_TUTORIAL_UPLOAD_BYTES } from "@/lib/tutorial-generation-config";
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = MAX_TUTORIAL_UPLOAD_BYTES;
 
 function validateImageFile(next: File | null): string | null {
   if (!next) return "Choose an image file to continue.";

@@ -41,10 +41,13 @@ function readInt(value: string | undefined, fallback: number): number {
 export function quotaConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): QuotaConfig {
+  // Missing or invalid paid-generation allowances fail closed. A zero lease
+  // would expire immediately and let another request through, so the hold
+  // keeps a 60-second floor instead of becoming zero.
   return {
-    tutorialPerDay: readInt(env.GEN_QUOTA_TUTORIALS_PER_DAY, 10),
-    imagePerDay: readInt(env.GEN_QUOTA_IMAGES_PER_DAY, 30),
-    maxConcurrent: Math.max(1, readInt(env.GEN_QUOTA_MAX_CONCURRENT, 2)),
+    tutorialPerDay: readInt(env.GEN_QUOTA_TUTORIALS_PER_DAY, 0),
+    imagePerDay: readInt(env.GEN_QUOTA_IMAGES_PER_DAY, 0),
+    maxConcurrent: readInt(env.GEN_QUOTA_MAX_CONCURRENT, 0),
     leaseMs: Math.max(60, readInt(env.GEN_QUOTA_LEASE_SECONDS, 360)) * 1000,
   };
 }

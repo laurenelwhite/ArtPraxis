@@ -169,6 +169,10 @@ export function LessonView({ id }: { id: string }) {
     return () => {
       clearLessonBrand();
     };
+    // Both callbacks are stable under LessonBrandProvider. The provider's
+    // missing-context fallback allocates a new clearTheme on every render;
+    // depending on it would reset this lesson on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Release an in-flight lease on full document unload only. Do not release on

@@ -6,8 +6,11 @@ import {
   fitTutorialAnalysisSize,
 } from "../src/lib/tutorial-analysis-image";
 import {
+  MAX_TUTORIAL_UPLOAD_BYTES,
+  approximateIncomingImageBytes,
   parseTutorialImageDetail,
   resolveTutorialModel,
+  tutorialUploadExceedsLimit,
 } from "../src/lib/tutorial-generation-config";
 
 describe("fitTutorialAnalysisSize", () => {
@@ -55,12 +58,34 @@ describe("estimateDataUrlBytes", () => {
   });
 });
 
+function dataUrlForDecodedBytes(target: number): string {
+  let payloadLength = Math.ceil((target * 4) / 3);
+  const decoded = (length: number) => Math.floor((length * 3) / 4);
+  while (decoded(payloadLength) < target) payloadLength += 1;
+  while (decoded(payloadLength) > target) payloadLength -= 1;
+  if (decoded(payloadLength) !== target) {
+    throw new Error(`No base64 length decodes to ${target} bytes.`);
+  }
+  return `data:image/jpeg;base64,${"A".repeat(payloadLength)}`;
+}
+
 describe("tutorial generation config", () => {
   it("defaults image detail to high and rejects unknown values", () => {
     assert.equal(parseTutorialImageDetail(undefined), "high");
     assert.equal(parseTutorialImageDetail("auto"), "auto");
     assert.equal(parseTutorialImageDetail("LOW"), "low");
     assert.equal(parseTutorialImageDetail("medium"), "high");
+  });
+
+  it("accepts a 10 MB reference and rejects one byte more", () => {
+    const atLimit = dataUrlForDecodedBytes(MAX_TUTORIAL_UPLOAD_BYTES);
+    const overLimit = dataUrlForDecodedBytes(MAX_TUTORIAL_UPLOAD_BYTES + 1);
+    assert.equal(
+      approximateIncomingImageBytes(atLimit).approximateIncomingImageBytes,
+      MAX_TUTORIAL_UPLOAD_BYTES,
+    );
+    assert.equal(tutorialUploadExceedsLimit(atLimit), false);
+    assert.equal(tutorialUploadExceedsLimit(overLimit), true);
   });
 
   it("resolves OPENAI_TUTORIAL_MODEL before OPENAI_MODEL", () => {
