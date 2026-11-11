@@ -79,7 +79,8 @@ describe("new lesson creation pipeline", () => {
     assert.match(lessons, /export async function createLesson\(/);
     assert.match(creator, /prepareTutorialAnalysisImage/);
     assert.match(creator, /createLessonShell/);
-    assert.match(creator, /Promise\.allSettled/);
+    assert.match(creator, /runNewLessonAttempt/);
+    assert.match(read("lib/lesson-creation-flow.ts"), /Promise\.allSettled/);
     assert.match(creator, /\/api\/generate-tutorial/);
     assert.match(creator, /uploadBytes/);
     assert.match(creator, /creatorGenerationTimingLog/);

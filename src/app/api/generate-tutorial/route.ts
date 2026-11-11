@@ -16,6 +16,7 @@ import {
   readJsonWithByteLimit,
   TUTORIAL_REQUEST_MAX_BYTES,
 } from "@/lib/server/read-json-body";
+import { tutorialModelConfigured } from "@/lib/server/generation-availability";
 import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
 import { getSecurityDeps } from "@/lib/server/security-deps";
 
@@ -61,8 +62,11 @@ export async function POST(request: NextRequest) {
   try {
     const user = await authenticateRequest(request);
 
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+    if (!tutorialModelConfigured()) {
+      return NextResponse.json(
+        { error: "Lesson writing is unavailable right now." },
+        { status: 500 },
+      );
     }
 
     const parseStarted = Date.now();

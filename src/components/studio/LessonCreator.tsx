@@ -30,6 +30,8 @@ import {
 } from "@/lib/lesson-creation";
 import { prepareTutorialAnalysisImage } from "@/lib/tutorial-analysis-image";
 import { MAX_TUTORIAL_UPLOAD_BYTES } from "@/lib/tutorial-generation-config";
+import { creatorFailureMessage } from "@/lib/generation-preflight";
+import { runNewLessonAttempt } from "@/lib/lesson-creation-flow";
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = MAX_TUTORIAL_UPLOAD_BYTES;
@@ -89,6 +91,7 @@ export function LessonCreator() {
     if (!file || !user) return;
     const startedAt = Date.now();
     let lessonId: string | null = null;
+    let uploadStarted = false;
     let selectedOutputImageSize: string | null = null;
     const failedBranches: string[] = [];
     const timings: CreatorGenerationTimings = {
@@ -133,81 +136,83 @@ export function LessonCreator() {
         return analysis;
       })();
 
-      const shellPromise = (async () => {
-        const t = Date.now();
-        try {
-          const id = await createLessonShell(user.uid, { medium, skillLevel: skill });
-          lessonId = id;
-          timings.shellCreationMs = Date.now() - t;
-          return id;
-        } catch (error) {
-          failedBranches.push("shell");
-          throw error;
-        }
-      })();
-
-      const tutorialPromise = (async () => {
-        const analysis = await analysisPromise;
-        const t = Date.now();
-        try {
-          const response = await authorizedFetch("/api/generate-tutorial", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageDataUrl: analysis.dataUrl, medium, skillLevel: skill }),
+      const attempt = await runNewLessonAttempt({
+        preflight: async () => {
+          const response = await authorizedFetch("/api/generation-availability", {
+            cache: "no-store",
           });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Generation failed");
-          return result.tutorial as Tutorial;
-        } catch (error) {
-          failedBranches.push("tutorial");
-          throw error;
-        } finally {
-          timings.tutorialApiMs = Date.now() - t;
-        }
-      })();
+          let body: { available?: unknown; error?: unknown } | null = null;
+          try {
+            body = await response.json();
+          } catch {
+            body = null;
+          }
+          return { httpOk: response.ok, body };
+        },
+        createShell: async () => {
+          const t = Date.now();
+          try {
+            const id = await createLessonShell(user.uid, { medium, skillLevel: skill });
+            lessonId = id;
+            timings.shellCreationMs = Date.now() - t;
+            return id;
+          } catch (error) {
+            failedBranches.push("shell");
+            throw error;
+          }
+        },
+        requestTutorial: async () => {
+          const analysis = await analysisPromise;
+          const t = Date.now();
+          try {
+            const response = await authorizedFetch("/api/generate-tutorial", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imageDataUrl: analysis.dataUrl, medium, skillLevel: skill }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Generation failed");
+            return result.tutorial as Tutorial;
+          } catch (error) {
+            failedBranches.push("tutorial");
+            throw error;
+          } finally {
+            timings.tutorialApiMs = Date.now() - t;
+          }
+        },
+        uploadReference: async (projectId) => {
+          setStatus("Preparing your studio…");
+          const t = Date.now();
+          try {
+            const object = ref(storage, `users/${user.uid}/projects/${projectId}/${file.name}`);
+            await uploadBytes(object, file, { contentType: file.type });
+            return await getDownloadURL(object);
+          } catch (error) {
+            failedBranches.push("referenceUpload");
+            throw error;
+          } finally {
+            timings.referenceUploadMs = Date.now() - t;
+          }
+        },
+      });
 
-      const uploadPromise = (async () => {
-        const projectId = await shellPromise;
-        setStatus("Preparing your studio…");
-        const t = Date.now();
-        try {
-          const object = ref(storage, `users/${user.uid}/projects/${projectId}/${file.name}`);
-          await uploadBytes(object, file, { contentType: file.type });
-          return await getDownloadURL(object);
-        } catch (error) {
-          failedBranches.push("referenceUpload");
-          throw error;
-        } finally {
-          timings.referenceUploadMs = Date.now() - t;
-        }
-      })();
+      lessonId = attempt.lessonId;
+      uploadStarted = attempt.uploadStarted;
 
-      const [tutorialResult, uploadResult] = await Promise.allSettled([
-        tutorialPromise,
-        uploadPromise,
-      ]);
-
-      let projectId: string | null = lessonId;
-      if (!projectId) {
-        try {
-          projectId = await shellPromise;
-        } catch {
-          /* shell failure already recorded */
-        }
+      if (attempt.kind === "blocked") {
+        logTiming();
+        setBusy(false);
+        setStatus("");
+        setError(attempt.message);
+        return;
       }
-      if (!projectId) {
-        throw tutorialResult.status === "rejected"
-          ? tutorialResult.reason
-          : uploadResult.status === "rejected"
-            ? uploadResult.reason
-            : new Error("Could not create lesson");
-      }
 
-      if (tutorialResult.status !== "fulfilled" || uploadResult.status !== "fulfilled") {
-        if (tutorialResult.status === "fulfilled") {
+      if (attempt.kind === "failed") {
+        const projectId = attempt.lessonId;
+        if (projectId && attempt.tutorial) {
           try {
             const t = Date.now();
-            await attachLessonTutorial(user.uid, projectId, tutorialResult.value);
+            await attachLessonTutorial(user.uid, projectId, attempt.tutorial);
             timings.tutorialPersistMs = Date.now() - t;
           } catch (persistError) {
             failedBranches.push("tutorialPersist");
@@ -221,10 +226,10 @@ export function LessonCreator() {
             }));
           }
         }
-        if (uploadResult.status === "fulfilled") {
+        if (projectId && attempt.imageUrl) {
           try {
             const t = Date.now();
-            await attachLessonImage(user.uid, projectId, uploadResult.value, "error");
+            await attachLessonImage(user.uid, projectId, attempt.imageUrl, "error");
             timings.referenceAttachMs = Date.now() - t;
           } catch (persistError) {
             failedBranches.push("referenceAttach");
@@ -237,25 +242,21 @@ export function LessonCreator() {
               t: Date.now(),
             }));
           }
-        } else if (tutorialResult.status === "fulfilled") {
+        } else if (projectId && attempt.tutorial) {
           try {
             await markLessonGenerationError(user.uid, projectId);
           } catch {
             /* keep generating rather than lose the shell */
           }
         }
-
-        const firstError =
-          tutorialResult.status === "rejected"
-            ? tutorialResult.reason
-            : uploadResult.status === "rejected"
-              ? uploadResult.reason
-              : new Error("Lesson creation failed");
-        throw firstError instanceof Error ? firstError : new Error(String(firstError));
+        throw attempt.error instanceof Error
+          ? attempt.error
+          : new Error(typeof attempt.error === "string" ? attempt.error : "Lesson creation failed");
       }
 
-      const tutorial = tutorialResult.value;
-      const referenceUrl = uploadResult.value;
+      const projectId = attempt.lessonId;
+      const tutorial = attempt.tutorial;
+      const referenceUrl = attempt.imageUrl;
 
       setStatus("Building your lesson…");
       try {
@@ -298,17 +299,22 @@ export function LessonCreator() {
           /* preserve the generating shell rather than delete it */
         }
       }
+      const message = creatorFailureMessage({
+        uploadStarted,
+        lessonCreated: Boolean(lessonId),
+        error: e,
+      });
       console.error(JSON.stringify({
         scope: "LessonCreator",
         event: "creator_generation_failed",
         projectId: lessonId,
         failedBranches,
-        message: e instanceof Error ? e.message : String(e),
+        message,
         t: Date.now(),
       }));
       setBusy(false);
       setStatus("");
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(message);
     }
   }
 

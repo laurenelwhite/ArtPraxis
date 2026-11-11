@@ -40,6 +40,7 @@ type Routes = {
   tutorial: typeof import("../src/app/api/generate-tutorial/route");
   stages: typeof import("../src/app/api/generate-stage-images/route");
   proxy: typeof import("../src/app/api/image-proxy/route");
+  availability: typeof import("../src/app/api/generation-availability/route");
 };
 let routes: Routes;
 
@@ -48,6 +49,7 @@ before(async () => {
     tutorial: await import("../src/app/api/generate-tutorial/route"),
     stages: await import("../src/app/api/generate-stage-images/route"),
     proxy: await import("../src/app/api/image-proxy/route"),
+    availability: await import("../src/app/api/generation-availability/route"),
   };
 });
 
@@ -239,6 +241,55 @@ const tutorialBody = {
   skillLevel: "beginner",
 };
 
+describe("GET /api/generation-availability", () => {
+  async function bodyOf(res: Response) {
+    return res.json() as Promise<Record<string, unknown>>;
+  }
+
+  it("returns 401 for an anonymous request without calling OpenAI or reserving quota", async () => {
+    const res = await routes.availability.GET(get("/api/generation-availability"));
+    assert.equal(res.status, 401);
+    const json = await bodyOf(res);
+    assert.equal(json.code, "ERR_UNAUTHENTICATED");
+    assert.equal("available" in json, false);
+    assert.equal(openaiCalls, 0);
+    assert.equal(quotaStore.state.get("user-a"), undefined);
+  });
+
+  it("reports unavailable for a missing model credential without revealing why", async () => {
+    const previous = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const res = await routes.availability.GET(get("/api/generation-availability", TOKEN_A));
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get("cache-control"), "no-store");
+      assert.deepEqual(await bodyOf(res), { available: false });
+      assert.equal(openaiCalls, 0);
+      assert.equal(quotaStore.state.get("user-a"), undefined);
+    } finally {
+      process.env.OPENAI_API_KEY = previous;
+    }
+  });
+
+  it("reports unavailable when the tutorial quota is zero and does not reserve it", async () => {
+    process.env.GEN_QUOTA_TUTORIALS_PER_DAY = "0";
+    const res = await routes.availability.GET(get("/api/generation-availability", TOKEN_A));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await bodyOf(res), { available: false });
+    assert.equal(openaiCalls, 0);
+    assert.equal(quotaStore.state.get("user-a"), undefined);
+  });
+
+  it("reports available without reserving quota when a tutorial can be started", async () => {
+    process.env.GEN_QUOTA_IMAGES_PER_DAY = "0";
+    const res = await routes.availability.GET(get("/api/generation-availability", TOKEN_A));
+    assert.equal(res.status, 200);
+    assert.deepEqual(await bodyOf(res), { available: true });
+    assert.equal(openaiCalls, 0);
+    assert.equal(quotaStore.state.get("user-a"), undefined);
+  });
+});
+
 describe("POST /api/generate-tutorial", () => {
   it("returns 401 for an anonymous request without calling OpenAI", async () => {
     const res = await routes.tutorial.POST(post("/api/generate-tutorial", tutorialBody));
@@ -254,6 +305,23 @@ describe("POST /api/generate-tutorial", () => {
     assert.equal(res.status, 401);
     assert.equal((await res.json()).code, "ERR_INVALID_TOKEN");
     assert.equal(openaiCalls, 0);
+  });
+
+  it("returns a public message when the model credential is missing and does not reserve quota", async () => {
+    const previous = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const res = await routes.tutorial.POST(post("/api/generate-tutorial", tutorialBody, TOKEN_A));
+      assert.equal(res.status, 500);
+      const json = await res.json();
+      assert.equal(json.error, "Lesson writing is unavailable right now.");
+      assert.equal(JSON.stringify(json).includes("OPENAI"), false);
+      assert.equal(JSON.stringify(json).includes("API_KEY"), false);
+      assert.equal(openaiCalls, 0);
+      assert.equal(quotaStore.state.get("user-a"), undefined);
+    } finally {
+      process.env.OPENAI_API_KEY = previous;
+    }
   });
 
   it("returns 429 when the user's daily quota is exhausted", async () => {
