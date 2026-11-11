@@ -28,6 +28,7 @@ import {
   type CompositionValidation,
 } from "@/lib/composition-validation";
 import { ENABLE_AI_STAGE_REFINEMENT } from "@/lib/feature-flags";
+import { decideStageUploadBucket, stageUploadOwnerMatches } from "@/lib/stage-upload-preflight";
 import {
   idleRegenerationFields,
   isRegenerationBusy,
@@ -378,7 +379,6 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-const EXPECTED_STORAGE_BUCKET = "artpraxis-33840.firebasestorage.app";
 const STAGE_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
 const STAGE_UPLOAD_CONTENT_TYPE = "image/webp";
 const STAGE_UPLOAD_EXT = "webp";
@@ -706,7 +706,7 @@ async function uploadDataUrl(
     );
   }
 
-  if (currentUser.uid !== uid) {
+  if (!stageUploadOwnerMatches(currentUser.uid, uid)) {
     throwStageUploadPreflightError(
       "ERR_STAGE_AUTH_UID_MISMATCH",
       `Firebase Storage upload blocked: path uid "${uid}" does not match authenticated uid "${currentUser.uid}".`,
@@ -779,11 +779,15 @@ async function uploadDataUrl(
     sanitizeProgressionLogObject(preflight),
   );
 
-  if (bucket !== EXPECTED_STORAGE_BUCKET) {
+  const bucketDecision = decideStageUploadBucket(
+    bucket,
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  );
+  if (!bucketDecision.ok) {
     throwStageUploadPreflightError(
       "ERR_STAGE_BUCKET_MISMATCH",
-      `Firebase Storage upload blocked: unexpected bucket "${bucket ?? "null"}" (expected ${EXPECTED_STORAGE_BUCKET}).`,
-      { ...preflight },
+      "Firebase Storage upload blocked: storage bucket is missing, invalid, or does not match the configured bucket.",
+      { ...preflight, bucketReason: bucketDecision.reason },
     );
   }
 

@@ -1,7 +1,7 @@
 {
   "apphosting": [
     {
-      "backendId": "artpraxis",
+      "backendId": "artpraxis-staging",
       "rootDir": ".",
       "ignore": [
         "node_modules",
