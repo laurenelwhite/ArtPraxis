@@ -1,3 +1,5 @@
+# integration/v1-secure-beta only: paid generation is disabled and daily quotas are zero.
+# Project identity is unchanged from the performance branch. Do not deploy this branch.
 runConfig:
   minInstances: 0
   maxInstances: 2
@@ -25,7 +27,7 @@ env:
   - variable: OPENAI_MODEL
     value: gpt-5-mini
   - variable: ENABLE_STAGE_IMAGE_GEN
-    value: "true"
+    value: "false"
   - variable: NEXT_PUBLIC_ENABLE_AI_STAGE_REFINEMENT
     value: "false"
   - variable: ENABLE_AI_STAGE_REFINEMENT
@@ -34,5 +36,13 @@ env:
     value: "0"
   - variable: GEN_QUOTA_STORE
     value: firestore
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_TUTORIALS_PER_DAY
+    value: "0"
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_IMAGES_PER_DAY
+    value: "0"
     availability:
       - RUNTIME
