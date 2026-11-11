@@ -11,6 +11,11 @@ import {
 } from "@/lib/tutorial-generation-config";
 import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
 import { authenticateRequest } from "@/lib/server/api-auth";
+import {
+  isJsonObject,
+  readJsonWithByteLimit,
+  TUTORIAL_REQUEST_MAX_BYTES,
+} from "@/lib/server/read-json-body";
 import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
 import { getSecurityDeps } from "@/lib/server/security-deps";
 
@@ -61,7 +66,11 @@ export async function POST(request: NextRequest) {
     }
 
     const parseStarted = Date.now();
-    const body = await request.json();
+    const parsed = await readJsonWithByteLimit(request, TUTORIAL_REQUEST_MAX_BYTES);
+    if (!isJsonObject(parsed)) {
+      throw new ApiError(400, "ERR_INVALID_REQUEST", "Request body must be a JSON object.");
+    }
+    const body = parsed;
     medium = mediumSchema.parse(body.medium);
     skillLevel = z.enum(["beginner", "intermediate", "advanced"])
       .parse(body.skillLevel || "beginner");

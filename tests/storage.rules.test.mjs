@@ -71,10 +71,11 @@ async function run(name, fn) {
   try {
     await fn();
     console.log(`  PASS  ${name}`);
+    return 0;
   } catch (e) {
     console.error(`  FAIL  ${name}`);
     console.error(e instanceof Error ? e.message : e);
-    throw e;
+    return 1;
   }
 }
 
@@ -84,31 +85,31 @@ async function main() {
   let failed = 0;
 
   try {
-    await run("1. Owner can upload stages/second-wash.png", async () => {
+    failed += await run("1. Owner can upload stages/second-wash.png", async () => {
       await assertSucceeds(
         uploadAs(ownerCtx(), stagePath("user-a", "project-1", "second-wash.png"), TINY_PNG, "image/png"),
       );
     });
 
-    await run("2. Owner can upload stages/refinement.png", async () => {
+    failed += await run("2. Owner can upload stages/refinement.png", async () => {
       await assertSucceeds(
         uploadAs(ownerCtx(), stagePath("user-a", "project-1", "refinement.png"), TINY_PNG, "image/png"),
       );
     });
 
-    await run("3. Other user cannot upload to user-a stages path", async () => {
+    failed += await run("3. Other user cannot upload to user-a stages path", async () => {
       await assertFails(
         uploadAs(otherCtx(), stagePath("user-a", "project-1", "second-wash.png"), TINY_PNG, "image/png"),
       );
     });
 
-    await run("4. Unauthenticated cannot upload stage images", async () => {
+    failed += await run("4. Unauthenticated cannot upload stage images", async () => {
       await assertFails(
         uploadAs(anonCtx(), stagePath("user-a", "project-1", "second-wash.png"), TINY_PNG, "image/png"),
       );
     });
 
-    await run("5. Non-image content-type is rejected for stages", async () => {
+    failed += await run("5. Non-image content-type is rejected for stages", async () => {
       await assertFails(
         uploadAs(
           ownerCtx(),
@@ -119,13 +120,13 @@ async function main() {
       );
     });
 
-    await run("6. Oversized stage image (>15MB) is rejected", async () => {
+    failed += await run("6. Oversized stage image (>15MB) is rejected", async () => {
       await assertFails(
         uploadAs(ownerCtx(), stagePath("user-a", "project-1", "huge.png"), OVERSIZE, "image/png"),
       );
     });
 
-    await run("7. Owner can read their stage images", async () => {
+    failed += await run("7. Owner can read their stage images", async () => {
       const path = stagePath("user-a", "project-1", "readable.png");
       await assertSucceeds(uploadAs(ownerCtx(), path, TINY_PNG, "image/png"));
       const storage = ownerCtx().storage();
@@ -133,14 +134,14 @@ async function main() {
       await assertSucceeds(getDownloadURL(ref(storage, path)));
     });
 
-    await run("8. Other user cannot read owner stage images", async () => {
+    failed += await run("8. Other user cannot read owner stage images", async () => {
       const path = stagePath("user-a", "project-1", "private.png");
       await assertSucceeds(uploadAs(ownerCtx(), path, TINY_PNG, "image/png"));
       const storage = otherCtx().storage();
       await assertFails(getBytes(ref(storage, path)));
     });
 
-    await run("9. Existing reference image uploads still work", async () => {
+    failed += await run("9. Existing reference image uploads still work", async () => {
       await assertSucceeds(
         uploadAs(
           ownerCtx(),
@@ -151,9 +152,113 @@ async function main() {
       );
     });
 
-    await run("10. Existing master image uploads still work (stages/master.png)", async () => {
+    failed += await run("10. Existing master image uploads still work (stages/master.png)", async () => {
       await assertSucceeds(
         uploadAs(ownerCtx(), stagePath("user-a", "project-1", "master.png"), TINY_PNG, "image/png"),
+      );
+    });
+
+    failed += await run("11. PDF under stages/ is rejected", async () => {
+      await assertFails(
+        uploadAs(ownerCtx(), stagePath("user-a", "project-1", "notes.pdf"), TINY_PNG, "application/pdf"),
+      );
+    });
+
+    failed += await run("12. Nested image under stages/ is rejected", async () => {
+      await assertFails(
+        uploadAs(
+          ownerCtx(),
+          "users/user-a/projects/project-1/stages/nested/extra.png",
+          TINY_PNG,
+          "image/png",
+        ),
+      );
+    });
+
+    failed += await run("13. Other user cannot upload a non-stage project file", async () => {
+      await assertFails(
+        uploadAs(
+          otherCtx(),
+          projectFilePath("user-a", "project-1", "reference.jpg"),
+          TINY_PNG,
+          "image/jpeg",
+        ),
+      );
+    });
+
+    failed += await run("14. Owner can upload a non-stage image larger than 15MB", async () => {
+      await assertSucceeds(
+        uploadAs(
+          ownerCtx(),
+          projectFilePath("user-a", "project-1", "reference-large.jpg"),
+          OVERSIZE,
+          "image/jpeg",
+        ),
+      );
+    });
+
+    failed += await run("15. Owner can upload a non-stage PDF", async () => {
+      await assertSucceeds(
+        uploadAs(
+          ownerCtx(),
+          "users/user-a/projects/project-1/exports/sheet.pdf",
+          TINY_PNG,
+          "application/pdf",
+        ),
+      );
+    });
+
+    failed += await run("16. A later path segment named stages is not treated as the stage folder", async () => {
+      await assertSucceeds(
+        uploadAs(
+          ownerCtx(),
+          "users/user-a/projects/project-1/exports/stages/note.png",
+          TINY_PNG,
+          "image/png",
+        ),
+      );
+    });
+
+    for (const folder of ["Stages", "STAGES", "StAgEs"]) {
+      failed += await run(`17. ${folder}/ cannot be written through the broader rule`, async () => {
+        await assertFails(
+          uploadAs(
+            ownerCtx(),
+            `users/user-a/projects/project-1/${folder}/second-wash.png`,
+            TINY_PNG,
+            "image/png",
+          ),
+        );
+        await assertFails(
+          uploadAs(
+            ownerCtx(),
+            `users/user-a/projects/project-1/${folder}/nested/extra.png`,
+            TINY_PNG,
+            "image/png",
+          ),
+        );
+      });
+    }
+
+    failed += await run("18. A later segment with alternate stage capitalization still uploads", async () => {
+      await assertSucceeds(
+        uploadAs(
+          ownerCtx(),
+          "users/user-a/projects/project-1/exports/Stages/note.png",
+          TINY_PNG,
+          "image/png",
+        ),
+      );
+    });
+
+    failed += await run("19. A project-root file named Stages.png still uploads", async () => {
+      await assertSucceeds(
+        uploadAs(
+          ownerCtx(),
+          projectFilePath("user-a", "project-1", "Stages.png"),
+          TINY_PNG,
+          "image/png",
+        ),
       );
     });
   } catch {

@@ -1,9 +1,11 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Stage demonstration PNGs (nested under …/stages/).
-    // Explicit match — recursive {allPaths=**} alone has historically missed
-    // this path shape when only a flat {fileName} rule was deployed.
+    // Stage images are one path segment under stages/. The general project
+    // rules are separate matches, not a second allow on the same path: Firebase
+    // ORs every matching allow, so a broader rule would bypass this cap.
+    // The nested rule below uses a single-segment folder check. A multi-segment
+    // wildcard's matches() call is rejected by this Storage emulator.
     match /users/{uid}/projects/{projectId}/stages/{fileName} {
       allow read: if request.auth != null
                   && request.auth.uid == uid;
@@ -15,12 +17,27 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // Other project-owned assets at any depth (reference image, master siblings,
-    // future exports/offline). Owner-only; images + PDF; 25MB cap.
-    match /users/{uid}/projects/{projectId}/{allPaths=**} {
+    // Project-root files such as the reference image. Images or PDF, 25MB.
+    match /users/{uid}/projects/{projectId}/{fileName} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if request.auth != null
                    && request.auth.uid == uid
+                   && request.resource != null
+                   && request.resource.size < 25 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType == 'application/pdf');
+    }
+
+    // Nested project files (exports, offline copies). Any capitalization of
+    // the reserved folder name is excluded, so Stages/** and STAGES/** cannot
+    // use this 25MB rule. A later segment named stages, such as
+    // exports/stages/note.png, stays a normal file. The app writes lowercase
+    // stages/ only; those objects are authorized by the stage rule above.
+    match /users/{uid}/projects/{projectId}/{folder}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && !folder.matches('^[sS][tT][aA][gG][eE][sS]$')
                    && request.resource != null
                    && request.resource.size < 25 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')

@@ -37,6 +37,11 @@ import {
 } from "@/lib/stage-structure-similarity";
 import { measureValueStudyTonal } from "@/lib/value-study-tonal.server";
 import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import {
+  isJsonObject,
+  readJsonWithByteLimit,
+  STAGE_REQUEST_MAX_BYTES,
+} from "@/lib/server/read-json-body";
 import { authenticateRequest } from "@/lib/server/api-auth";
 import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
 import { fetchStorageImage } from "@/lib/server/safe-image-fetch";
@@ -648,7 +653,10 @@ export async function POST(request: NextRequest) {
   try {
     const user = await authenticateRequest(request);
     const parseStarted = Date.now();
-    const rawInput = (await request.json()) as Record<string, unknown>;
+    const rawInput = await readJsonWithByteLimit(request, STAGE_REQUEST_MAX_BYTES);
+    if (!isJsonObject(rawInput)) {
+      throw new ApiError(400, "ERR_INVALID_REQUEST", "Request body must be a JSON object.");
+    }
     const normalizedInput = normalizeTutorialInput(rawInput);
     const parsed = bodySchema.safeParse(normalizedInput);
     if (!parsed.success) {

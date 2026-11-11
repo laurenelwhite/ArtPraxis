@@ -10,6 +10,10 @@ import { pathToFileURL } from "node:url";
 import { NextRequest } from "next/server";
 import type OpenAI from "openai";
 import { createMemoryQuotaStore } from "../src/lib/server/generation-quota";
+import {
+  STAGE_REQUEST_MAX_BYTES,
+  TUTORIAL_REQUEST_MAX_BYTES,
+} from "../src/lib/server/read-json-body";
 import { setSecurityDepsForTesting } from "../src/lib/server/security-deps";
 
 // `server-only` throws outside the React Server bundle; Next resolves it to empty.js there.
@@ -105,6 +109,68 @@ function post(url: string, body: unknown, token?: string) {
     method: "POST",
     headers,
     body: JSON.stringify(body),
+  });
+}
+
+function postRaw(url: string, json: string, token?: string) {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return new NextRequest(`http://localhost${url}`, {
+    method: "POST",
+    headers,
+    body: json,
+  });
+}
+
+function jsonOfByteLength(fields: Record<string, unknown>, targetBytes: number) {
+  const skeleton = JSON.stringify({ ...fields, pad: "" });
+  const room = targetBytes - Buffer.byteLength(skeleton, "utf8");
+  if (room < 0) throw new Error(`payload skeleton exceeds ${targetBytes} bytes`);
+  const json = JSON.stringify({ ...fields, pad: "a".repeat(room) });
+  if (Buffer.byteLength(json, "utf8") !== targetBytes) {
+    throw new Error(`expected ${targetBytes} bytes, got ${Buffer.byteLength(json, "utf8")}`);
+  }
+  return json;
+}
+
+function streamPost(
+  url: string,
+  opts: {
+    token?: string;
+    chunks: Uint8Array[];
+    contentLength?: string;
+    onPull?: () => void;
+    onCancel?: () => void;
+    /** When set, further pulls repeat this chunk instead of closing the stream. */
+    repeat?: Uint8Array;
+    maxPulls?: number;
+  },
+) {
+  const pending = opts.chunks.slice();
+  let pulls = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1;
+      opts.onPull?.();
+      if (pulls > (opts.maxPulls ?? 8)) {
+        controller.error(new Error("stream was not cancelled"));
+        return;
+      }
+      const next = pending.shift() ?? opts.repeat;
+      if (next) controller.enqueue(next);
+      else controller.close();
+    },
+    cancel() {
+      opts.onCancel?.();
+    },
+  });
+  const headers = new Headers({ "content-type": "application/json" });
+  if (opts.token) headers.set("authorization", `Bearer ${opts.token}`);
+  if (opts.contentLength !== undefined) headers.set("content-length", opts.contentLength);
+  return new NextRequest(`http://localhost${url}`, {
+    method: "POST",
+    headers,
+    body: stream,
   });
 }
 
@@ -223,6 +289,88 @@ describe("POST /api/generate-tutorial", () => {
     assert.equal(quotaStore.state.get("user-a"), undefined);
   });
 
+  it("rejects an oversized Content-Length before parsing and cancels the stream", async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const res = await routes.tutorial.POST(
+      streamPost("/api/generate-tutorial", {
+        token: TOKEN_A,
+        chunks: [new TextEncoder().encode(JSON.stringify(tutorialBody))],
+        contentLength: String(TUTORIAL_REQUEST_MAX_BYTES + 1),
+        repeat: new Uint8Array(1024),
+        onPull: () => {
+          pulls += 1;
+        },
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.ok(pulls <= 2);
+    assert.equal(openaiCalls, 0);
+    assert.equal(quotaStore.state.get("user-a"), undefined);
+  });
+
+  it("rejects a chunked body over 14 MiB and cancels it", async () => {
+    let cancelled = false;
+    const res = await routes.tutorial.POST(
+      streamPost("/api/generate-tutorial", {
+        token: TOKEN_A,
+        chunks: [new Uint8Array(TUTORIAL_REQUEST_MAX_BYTES + 1).fill(0x78)],
+        repeat: new Uint8Array(1024),
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("counts bytes when Content-Length underreports a tutorial body", async () => {
+    let cancelled = false;
+    const res = await routes.tutorial.POST(
+      streamPost("/api/generate-tutorial", {
+        token: TOKEN_A,
+        chunks: [new Uint8Array(TUTORIAL_REQUEST_MAX_BYTES + 1).fill(0x78)],
+        contentLength: "8",
+        repeat: new Uint8Array(1024),
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("accepts a valid tutorial body at exactly 14 MiB", async () => {
+    tutorialOutput = validTutorial();
+    const res = await routes.tutorial.POST(
+      postRaw(
+        "/api/generate-tutorial",
+        jsonOfByteLength(tutorialBody, TUTORIAL_REQUEST_MAX_BYTES),
+        TOKEN_A,
+      ),
+    );
+    assert.equal(res.status, 200);
+    assert.equal(openaiCalls, 1);
+  });
+
+  it("returns 400 for malformed tutorial JSON without calling OpenAI", async () => {
+    const res = await routes.tutorial.POST(postRaw("/api/generate-tutorial", "{", TOKEN_A));
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).code, "ERR_INVALID_REQUEST");
+    assert.equal(openaiCalls, 0);
+  });
+
   it("lets an authorized request reach the handler and releases its slot", async () => {
     tutorialOutput = validTutorial();
     const res = await routes.tutorial.POST(post("/api/generate-tutorial", tutorialBody, TOKEN_A));
@@ -292,6 +440,90 @@ describe("POST /api/generate-stage-images", () => {
       assert.equal(fetched, false);
     });
   }
+
+  it("rejects an oversized Content-Length before parsing a stage body", async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const res = await routes.stages.POST(
+      streamPost("/api/generate-stage-images", {
+        token: TOKEN_A,
+        chunks: [new TextEncoder().encode(JSON.stringify({ medium: "watercolor", tutorial: validTutorial() }))],
+        contentLength: String(STAGE_REQUEST_MAX_BYTES + 1),
+        repeat: new Uint8Array(1024),
+        onPull: () => {
+          pulls += 1;
+        },
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.ok(pulls <= 2);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("rejects a chunked stage body over 1 MiB and cancels it", async () => {
+    let cancelled = false;
+    const res = await routes.stages.POST(
+      streamPost("/api/generate-stage-images", {
+        token: TOKEN_A,
+        chunks: [new Uint8Array(STAGE_REQUEST_MAX_BYTES + 1).fill(0x78)],
+        repeat: new Uint8Array(1024),
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("rejects a chunked stage body over 1 MiB when Content-Length underreports it", async () => {
+    let cancelled = false;
+    const res = await routes.stages.POST(
+      streamPost("/api/generate-stage-images", {
+        token: TOKEN_A,
+        chunks: [new Uint8Array(STAGE_REQUEST_MAX_BYTES + 1).fill(0x78)],
+        contentLength: "8",
+        repeat: new Uint8Array(1024),
+        onCancel: () => {
+          cancelled = true;
+        },
+      }),
+    );
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).code, "ERR_BODY_TOO_LARGE");
+    assert.equal(cancelled, true);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("accepts a valid stage body at exactly 1 MiB", async () => {
+    const res = await routes.stages.POST(
+      postRaw(
+        "/api/generate-stage-images",
+        jsonOfByteLength(
+          { medium: "watercolor", tutorial: validTutorial(), mode: "master", referenceImageUrl: ownRef },
+          STAGE_REQUEST_MAX_BYTES,
+        ),
+        TOKEN_A,
+      ),
+    );
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).generated, false);
+    assert.equal(openaiCalls, 0);
+  });
+
+  it("returns 400 for malformed stage JSON without calling OpenAI", async () => {
+    const res = await routes.stages.POST(postRaw("/api/generate-stage-images", "{", TOKEN_A));
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).code, "ERR_INVALID_REQUEST");
+    assert.equal(openaiCalls, 0);
+  });
 
   it("lets an authorized request reach the handler without paid generation", async () => {
     const res = await routes.stages.POST(
