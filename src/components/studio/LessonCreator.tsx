@@ -477,7 +477,7 @@ export function LessonCreator() {
                   </span>
                   <span className="creator-empty-title">Upload a reference</span>
                   <span className="creator-empty-support" id="creator-empty-hint">
-                    Choose a photograph or artwork to begin.
+                    Choose a photograph or artwork you want to learn from.
                   </span>
                   <span className="creator-browse">Browse files</span>
                   <span className="creator-empty-drop">or drop an image here</span>
@@ -506,7 +506,8 @@ export function LessonCreator() {
             <header className="creator-prepare-head">
               <h2 className="creator-prepare-title">Lesson settings</h2>
               <p className="creator-prepare-lead">
-                Choose a medium, then create your lesson. Experience level stays optional.
+                Your medium changes the materials, terminology, demonstrations, and
+                techniques in the lesson. Experience level is optional.
               </p>
             </header>
 
@@ -595,8 +596,10 @@ export function LessonCreator() {
           </div>
 
           <p className="creator-plan-note">
-            Exact demos are tailored after we study your reference. This preview
-            reflects your medium and experience level.
+            After you create the lesson, ArtPraxis studies the composition, shapes,
+            values, color, and edges in your reference. The finished plan includes
+            tailored materials, progressive demonstrations, and instructions for
+            your medium and experience level.
           </p>
         </aside>
       </div>

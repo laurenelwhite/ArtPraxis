@@ -34,11 +34,11 @@ function configuredSiteUrl(): URL | undefined {
 export const metadata: Metadata = {
   metadataBase: configuredSiteUrl(),
   title: {
-    default: "ArtPraxis — Personalized painting lessons",
+    default: "ArtPraxis — Personalized art lessons from any reference",
     template: "%s · ArtPraxis",
   },
   description:
-    "Turn any reference into a personalized painting lesson built around observation, value, color, edges, and deliberate practice.",
+    "Turn any reference into a personalized, stage-by-stage lesson for watercolor, acrylic, oil, pastel, charcoal, pencil, or pen.",
   applicationName: "ArtPraxis",
   category: "education",
   keywords: [
@@ -47,18 +47,22 @@ export const metadata: Metadata = {
     "watercolor instruction",
     "art practice",
     "painting tutorial",
+    "drawing lessons",
+    "charcoal drawing",
+    "pencil drawing",
+    "pastel lessons",
   ],
   openGraph: {
     type: "website",
     siteName: "ArtPraxis",
-    title: "ArtPraxis — Personalized painting lessons",
+    title: "ArtPraxis — Personalized art lessons from any reference",
     description:
-      "Paint what you see, one deliberate stage at a time.",
+      "Choose a reference and medium. Receive a practical, stage-by-stage lesson you can make at your own easel.",
   },
   twitter: {
     card: "summary",
-    title: "ArtPraxis — Personalized painting lessons",
-    description: "Paint what you see, one deliberate stage at a time.",
+    title: "ArtPraxis — Personalized art lessons from any reference",
+    description: "Practical lessons for watercolor, acrylic, oil, pastel, charcoal, pencil, and pen.",
   },
   manifest: "/manifest.webmanifest",
   icons: {

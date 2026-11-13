@@ -16,7 +16,7 @@ test("public metadata and private indexing boundaries stay explicit", async () =
     source("src/app/robots.ts"),
   ]);
 
-  assert.match(rootLayout, /Personalized painting lessons/);
+  assert.match(rootLayout, /Personalized art lessons from any reference/);
   assert.match(rootLayout, /NEXT_PUBLIC_SITE_URL/);
   assert.match(appLayout, /index:\s*false/);
   assert.match(appLayout, /follow:\s*false/);
