@@ -8,8 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "validate:production": "node scripts/validate-production-config.mjs",
     "test": "npx --yes tsx --test tests/*.test.ts",
     "email:welcome": "node scripts/welcome-email.mjs",
+    "test:firestore-rules": "npx -y firebase-tools@latest emulators:exec --only firestore --project artpraxis-firestore-rules-test \"node tests/firestore.rules.test.mjs\"",
     "test:storage-rules": "npx -y firebase-tools@latest emulators:exec --only storage --project artpraxis-storage-rules-test \"node tests/storage.rules.test.mjs\"",
     "test:master-pipeline": "npx --yes tsx --test tests/master-pipeline.test.ts",
     "test:progression-errors": "npx --yes tsx --test tests/progression-errors.test.ts",
@@ -22,14 +24,14 @@
   },
   "dependencies": {
     "firebase": "^12.0.0",
-    "firebase-admin": "^13.10.0",
+    "firebase-admin": "14.5.1",
     "next": "^15.5.28",
-    "openai": "^5.0.0",
+    "openai": "6.49.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
     "sharp": "^0.35.5",
-    "zod": "^3.24.0"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
@@ -40,5 +42,9 @@
     "eslint-config-next": "^15.0.0",
     "playwright": "^1.49.1",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7",
+    "postcss": "^8.5.32"
   }
 }

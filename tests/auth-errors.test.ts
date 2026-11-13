@@ -25,7 +25,11 @@ describe("auth error messages", () => {
     );
     assert.match(
       authErrorMessage({ code: "auth/unauthorized-domain" }),
-      /localhost/i,
+      /contact support/i,
+    );
+    assert.doesNotMatch(
+      authErrorMessage({ code: "auth/unauthorized-domain" }),
+      /localhost|Firebase Auth|authorized domains/i,
     );
   });
 

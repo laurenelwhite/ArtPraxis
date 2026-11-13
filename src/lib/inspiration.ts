@@ -8,13 +8,13 @@ export interface InspirationItem {
   imageUrl: string;
 }
 
-// Placeholder imagery sourced from picsum.photos so the gallery renders without
-// external configuration. Replace with licensed, curated reference art before launch.
+// Original ArtPraxis reference imagery, created for this curated study gallery.
+// Keep these assets local so the landing page is stable and privacy-preserving.
 export const inspirationGallery: InspirationItem[] = [
-  { id: "still-life", title: "Morning still life", medium: "watercolor", prompt: "Practice soft edges and reflected light.", imageUrl: "https://picsum.photos/seed/artpraxis-stilllife/640/480" },
-  { id: "portrait", title: "Window-light portrait", medium: "pastel", prompt: "Study value structure across the face.", imageUrl: "https://picsum.photos/seed/artpraxis-portrait/640/480" },
-  { id: "landscape", title: "Coastal landscape", medium: "oil", prompt: "Simplify the scene into three big shapes.", imageUrl: "https://picsum.photos/seed/artpraxis-landscape/640/480" },
-  { id: "florals", title: "Loose florals", medium: "acrylic", prompt: "Work warm against cool for depth.", imageUrl: "https://picsum.photos/seed/artpraxis-florals/640/480" },
-  { id: "street", title: "Rainy street scene", medium: "acrylic", prompt: "Use shape and contrast to lead the eye.", imageUrl: "https://picsum.photos/seed/artpraxis-street/640/480" },
-  { id: "figure", title: "Gesture figure", medium: "charcoal", prompt: "Capture movement before detail.", imageUrl: "https://picsum.photos/seed/artpraxis-figure/640/480" },
+  { id: "still-life", title: "Morning still life", medium: "watercolor", prompt: "Practice soft edges and reflected light.", imageUrl: "/images/inspiration/morning-still-life.webp" },
+  { id: "portrait", title: "Window-light portrait", medium: "pastel", prompt: "Study value structure across the face.", imageUrl: "/images/inspiration/window-light-portrait.webp" },
+  { id: "landscape", title: "Coastal landscape", medium: "oil", prompt: "Simplify the scene into three big shapes.", imageUrl: "/images/inspiration/coastal-landscape.webp" },
+  { id: "florals", title: "Loose florals", medium: "acrylic", prompt: "Work warm against cool for depth.", imageUrl: "/images/inspiration/loose-florals.webp" },
+  { id: "street", title: "Rainy street scene", medium: "acrylic", prompt: "Use shape and contrast to lead the eye.", imageUrl: "/images/inspiration/rainy-street.webp" },
+  { id: "figure", title: "Gesture figure", medium: "charcoal", prompt: "Capture movement before detail.", imageUrl: "/images/inspiration/gesture-figure.webp" },
 ];

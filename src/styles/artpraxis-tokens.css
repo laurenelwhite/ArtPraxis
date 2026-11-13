@@ -27,7 +27,7 @@
   --ap-color-border-subtle:#ded7cc;
   --ap-color-border-standard:#bdb4a7;
   --ap-color-border-strong:rgba(44, 62, 86, 0.22);
-  --ap-color-focus-ring:rgba(65, 93, 140, 0.38);
+  --ap-color-focus-ring:#415d8c;
   --ap-color-selection:rgba(65, 93, 140, 0.14);
   --ap-color-success:#69735f;
   --ap-color-warning:#daa35a;
@@ -140,9 +140,9 @@
   --ap-shell-page-padding-inline:clamp(20px, 4.5vw, 72px);
   --ap-shell-page-padding-inline-tablet:clamp(20px, 4vw, 28px);
   --ap-shell-page-padding-inline-mobile:14px;
-  --ap-shell-nav-text:rgba(44, 62, 86, 0.72);
-  --ap-shell-nav-text-muted:rgba(44, 62, 86, 0.64);
-  --ap-shell-nav-text-secondary:rgba(44, 62, 86, 0.68);
+  --ap-shell-nav-text:var(--ap-color-ink-secondary);
+  --ap-shell-nav-text-muted:#646b72;
+  --ap-shell-nav-text-secondary:var(--ap-color-ink-secondary);
   --ap-shell-nav-active-text:var(--color-atelier-navy);
   --ap-shell-nav-hover-background:rgba(44, 62, 86, 0.055);
   --ap-shell-nav-active-underline:var(--color-yellow-ochre);
@@ -259,7 +259,7 @@
   --ap-lesson-nav-height:58px;
   --ap-lesson-nav-gap:clamp(6px, 1.2vw, 18px);
   --ap-lesson-nav-padding-inline:0;
-  --ap-lesson-nav-text:rgba(44, 62, 86, 0.60);
+  --ap-lesson-nav-text:var(--ap-color-ink-secondary);
   --ap-lesson-nav-text-muted:rgba(44, 62, 86, 0.28);
   --ap-lesson-nav-active-text:var(--ap-kit-ink);
   --ap-lesson-nav-active-rule:var(--ap-kit-ochre);
@@ -270,7 +270,7 @@
   --ap-lesson-mode-active-text:var(--ap-kit-ink);
   --ap-stage-nav-background:transparent;
   --ap-stage-nav-border:rgba(44, 62, 86, 0.06);
-  --ap-stage-nav-text:rgba(44, 62, 86, 0.40);
+  --ap-stage-nav-text:var(--ap-color-ink-secondary);
   --ap-stage-nav-active-text:var(--ap-kit-ink);
   --ap-stage-nav-active-background:rgba(44, 62, 86, 0.04);
   --ap-stage-nav-active-rule:var(--ap-kit-ink);

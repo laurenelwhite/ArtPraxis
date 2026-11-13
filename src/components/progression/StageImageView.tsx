@@ -49,7 +49,7 @@ export function StageImageView({
             aria-hidden="true"
           >
             <span className="stage-placeholder-tag-dot" />
-            Preparing…
+            Preparing demonstration…
           </span>
         )}
       </span>
@@ -60,7 +60,7 @@ export function StageImageView({
     <span
       className="stage-placeholder empty stage-placeholder--awaiting stage-placeholder--compact"
       role="img"
-      aria-label={alt || "Demonstration arriving"}
+      aria-label={alt || "Preparing demonstration"}
     >
       {!thumb ? (
         <span
@@ -68,7 +68,7 @@ export function StageImageView({
           aria-hidden="true"
         >
           <span className="stage-placeholder-tag-dot" />
-          Arriving…
+          Preparing demonstration…
         </span>
       ) : null}
     </span>

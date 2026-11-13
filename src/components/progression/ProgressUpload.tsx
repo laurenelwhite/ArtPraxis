@@ -11,10 +11,8 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   completed: "Finished",
 };
 
-const PHOTO_INPUT_ID = "progress-photo-upload";
-
 /**
- * Progress tab — lesson status and photo upload (storage wiring is UI-only for now).
+ * Progress tab — one honest control for the lesson status.
  */
 export function ProgressUpload({
   status,
@@ -30,9 +28,9 @@ export function ProgressUpload({
       <header className="progress-workbench-header">
         <div>
           <p className="progress-kicker">Progress</p>
-          <h2 className="progress-workbench-title">Your painting journey</h2>
+          <h2 className="progress-workbench-title">Your studio progress</h2>
           <p className="progress-workbench-lead">
-            Mark where you are, or save a photo of your work.
+            Keep this lesson in step with your current practice.
           </p>
         </div>
         <div className="progress-status-summary">
@@ -73,30 +71,6 @@ export function ProgressUpload({
         </div>
       </section>
 
-      <section
-        className="progress-section progress-photo-section"
-        aria-labelledby="progress-photo-heading"
-      >
-        <h3 id="progress-photo-heading" className="progress-section-title">
-          Your painting
-        </h3>
-        <p className="progress-section-lead">
-          Save a photo when you are ready.
-        </p>
-        <div className="progress-upload-zone">
-          <label htmlFor={PHOTO_INPUT_ID} className="progress-upload-trigger">
-            <span>Upload photo</span>
-            <input
-              id={PHOTO_INPUT_ID}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="progress-upload-input"
-              /* Wire storage later; UI only for this redesign pass */
-              onChange={() => {}}
-            />
-          </label>
-        </div>
-      </section>
     </div>
   );
 }

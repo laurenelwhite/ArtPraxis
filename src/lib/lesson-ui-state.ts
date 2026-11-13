@@ -253,11 +253,11 @@ export function resolveLessonUiState(input: {
   if (generationError || (masterStatus === "failed" && !masterImageUrl && !displayableMaster)) {
     return {
       state: "error",
-      headline: "Couldn’t create the target painting",
+      headline: "Couldn’t create the finished study",
       detail:
         generationError?.trim() ||
         masterError?.trim() ||
-        "Try regenerating the target from your reference.",
+        "Try preparing the study again from your reference.",
       progress: null,
       ...base,
     };
@@ -270,7 +270,7 @@ export function resolveLessonUiState(input: {
       return {
         state: "ready",
         headline: "Generating an alternative…",
-        detail: "Your current lesson stays available while a new target is prepared.",
+        detail: "Your current lesson stays available while a new study is prepared.",
         progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
         ...base,
         stagesGeneratingInBackground,
@@ -279,7 +279,7 @@ export function resolveLessonUiState(input: {
     return {
       state: "ready",
       headline: "Generating an alternative…",
-      detail: "Your current lesson stays available while a new target is prepared.",
+      detail: "Your current lesson stays available while a new study is prepared.",
       progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
       ...base,
       stagesGeneratingInBackground,
@@ -291,7 +291,7 @@ export function resolveLessonUiState(input: {
     return {
       state: "ready",
       headline: "Your lesson is ready",
-      detail: "Your target painting and guided stages are available.",
+      detail: "Your finished study and guided stages are available.",
       progress: stagesTotal ? stagesReadyCount / stagesTotal : null,
       ...base,
       stagesGeneratingInBackground,
@@ -324,10 +324,10 @@ export function resolveLessonUiState(input: {
     const active = masterRequestInFlight || masterStatus === "generating";
     return {
       state: "masterGenerating",
-      headline: "Creating your final painting",
+      headline: "Preparing your finished study",
       detail: active
-        ? "Checking composition while we translate your reference into a finished painting."
-        : "Starting your final painting from the reference…",
+        ? "Checking composition while we translate your reference into a clear lesson demonstration."
+        : "Starting the finished study from your reference…",
       progress: masterRequestInFlight
         ? 0.35
         : masterStatus === "generating"
@@ -340,7 +340,7 @@ export function resolveLessonUiState(input: {
   return {
     state: "masterGenerating",
     headline: "Preparing your lesson…",
-    detail: "Setting up the painting target.",
+    detail: "Setting up the lesson demonstration.",
     progress: masterRequestInFlight ? 0.35 : 0.18,
     ...base,
   };

@@ -12,7 +12,7 @@ import { StudioReferencePair } from "@/components/studio-reference";
 import { AutoTerms } from "@/components/vocabulary/AutoTerms";
 
 /**
- * Opening assignment: reference + final target dominate; title stays quiet.
+ * Opening assignment: reference + finished study dominate; title stays quiet.
  * Composed from existing tutorial/overview fields — no invented content.
  */
 export function LessonPlanSection({
@@ -73,7 +73,7 @@ export function LessonPlanSection({
           <AutoTerms
             text={
               tutorial.overview?.trim() ||
-              "Study the finished painting, then work through each stage toward it."
+              "Study the finished example, then build your painting one decision at a time."
             }
           />
         </p>
@@ -103,7 +103,7 @@ export function LessonPlanSection({
 
         {skills.length > 0 ? (
           <div className="lesson-plan-block">
-            <h3 className="lesson-plan-label">Skills practised</h3>
+            <h3 className="lesson-plan-label">Skills practiced</h3>
             <ul className="lesson-plan-skills">
               {skills.map((skill) => (
                 <li key={skill}>{skill}</li>
@@ -135,7 +135,7 @@ export function LessonPlanSection({
           className="ap-button-primary btn-branded lesson-plan-begin"
           onClick={onBegin}
         >
-          Begin lesson
+          Begin with observation
         </button>
       </div>
     </section>

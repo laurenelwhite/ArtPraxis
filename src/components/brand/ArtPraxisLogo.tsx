@@ -1,24 +1,18 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
-import { AdaptiveNavLogo } from "@/components/brand/AdaptiveNavLogo";
-import {
-  defaultBrandTheme,
-  type BrandTheme,
-} from "@/lib/branding/brand-theme";
+import { useState, type CSSProperties } from "react";
+import { type BrandTheme } from "@/lib/branding/brand-theme";
 
 /**
  * Approved ArtPraxis logo variants.
  * Always render from `/public/brand` assets — never invent inline approximations.
  *
- * Visual source of truth:
- * `docs/references/branding/logo/artpraxis-approved-logo-package.png.png`
+ * Visual source of truth: `docs/brand/artpraxis-brand-kit-final.png`.
+ * The approved primary and navigation PNG masters remain unchanged; trimmed
+ * transparent copies are used for predictable layout sizing.
  *
- * Production artwork must replace the temporary SVGs in `public/brand/`
- * without changing this component API.
- *
- * Adaptive branding (lesson top bar only): when `adaptiveTheme` is set on the
- * navigation variant, only the painted brush mark adapts. Wordmark stays navy.
+ * Navigation renders the approved compact PNG. `adaptiveTheme` stays on the
+ * API for existing callers and does not recolor that artwork.
  */
 export type ArtPraxisLogoVariant =
   | "primary"
@@ -50,16 +44,16 @@ type ArtPraxisLogoProps = {
   /** Eager-load hint for above-the-fold brand (sidebar / masthead) */
   priority?: boolean;
   /**
-   * Lesson-adaptive brush mark theme. Only applied for `variant="navigation"`.
-   * Omit / null → official navy lockup asset.
+   * Accepted for existing callers. The approved navigation PNG is not recolored.
    */
   adaptiveTheme?: BrandTheme | null;
 };
 
 const ASSETS: Record<ArtPraxisLogoVariant, string> = {
-  primary: "/brand/artpraxis-logo-full.svg",
-  /** Horizontal nav lockup — lesson top bar (see public/brand/APPROVED_NAV_LOGO.md) */
-  navigation: "/brand/artpraxis-logo-navigation.svg",
+  /** Approved primary lockup, transparent padding removed. Master PNG stays unchanged. */
+  primary: "/brand/artpraxis-logo-primary-trimmed.png",
+  /** Approved compact lockup, transparent padding removed. Master PNG stays unchanged. */
+  navigation: "/brand/artpraxis-logo-navigation-trimmed.png",
   /** Dedicated stacked lockup — do not substitute primary/compact */
   sidebar: "/brand/artpraxis-logo-sidebar.svg",
   icon: "/brand/artpraxis-mark.svg",
@@ -68,8 +62,8 @@ const ASSETS: Record<ArtPraxisLogoVariant, string> = {
 
 /** Intrinsic SVG dimensions (width × height) for width/height attrs */
 const INTRINSIC: Record<ArtPraxisLogoVariant, { w: number; h: number }> = {
-  primary: { w: 320, h: 72 },
-  navigation: { w: 248, h: 56 },
+  primary: { w: 1627, h: 463 },
+  navigation: { w: 1584, h: 506 },
   sidebar: { w: 200, h: 74 },
   icon: { w: 48, h: 48 },
   inverse: { w: 320, h: 72 },
@@ -125,19 +119,6 @@ function resolveSize(
   return LEGACY_SIZE[size] ?? DEFAULT_SIZE[variant];
 }
 
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return reduced;
-}
-
 /**
  * Single entry point for ArtPraxis logos.
  * Uses dedicated exported lockups — do not scale primary for navigation or sidebar.
@@ -158,14 +139,7 @@ export function ArtPraxisLogo({
   const src = ASSETS[activeVariant];
   const intrinsic = INTRINSIC[activeVariant];
   const isSidebar = requested === "sidebar" || activeVariant === "sidebar";
-  const reducedMotion = usePrefersReducedMotion();
-
-  const navigationTheme = adaptiveTheme ?? defaultBrandTheme("watercolor");
-  const useAdaptive = requested === "navigation" && !showWordmark;
-
-  const adaptiveKey = useAdaptive
-    ? `${navigationTheme.brushTexture}:${navigationTheme.accentColor}:${navigationTheme.sourceMasterUrl ?? ""}`
-    : "navy";
+  void adaptiveTheme;
 
   /** Height-driven presets; sidebar is width-driven via CSS (no --ap-logo-h clamp). */
   const style: CSSProperties | undefined = isSidebar && !showWordmark
@@ -191,7 +165,6 @@ export function ArtPraxisLogo({
         "ap-logo",
         `ap-logo--${requested}`,
         `ap-logo--size-${size}`,
-        useAdaptive ? "ap-logo--adaptive" : null,
         showWordmark ? "ap-logo--wordmark-fallback" : null,
         className,
       ]
@@ -204,13 +177,6 @@ export function ArtPraxisLogo({
     >
       {showWordmark ? (
         <span className="ap-logo-wordmark">ArtPraxis</span>
-      ) : useAdaptive ? (
-        <AdaptiveNavLogo
-          key={adaptiveKey}
-          theme={navigationTheme}
-          instant={reducedMotion}
-          height={SIZE_HEIGHT[size]}
-        />
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element -- brand SVG lockups must not be cropped/optimized away */
         <img

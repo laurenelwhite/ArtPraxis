@@ -20,27 +20,54 @@ export function StudioReferencePanel() {
   } = useStudioReference();
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!panelOpen) return;
-    closeRef.current?.focus();
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() => closeRef.current?.focus());
+    return () => {
+      cancelAnimationFrame(frame);
+      returnFocusRef.current?.focus();
+    };
   }, [panelOpen]);
+
+  function containFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
 
   if (!panelOpen) return null;
 
   return (
     <div className="studio-ref-panel-root" role="presentation">
-      <button
-        type="button"
+      <div
         className="studio-ref-panel-backdrop"
-        aria-label="Close comparison panel"
+        aria-hidden="true"
         onClick={closePanel}
       />
       <div
+        ref={dialogRef}
         className="studio-ref-panel-sheet"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        onKeyDown={containFocus}
       >
         <header className="studio-ref-panel-head">
           <div>

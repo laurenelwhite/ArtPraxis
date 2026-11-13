@@ -70,7 +70,7 @@ export function Term({ id, children }: { id: string; children?: React.ReactNode 
         {children ?? term.term}
       </button>
       {open && (
-        <span className="term-pop" id={popId} role="dialog" aria-label={`${term.term} — definition`}>
+        <span className="term-pop" id={popId} role="note" aria-label={`${term.term} — definition`}>
           <span className="term-pop-head">{term.term}</span>
           <span className="term-pop-def">{term.short}</span>
           <span className="term-pop-row why">

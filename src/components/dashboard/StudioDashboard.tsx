@@ -18,18 +18,26 @@ export function StudioDashboard() {
       <DashboardHeader displayName={displayName} />
 
       {loading ? (
-        <section className="lead-project" aria-hidden="true">
-          <div className="lead-project-body">
-            <div className="lead-media skeleton-block" />
-            <div className="lead-detail">
-              <div className="skeleton-line short" />
-              <div className="skeleton-line" />
-              <div className="skeleton-line short" />
+        <>
+          <p className="sr-only" role="status">Loading your lessons…</p>
+          <section className="lead-project" aria-hidden="true">
+            <div className="lead-project-body">
+              <div className="lead-media skeleton-block" />
+              <div className="lead-detail">
+                <div className="skeleton-line short" />
+                <div className="skeleton-line" />
+                <div className="skeleton-line short" />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </>
       ) : error ? (
-        <p className="status error">{error}</p>
+        <section className="status error" role="alert">
+          <p>We couldn&apos;t load your lessons. Your saved work has not been changed.</p>
+          <button type="button" className="secondary" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </section>
       ) : lessons.length === 0 ? (
         <EmptyState />
       ) : (

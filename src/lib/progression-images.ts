@@ -76,7 +76,7 @@ import {
 
 export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
 
-const IMAGE_MODEL = "gpt-image-1";
+const IMAGE_MODEL = "gpt-image-1.5";
 /** How long another client must wait before taking over an abandoned lease. */
 export const PROGRESSION_LEASE_MS = 120_000;
 const LEASE_MS = PROGRESSION_LEASE_MS;

@@ -1,6 +1,7 @@
 import type { StageId } from "@/lib/progression";
 import type { Medium } from "@/lib/tutorial-schema";
 import { STAGE_DOM_ID } from "@/lib/stage-icons";
+import { getMediumLanguage } from "@/lib/medium-language";
 
 /**
  * Pedagogical continuous-document sections.
@@ -103,7 +104,7 @@ export function sectionIdForStage(stageId: StageId): LessonDocumentSectionId {
 export function buildLessonDocumentSteps(
   medium?: Medium | string | null,
 ): LessonDocumentStep[] {
-  const steps: Array<{
+  const allSteps: Array<{
     id: LessonDocumentSectionId;
     stageId?: StageId;
     domId: string;
@@ -142,6 +143,10 @@ export function buildLessonDocumentSteps(
       domId: STAGE_DOM_ID.finished,
     },
   ];
+
+  const steps = getMediumLanguage(medium).supportsColorPalette
+    ? allSteps
+    : allSteps.filter((step) => step.id !== "color");
 
   return steps.map((step, index) => ({
     id: step.id,

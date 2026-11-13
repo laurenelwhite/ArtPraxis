@@ -29,7 +29,7 @@ export function AtelierRibbon({
         <span className="progress-ribbon-status atelier-ribbon-status">{statusLabel(status)}</span>
       </p>
       <p className="progress-ribbon-hint atelier-ribbon-hint">
-        Use the Progress tab to mark this lesson finished or upload a photo of your work.
+        Use the Progress tab to keep this lesson’s status current.
       </p>
     </aside>
   );

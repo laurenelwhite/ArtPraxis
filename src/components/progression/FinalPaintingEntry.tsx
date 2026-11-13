@@ -18,7 +18,7 @@ export function FinalPaintingEntry({
   if (!ctx?.available) return null;
 
   const thumb = ctx.finalPaintingUrl || ctx.referenceUrl;
-  const label = ctx.finalPaintingUrl ? "Final painting" : "Reference photo";
+  const label = ctx.finalPaintingUrl ? "Finished study" : "Reference photo";
   const open = () => {
     ctx.openPanel();
   };

@@ -1,6 +1,8 @@
 # Approved navigation logo (lesson top bar / app chrome)
 
-**Required production file:** `artpraxis-logo-navigation.svg`
+**Approved master:** `artpraxis-logo-navigation-approved.png`
+
+**Production render asset:** `artpraxis-logo-navigation-trimmed.png`
 
 ## Source of truth
 
@@ -14,6 +16,4 @@ Do **not** substitute the standalone A mark, invent a brush, recolor for lesson 
 
 ## Current repo status
 
-`artpraxis-logo-navigation.svg` is seeded from `artpraxis-logo-compact.svg` (same structure: wordmark + painted stroke + brush). The compact file’s own SVG comment marks it as an **approximation pending final production export**.
-
-When the approved export is available, **replace this file in place** — do not change `ArtPraxisLogo` variant wiring (`navigation` → `/brand/artpraxis-logo-navigation.svg`).
+The approved transparent PNG is preserved unchanged as the archival master. The trimmed PNG is a pixel-identical crop with a small transparent margin and is the asset rendered by the `navigation` logo variant. The older SVG remains only as a legacy placeholder and must not be restored to active navigation or footer use.

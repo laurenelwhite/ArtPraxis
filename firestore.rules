@@ -27,7 +27,10 @@ service cloud.firestore {
 
         // Full generated lesson (detail/tutorial) and any future per-project
         // subdocuments. Still owner-only.
-        match /{document=**} {
+        // Require at least one child collection segment. In rules v2 a bare
+        // recursive wildcard can match zero segments and would otherwise also
+        // overlap this project root, bypassing the userId ownership checks.
+        match /{collectionId}/{document=**} {
           allow read, write: if owner(uid);
         }
       }

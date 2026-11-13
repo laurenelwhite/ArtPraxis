@@ -56,7 +56,7 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
       </div>
 
       <header className="ap-auth-header">
-        <h2 id={headingId}>{isSignIn ? "Sign in" : "Create account"}</h2>
+        <h1 id={headingId}>{isSignIn ? "Sign in" : "Create account"}</h1>
         <p className="ap-auth-lead">
           {isSignIn
             ? "Sign in to open your studio and continue your lessons."

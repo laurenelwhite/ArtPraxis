@@ -7,7 +7,7 @@ import { AppImage } from "@/components/ui/AppImage";
 function leadActionLabel(status: LessonSummary["projectStatus"]): string {
   if (status === "in-progress") return "Resume lesson";
   if (status === "completed") return "Review lesson";
-  return "Continue lesson";
+  return "Begin lesson";
 }
 
 /** Most recent project — one composition, one primary path into the lesson. */
@@ -30,7 +30,7 @@ export function LeadProject({ lesson }: { lesson: LessonSummary }) {
             />
           ) : (
             <span className="lead-media-empty">
-              {lesson.status === "generating" ? "Painting…" : lesson.medium}
+              {lesson.status === "generating" ? "Preparing lesson…" : lesson.medium}
             </span>
           )}
         </Link>

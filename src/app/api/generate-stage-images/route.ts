@@ -2,7 +2,10 @@ import OpenAI, { toFile } from "openai";
 import { NextRequest, NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import sharp from "sharp";
-import { z } from "zod";
+// Zod 4 ships a supported v3-compat entry point. OpenAI's structured-output
+// helper consumes v3-compatible schemas while the patched package removes the
+// vulnerable v3 runtime from the dependency tree.
+import { z } from "zod/v3";
 import { mediumSchema, tutorialSchema, normalizeTutorialInput } from "@/lib/tutorial-schema";
 import { STAGE_ORDER, buildStageImagePrompt, buildMasterPrompt } from "@/lib/stage-image-prompts";
 import type { StageId } from "@/lib/progression";
@@ -36,7 +39,7 @@ import {
   type StructureSimilarityResult,
 } from "@/lib/stage-structure-similarity";
 import { measureValueStudyTonal } from "@/lib/value-study-tonal.server";
-import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import { ApiError, apiErrorJson, safeErrorDetails } from "@/lib/server/api-errors";
 import {
   isJsonObject,
   readJsonWithByteLimit,
@@ -493,7 +496,10 @@ async function generateValidated(
         fidelityMode,
       );
     } catch (err) {
-      console.error(`Stage edit failed for "${label}" (attempt ${attempt})`, err);
+      console.error(
+        `Stage edit failed for "${label}" (attempt ${attempt})`,
+        safeErrorDetails(err),
+      );
       continue;
     }
     if (!candidate) continue;
@@ -523,7 +529,10 @@ async function generateValidated(
           }),
         );
       } catch (err) {
-        console.warn("[stage_structure_similarity] failed", err);
+        console.warn(
+          "[stage_structure_similarity] failed",
+          safeErrorDetails(err),
+        );
       }
     }
 
@@ -606,7 +615,10 @@ async function generateValidated(
             };
           }
         } catch (err) {
-          console.warn("[value_study_tonal] measure failed — accepting with warning", err);
+          console.warn(
+            "[value_study_tonal] measure failed — accepting with warning",
+            safeErrorDetails(err),
+          );
         }
       }
       return {
@@ -753,7 +765,7 @@ export async function POST(request: NextRequest) {
     reservation = await getSecurityDeps().quotaStore.reserve(user.uid, "image", quotaConfigFromEnv());
 
     const client = getSecurityDeps().openai();
-    const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+    const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1.5";
     const visionModel = process.env.OPENAI_VISION_MODEL || "gpt-4o-mini";
     console.warn(
       JSON.stringify({
@@ -995,10 +1007,10 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        console.error(`Master edit failed (attempt ${attempt})`, {
-          message: err instanceof Error ? err.message : String(err),
-          requestID: requestID ?? null,
-        });
+        console.error(
+          `Master edit failed (attempt ${attempt})`,
+          safeErrorDetails(err),
+        );
 
         if (!shouldRetryMasterAttempt(err, attempt, MASTER_MAX_RETRIES)) {
           break;
@@ -1139,12 +1151,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof ApiError) {
       return apiErrorJson(error);
     }
-    console.error(
-      "Stage image generation failed",
-      error instanceof Error
-        ? { name: error.name, message: error.message }
-        : { message: "Unknown progression error" },
-    );
+    console.error("Stage image generation failed", safeErrorDetails(error));
     if (error instanceof z.ZodError) {
       return apiErrorResponse(400, {
         error: "The stage-image request was invalid.",

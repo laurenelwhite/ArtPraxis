@@ -4,7 +4,10 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { z } from "zod";
+// Zod 4 ships a supported v3-compat entry point. OpenAI's structured-output
+// helper consumes v3-compatible schemas while the patched package removes the
+// vulnerable v3 runtime from the dependency tree.
+import { z } from "zod/v3";
 import {
   materialSchema,
   mediumSchema,

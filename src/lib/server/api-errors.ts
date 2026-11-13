@@ -28,3 +28,18 @@ export function apiErrorJson(error: ApiError): NextResponse {
     { status: error.status, headers: error.headers },
   );
 }
+
+/** Bounded provider-neutral fields for server logs; never serialize raw errors. */
+export function safeErrorDetails(error: unknown): Record<string, unknown> {
+  const value = error && typeof error === "object"
+    ? (error as Record<string, unknown>)
+    : null;
+  const requestId = value?.requestID ?? value?.request_id;
+
+  return {
+    name: error instanceof Error ? error.name : "UnknownError",
+    code: typeof value?.code === "string" ? value.code : undefined,
+    status: typeof value?.status === "number" ? value.status : undefined,
+    requestId: typeof requestId === "string" ? requestId : undefined,
+  };
+}

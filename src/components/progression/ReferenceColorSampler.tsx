@@ -59,6 +59,7 @@ export function ReferenceColorSampler({ imageUrl, children }: Props) {
 
   function sample(event: PointerEvent<HTMLDivElement>) {
     if (!enabled || !ready || !surfaceRef.current || !canvasRef.current) return;
+    if ((event.target as HTMLElement).closest("button")) return;
     const bounds = surfaceRef.current.getBoundingClientRect();
     const xRatio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
     const yRatio = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
@@ -91,6 +92,7 @@ export function ReferenceColorSampler({ imageUrl, children }: Props) {
         enabled ? "is-sampling" : null,
       ].filter(Boolean).join(" ")}
       onPointerMove={sample}
+      onPointerDown={sample}
     >
       {children}
       <button

@@ -39,7 +39,7 @@ export function LessonReferenceDock({
   if (!available || hidden) return null;
 
   const thumb = finalPaintingUrl || referenceUrl;
-  const label = finalPaintingUrl ? "Final painting" : "Reference";
+  const label = finalPaintingUrl ? "Finished study" : "Reference";
   const showRegen =
     regenerationState !== "idle" && regenerationState !== "candidateReady";
   const regenActive = isRegenerationBusy(regenerationState) || regenerationState === "error";

@@ -63,7 +63,7 @@ export function StudioReferenceViewer({
                 step={0.05}
                 value={opacity}
                 onChange={(e) => setOpacity(Number(e.target.value))}
-                aria-label="Final painting opacity"
+                aria-label="Finished study opacity"
               />
             </label>
           ) : null}
@@ -74,7 +74,7 @@ export function StudioReferenceViewer({
         {showOverlay && canOverlay ? (
           <figure className="studio-ref-panel studio-ref-panel--overlay">
             <figcaption className="studio-ref-caption">
-              Overlay · reference + final painting
+              Overlay · reference + finished study
             </figcaption>
             <ArtworkFrame variant="painting">
               <div className="studio-ref-overlay-stack">
@@ -88,7 +88,7 @@ export function StudioReferenceViewer({
                 />
                 <AppImage
                   src={finalPaintingUrl!}
-                  alt={`Final painting for ${title}`}
+                  alt={`Finished study for ${title}`}
                   width={1600}
                   height={1200}
                   sizes={sizeSizes(size)}
@@ -123,13 +123,13 @@ export function StudioReferenceViewer({
             {showFinal ? (
               <figure className="studio-ref-panel">
                 <figcaption className="studio-ref-caption">
-                  Final painting
+                  Finished study
                 </figcaption>
                 {finalPaintingUrl ? (
                   <ArtworkFrame variant="painting">
                     <AppImage
                       src={finalPaintingUrl}
-                      alt={`Final painting for ${title}`}
+                      alt={`Finished study for ${title}`}
                       width={1600}
                       height={1200}
                       sizes={sizeSizes(size)}
@@ -138,7 +138,7 @@ export function StudioReferenceViewer({
                   </ArtworkFrame>
                 ) : (
                   <div className="studio-ref-empty">
-                    Final painting not ready yet
+                    Finished study not ready yet
                   </div>
                 )}
               </figure>

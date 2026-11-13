@@ -58,7 +58,7 @@ export function StudioReferencePair({
 
       <figure className="studio-ref-pair-figure studio-ref-pair-figure--final">
         <figcaption className="studio-ref-pair-caption">
-          Final painting
+          Finished study
         </figcaption>
         {finalPaintingUrl ? (
           <ArtworkFrame variant="painting">
@@ -67,11 +67,11 @@ export function StudioReferencePair({
               className="studio-ref-pair-hit"
               onClick={open}
               disabled={!open}
-              aria-label="Open final painting comparison"
+              aria-label="Open finished study comparison"
             >
               <AppImage
                 src={finalPaintingUrl}
-                alt={`Final painting for ${title}`}
+                alt={`Finished study for ${title}`}
                 width={1200}
                 height={900}
                 sizes="(max-width: 820px) 100vw, 480px"
@@ -81,7 +81,7 @@ export function StudioReferencePair({
           </ArtworkFrame>
         ) : (
           <div className="studio-ref-empty">
-            Final painting is still being prepared
+            Finished study is still being prepared
           </div>
         )}
       </figure>

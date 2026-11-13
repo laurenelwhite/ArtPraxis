@@ -7,10 +7,10 @@ export function EmptyState() {
       <span className="ap-state-icon empty-mark" aria-hidden="true">
         <Icon name="brush" size={22} />
       </span>
-      <h2 className="ap-state-title empty-title">Your first masterpiece starts here.</h2>
+      <h2 className="ap-state-title empty-title">Your next painting begins with practice.</h2>
       <p className="ap-state-body empty-copy">
-        Upload a reference image and ArtPraxis builds a personalized, stage-by-stage lesson —
-        composition, values, palette, and technique for your chosen medium.
+        Choose a reference and ArtPraxis turns it into a personalized lesson in
+        composition, values, color, and technique for your chosen medium.
       </p>
       <Link href="/studio/new" className="btn-solid btn-lg btn-branded">
         <Icon name="plus" size={18} />

@@ -22,7 +22,7 @@ export function StudioReferencePage({
     <div className="studio-ref-page">
       <header className="studio-ref-page-head">
         <p className="studio-ref-kicker">Studio Reference</p>
-        <h2 className="studio-ref-page-title">Reference &amp; Final Painting</h2>
+        <h2 className="studio-ref-page-title">Reference &amp; Finished Study</h2>
       </header>
 
       <StudioReferenceViewer

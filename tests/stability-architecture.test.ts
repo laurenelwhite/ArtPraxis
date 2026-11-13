@@ -50,7 +50,7 @@ describe("studio and lesson architecture stability", () => {
 
   it("exposes one Overview primary CTA and defers status edits to Progress", () => {
     const overview = read("components/project/ProjectOverview.tsx");
-    assert.match(overview, /Begin lesson|Resume lesson|Review lesson/);
+    assert.match(overview, /Open lesson plan|Review lesson plan/);
     assert.doesNotMatch(overview, /onStartPractice|status-control|status-option/);
     assert.match(overview, /Progress tab/);
   });
@@ -59,6 +59,7 @@ describe("studio and lesson architecture stability", () => {
     const progress = read("components/progression/ProgressUpload.tsx");
     const ribbon = read("components/progression/AtelierRibbon.tsx");
     assert.match(progress, /onStatusChange/);
+    assert.doesNotMatch(progress, /type="file"|Upload photo|save a photo/i);
     assert.doesNotMatch(ribbon, /onClick=\{\(\) => onStatusChange/);
   });
 

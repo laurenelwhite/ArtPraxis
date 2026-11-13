@@ -21,7 +21,7 @@ type Props = {
 export function FinalPaintingCandidateCompare({
   currentUrl,
   candidateUrl,
-  title = "Final Painting",
+  title = "Finished study",
   applying = false,
   onUseNew,
   onKeepCurrent,

@@ -16,12 +16,12 @@ export const STAGE_PROCESS_ORDER: StageId[] = [
  * Prefer `resolveStageDisplayLabel` / medium maps for UI.
  */
 export const STAGE_PROCESS_LABEL: Record<StageId, string> = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value plan",
-  "first-wash": "First wash",
-  "second-wash": "Developing washes",
-  refinement: "Refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Lay the first color",
+  "second-wash": "Build the form",
+  refinement: "Deepen and refine",
+  finished: "Add final accents",
 };
 
 /**
@@ -62,48 +62,48 @@ export const STAGE_META_DEFAULT_TITLE: Record<StageId, string> = {
 type StageLabelMap = Record<StageId, string>;
 
 const WATERCOLOR_LABELS: StageLabelMap = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value plan",
-  "first-wash": "First wash",
-  "second-wash": "Developing washes",
-  refinement: "Refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Lay the first wash",
+  "second-wash": "Build the form",
+  refinement: "Deepen and refine",
+  finished: "Add final accents",
 };
 
 const PASTEL_LABELS: StageLabelMap = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value map",
-  "first-wash": "Color block-in",
-  "second-wash": "Form and light",
-  refinement: "Edge refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Block in color",
+  "second-wash": "Build form and light",
+  refinement: "Refine the edges",
+  finished: "Add final accents",
 };
 
 const OIL_ACRYLIC_LABELS: StageLabelMap = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value block-in",
-  "first-wash": "Color block-in",
-  "second-wash": "Form development",
-  refinement: "Refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Block in color",
+  "second-wash": "Build the form",
+  refinement: "Deepen and refine",
+  finished: "Add final accents",
 };
 
 const GOUACHE_LABELS: StageLabelMap = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value plan",
-  "first-wash": "Shape block-in",
-  "second-wash": "Color and form",
-  refinement: "Refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Block in shapes",
+  "second-wash": "Build color and form",
+  refinement: "Deepen and refine",
+  finished: "Add final accents",
 };
 
 const DRAWING_LABELS: StageLabelMap = {
-  "pencil-sketch": "Drawing",
-  "value-study": "Value map",
-  "first-wash": "Structure pass",
-  "second-wash": "Development",
-  refinement: "Refinement",
-  finished: "Final accents",
+  "pencil-sketch": "Place the shape",
+  "value-study": "Group the values",
+  "first-wash": "Strengthen structure",
+  "second-wash": "Build the form",
+  refinement: "Deepen and refine",
+  finished: "Add final accents",
 };
 
 const WATERCOLOR_SHORT: StageLabelMap = {
@@ -249,7 +249,7 @@ export const STAGE_STUDY_FRAMING: Partial<Record<StageId, string>> = {
   refinement:
     "Add selective edges and contrast only where the whole asks for them. Leave quiet passages alone.",
   finished:
-    "Step back and compare to the Final Painting. Adjust only what still weakens the whole.",
+    "Step back and compare with the finished study. Adjust only what still weakens the whole.",
 };
 
 const PASTEL_FOCUS: Partial<Record<StageId, string>> = {
@@ -315,12 +315,12 @@ export function resolveStageFocus(
 
 /** One-line purpose for process rail + stage transition panel. */
 export const STAGE_PROCESS_PURPOSE: Record<StageId, string> = {
-  "pencil-sketch": "Lock placement and proportion",
-  "value-study": "Map light and dark shapes",
-  "first-wash": "Lay the first broad color statement",
-  "second-wash": "Strengthen main color relationships",
-  refinement: "Add selective edges and contrast",
-  finished: "Review the completed painting",
+  "pencil-sketch": "Find placement and proportion with light, adjustable lines",
+  "value-study": "Simplify the subject into a few light and dark families",
+  "first-wash": "State the broad color relationships and protect the lights",
+  "second-wash": "Use value and temperature to turn flat shapes into form",
+  refinement: "Strengthen selected darks, edges, and focal passages",
+  finished: "Add only the accents that make the whole read clearly",
 };
 
 /** @deprecated Use STAGE_PROCESS_LABEL */

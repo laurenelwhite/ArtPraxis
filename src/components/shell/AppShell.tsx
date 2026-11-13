@@ -40,14 +40,16 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#app-main">Skip to main content</a>
       <AppHeader accountLabel={accountLabel} />
-      <div
+      <main
         className={lessonRoute ? "app-main app-main--lesson" : "app-main"}
         id="app-main"
+        tabIndex={-1}
         data-scroll-root="app"
       >
         {children}
-      </div>
+      </main>
     </div>
   );
 }

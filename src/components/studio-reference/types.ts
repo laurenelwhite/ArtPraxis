@@ -14,7 +14,7 @@ export const STUDIO_COMPARE_OPTIONS: {
   { value: "both", label: "Side by side" },
   { value: "overlay", label: "Overlay" },
   { value: "reference", label: "Reference only" },
-  { value: "final", label: "Final painting only" },
+  { value: "final", label: "Finished study only" },
 ];
 
 export const STUDIO_COMPARE_STORAGE_KEY = "artpraxis.studioReference.compareMode";

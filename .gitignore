@@ -5,6 +5,7 @@ out
 .env.local
 .env.*.local
 firebase-debug.log
+.firebase/
 .DS_Store
 
 # Private ArtPraxis research library

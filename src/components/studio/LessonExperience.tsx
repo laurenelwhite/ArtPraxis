@@ -288,9 +288,9 @@ export function LessonExperience({
           skillLevel={tutorial.difficulty}
           referenceUrl={imageUrl}
           compact
-          eyebrow="Creating your final painting"
-          headline="Painting your finished inspiration"
-          detail="Your lesson is open. Composition-locked final painting is on the way."
+          eyebrow="Preparing your finished study"
+          headline="Building the lesson demonstration"
+          detail="Your lesson is open. A composition-matched study is on the way."
         />
       ) : null}
 

@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 export type LessonTab = {
   id: string;
@@ -64,6 +69,39 @@ export function LessonShell({
     });
   }, [activeTab]);
 
+  function moveTabFocus(
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    currentId: string,
+  ) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+
+    const availableTabs = tabs.filter(
+      (tab) => !tabsLocked || tab.id === "overview" || tab.id === "lesson",
+    );
+    if (availableTabs.length === 0) return;
+
+    const currentIndex = Math.max(
+      0,
+      availableTabs.findIndex((tab) => tab.id === currentId),
+    );
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? availableTabs.length - 1
+          : event.key === "ArrowRight"
+            ? (currentIndex + 1) % availableTabs.length
+            : (currentIndex - 1 + availableTabs.length) % availableTabs.length;
+    const nextTab = availableTabs[nextIndex];
+    if (!nextTab) return;
+
+    event.preventDefault();
+    onTabChange(nextTab.id);
+    tablistRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-lesson-tab="${nextTab.id}"]`)
+      ?.focus();
+  }
+
   return (
     <div
       className={["lesson-shell", "lesson-view", generating ? "lesson-view--generating" : null]
@@ -89,6 +127,7 @@ export function LessonShell({
         className="project-tabs lesson-shell-tabs"
         role="tablist"
         aria-label="Lesson sections"
+        aria-orientation="horizontal"
       >
         {tabs.map((t) => {
           const locked =
@@ -117,6 +156,7 @@ export function LessonShell({
                 if (locked) return;
                 onTabChange(t.id);
               }}
+              onKeyDown={(event) => moveTabFocus(event, t.id)}
               title={locked ? "Available when your lesson is ready" : undefined}
             >
               {t.label}

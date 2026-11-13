@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
@@ -36,6 +36,7 @@ export function AppHeader({ accountLabel }: { accountLabel: string }) {
   const { theme: lessonBrand } = useLessonBrand();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -47,7 +48,10 @@ export function AppHeader({ accountLabel }: { accountLabel: string }) {
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape" && menuOpen) {
+        setMenuOpen(false);
+        requestAnimationFrame(() => menuToggleRef.current?.focus());
+      }
     }
 
     window.addEventListener("resize", onResize);
@@ -56,7 +60,7 @@ export function AppHeader({ accountLabel }: { accountLabel: string }) {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [menuOpen]);
 
   return (
     <>
@@ -73,6 +77,7 @@ export function AppHeader({ accountLabel }: { accountLabel: string }) {
         </Link>
 
         <button
+          ref={menuToggleRef}
           type="button"
           className="app-header-menu-toggle"
           aria-expanded={menuOpen}
@@ -134,7 +139,10 @@ export function AppHeader({ accountLabel }: { accountLabel: string }) {
           type="button"
           className="app-header-overlay"
           aria-label="Close studio menu"
-          onClick={() => setMenuOpen(false)}
+          onClick={() => {
+            setMenuOpen(false);
+            requestAnimationFrame(() => menuToggleRef.current?.focus());
+          }}
         />
       ) : null}
     </>

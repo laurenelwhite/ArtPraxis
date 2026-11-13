@@ -57,23 +57,6 @@ function SyncViewportShell({
     originY: number;
   } | null>(null);
 
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const delta = event.deltaY > 0 ? -0.08 : 0.08;
-      onViewportChange({
-        ...viewport,
-        scale: clampZoom(viewport.scale + delta),
-      });
-    };
-
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [onViewportChange, viewport]);
-
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (viewport.scale <= 1) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -102,15 +85,40 @@ function SyncViewportShell({
     }
   }
 
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (viewport.scale <= 1) return;
+    const distance = 24;
+    const movement = {
+      ArrowLeft: { x: distance, y: 0 },
+      ArrowRight: { x: -distance, y: 0 },
+      ArrowUp: { x: 0, y: distance },
+      ArrowDown: { x: 0, y: -distance },
+    }[event.key];
+    if (!movement) return;
+    event.preventDefault();
+    onViewportChange({
+      ...viewport,
+      x: viewport.x + movement.x,
+      y: viewport.y + movement.y,
+    });
+  }
+
   return (
     <div
       ref={rootRef}
       className={["cmp-sync-viewport", className].filter(Boolean).join(" ")}
       data-zoomed={viewport.scale > 1 ? "true" : "false"}
+      tabIndex={viewport.scale > 1 ? 0 : undefined}
+      aria-label={
+        viewport.scale > 1
+          ? "Zoomed image. Use the arrow keys to move around it."
+          : undefined
+      }
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onKeyDown={onKeyDown}
     >
       <div
         className="cmp-sync-stage"
@@ -156,19 +164,19 @@ function TargetPanel({
             visual.previewSource === "master"))));
   const isFailed = visual.generationStatus === "failed";
   const statusLabel = preparingFinished
-    ? "Preparing finished painting…"
+    ? "Preparing finished study…"
     : preparingPainted
-      ? "Preparing painted targets…"
+      ? "Preparing stage demonstration…"
       : refining
-        ? "Refining target…"
+        ? "Refining demonstration…"
         : null;
 
   if (visual.url) {
     const alt = preparingFinished
-      ? `${stage.title} — reference while the finished painting is prepared`
+      ? `${stage.title} — reference while the finished study is prepared`
       : isSketch
-        ? `${stage.title} — pencil sketch target for this lesson`
-        : `${stage.title} — target for this stage`;
+        ? `${stage.title} — pencil sketch demonstration for this lesson`
+        : `${stage.title} — demonstration for this stage`;
     return (
       <div
         key={visual.url}
@@ -206,7 +214,7 @@ function TargetPanel({
         )}
         {isFailed && !statusLabel && (
           <div className="cmp-refining cmp-refining-failed" role="status">
-            <span>Couldn’t refine this target.</span>
+            <span>Couldn’t refine this demonstration.</span>
             {onRetry && (
               <button type="button" className="secondary cmp-retry" onClick={onRetry}>
                 Retry
@@ -243,10 +251,10 @@ function TargetPanel({
           <span className="cmp-stage-awaiting-pulse" aria-hidden="true" />
           <p className="cmp-pending-title">
             {isFinished
-              ? "Arriving…"
+              ? "Preparing finished study…"
               : isSketch
-                ? "Sketch arriving…"
-                : "Arriving…"}
+                ? "Preparing pencil sketch…"
+                : "Preparing demonstration…"}
           </p>
         </>
       ) : isFailed ? (

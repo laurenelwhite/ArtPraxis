@@ -27,10 +27,10 @@ export function ProjectOverview({
   const skills = deriveSkills(tutorial);
   const primaryLabel =
     status === "in-progress"
-      ? "Resume lesson"
+      ? "Open lesson plan"
       : status === "completed"
-        ? "Review lesson"
-        : "Begin lesson";
+        ? "Review lesson plan"
+        : "Open lesson plan";
   const headingId = "overview-orientation";
 
   return (
@@ -41,7 +41,7 @@ export function ProjectOverview({
       >
         <header className="overview-orientation">
           <p id={headingId} className="overview-orientation-lead">
-            Your reference and the finished painting this lesson will teach.
+            Your reference and the finished study this lesson will help you build.
           </p>
         </header>
 
@@ -127,7 +127,7 @@ export function ProjectOverview({
             <StatusPill status={status} />
           </div>
           <p className="overview-status-hint">
-            Update status and upload stage photos from the Progress tab.
+            Update this lesson’s status from the Progress tab.
           </p>
         </div>
 

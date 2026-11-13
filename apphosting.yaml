@@ -44,6 +44,14 @@ env:
     value: gpt-5-mini
     availability:
       - RUNTIME
+  - variable: OPENAI_IMAGE_MODEL
+    value: gpt-image-1.5
+    availability:
+      - RUNTIME
+  - variable: OPENAI_VISION_MODEL
+    value: gpt-4o-mini
+    availability:
+      - RUNTIME
   - variable: ENABLE_STAGE_IMAGE_GEN
     value: "false"
     availability:

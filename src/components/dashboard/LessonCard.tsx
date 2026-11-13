@@ -14,7 +14,7 @@ export function LessonCard({ lesson }: { lesson: LessonSummary }) {
         {lesson.thumbnailUrl ? (
           <AppImage
             src={lesson.thumbnailUrl}
-            alt={lesson.title}
+            alt=""
             fill
             sizes="(max-width: 700px) 50vw, 280px"
             style={{ objectFit: "cover" }}
@@ -23,7 +23,9 @@ export function LessonCard({ lesson }: { lesson: LessonSummary }) {
         ) : (
           <span className="lesson-thumb-placeholder">{lesson.medium}</span>
         )}
-        {lesson.status === "generating" && <span className="lesson-badge">Painting…</span>}
+        {lesson.status === "generating" && (
+          <span className="lesson-badge">Preparing lesson…</span>
+        )}
       </figure>
       <div className="lesson-body">
         <span className="lesson-medium-badge">{lesson.medium}</span>

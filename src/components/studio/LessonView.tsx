@@ -42,7 +42,7 @@ import {
   type RegenerationChecklistPhase,
 } from "@/lib/final-painting-regeneration";
 import { LessonExperience } from "@/components/studio/LessonExperience";
-import { LessonShell, LessonOverflowMenu } from "@/components/shell";
+import { LessonShell } from "@/components/shell";
 import { StatusPill } from "@/components/project/StatusPill";
 import { ProjectOverview } from "@/components/project/ProjectOverview";
 import { ProjectMaterials } from "@/components/project/ProjectMaterials";
@@ -830,7 +830,17 @@ export function LessonView({ id }: { id: string }) {
     return (
       <section className="ap-state ap-state--error ap-state--page" role="alert">
         <h2 className="ap-state-title">Couldn&apos;t load this lesson</h2>
-        <p className="ap-state-body">{error}</p>
+        <p className="ap-state-body">
+          Your saved work has not been changed. Check your connection and try again.
+        </p>
+        <div className="ap-state-actions">
+          <button type="button" className="btn-solid" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+          <Link href="/studio" className="btn-ghost">
+            Return to studio
+          </Link>
+        </div>
       </section>
     );
   }
@@ -909,7 +919,6 @@ export function LessonView({ id }: { id: string }) {
               <StatusPill status={status} />
             </>
           }
-          actions={<LessonOverflowMenu pdfDisabled />}
         >
           {/* Keep panels mounted (hidden) so tab changes do not remount LessonExperience. */}
           <div

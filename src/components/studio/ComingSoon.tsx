@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Icon, type IconName } from "@/components/Icon";
 
 export function ComingSoon({
@@ -17,6 +18,14 @@ export function ComingSoon({
       <p className="ap-state-kicker">Coming soon</p>
       <h1 className="ap-state-title dashboard-title">{title}</h1>
       <p className="ap-state-body meta">{description}</p>
+      <div className="route-state-actions">
+        <Link className="btn-solid btn-branded" href="/studio/new">
+          Create a lesson
+        </Link>
+        <Link className="btn-ghost" href="/studio">
+          Return to studio
+        </Link>
+      </div>
     </div>
   );
 }

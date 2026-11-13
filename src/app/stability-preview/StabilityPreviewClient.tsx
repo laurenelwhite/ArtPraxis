@@ -6,7 +6,7 @@ import { StudyMode } from "@/components/progression/StudyMode";
 import { ProjectOverview } from "@/components/project/ProjectOverview";
 import { ProgressUpload } from "@/components/progression/ProgressUpload";
 import { TermBudgetProvider } from "@/components/vocabulary/TermBudget";
-import { buildProgression } from "@/lib/progression";
+import { buildProgression, type StageImageRecord } from "@/lib/progression";
 import { normalizeTutorial, type Tutorial } from "@/lib/tutorial-schema";
 import type { LessonSummary } from "@/lib/lessons";
 import type { CompareMode } from "@/components/progression/StageComparison";
@@ -19,16 +19,30 @@ const TABS = [
   { id: "progress", label: "Progress" },
 ] as const;
 
-/** Deterministic SVG placeholder — keeps layout stable without network images. */
-const PLACEHOLDER =
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-      <rect width="800" height="600" fill="#F2ECE3"/>
-      <rect x="80" y="60" width="640" height="480" fill="#E6DDD0" stroke="#2C3E56" stroke-width="2"/>
-      <text x="400" y="310" text-anchor="middle" fill="#2C3E56" font-family="Georgia, serif" font-size="28">Reference</text>
-    </svg>`,
-  );
+const REFERENCE_IMAGE = "/images/inspiration/artpraxis-demo.webp";
+
+const DEMO_TARGETS: StageImageRecord[] = [
+  ["pencil-sketch", "/images/lesson-demo/01-place-the-shape.webp"],
+  ["value-study", "/images/lesson-demo/02-group-the-values.webp"],
+  ["first-wash", "/images/lesson-demo/03-lay-first-wash.webp"],
+  ["second-wash", "/images/lesson-demo/04-build-the-form.webp"],
+  ["refinement", "/images/lesson-demo/05-deepen-and-refine.webp"],
+  ["finished", "/images/lesson-demo/06-add-final-accents.webp"],
+].map(([stageId, targetImageUrl], index) => ({
+  stageId: stageId as StageImageRecord["stageId"],
+  index,
+  referenceImageUrl: REFERENCE_IMAGE,
+  targetImageUrl,
+  prompt: "Development fixture",
+  model: "fixture",
+  generationStatus: "ready",
+  error: null,
+  retryCount: 0,
+  createdAt: null,
+  validated: true,
+  fallback: false,
+  previewSource: null,
+}));
 
 function fixtureTutorial(): Tutorial {
   return normalizeTutorial({
@@ -110,8 +124,8 @@ const summary: LessonSummary = {
   skillLevel: "beginner",
   status: "ready",
   projectStatus: "in-progress",
-  imageUrl: PLACEHOLDER,
-  thumbnailUrl: PLACEHOLDER,
+  imageUrl: REFERENCE_IMAGE,
+  thumbnailUrl: REFERENCE_IMAGE,
   favorite: false,
   collectionIds: [],
   tags: [],
@@ -119,7 +133,7 @@ const summary: LessonSummary = {
   createdAt: Date.now() - 86_400_000,
   updatedAt: Date.now(),
   lastOpenedAt: Date.now(),
-  progressionImages: [],
+  progressionImages: DEMO_TARGETS.map((target) => target.targetImageUrl ?? ""),
   notes: "",
   finishedImageUrl: null,
   aiCoachConversation: [],
@@ -132,7 +146,7 @@ const summary: LessonSummary = {
 export default function StabilityPreviewClient() {
   const tutorial = useMemo(() => fixtureTutorial(), []);
   const stages = useMemo(
-    () => buildProgression(tutorial, PLACEHOLDER, "watercolor", []),
+    () => buildProgression(tutorial, REFERENCE_IMAGE, "watercolor", DEMO_TARGETS),
     [tutorial],
   );
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("overview");
@@ -166,7 +180,7 @@ export default function StabilityPreviewClient() {
               summary={{ ...summary, projectStatus: status }}
               tutorial={tutorial}
               status={status}
-              masterImageUrl={PLACEHOLDER}
+              masterImageUrl={DEMO_TARGETS.at(-1)?.targetImageUrl ?? null}
               onBeginStudy={() => setTab("lesson")}
             />
           </div>
@@ -179,8 +193,8 @@ export default function StabilityPreviewClient() {
                 medium="watercolor"
                 compare={compare}
                 onCompareChange={setCompare}
-                referenceUrl={PLACEHOLDER}
-                masterImageUrl={PLACEHOLDER}
+                referenceUrl={REFERENCE_IMAGE}
+                masterImageUrl={DEMO_TARGETS.at(-1)?.targetImageUrl ?? REFERENCE_IMAGE}
                 projectStatus={status}
               />
             </TermBudgetProvider>

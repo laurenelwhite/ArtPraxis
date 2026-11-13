@@ -4,9 +4,9 @@ import { AppImage } from "@/components/ui/AppImage";
 // Horizontal editorial strip rather than a grid of cards.
 export function InspirationGallery() {
   return (
-    <section className="inspiration-strip" aria-label="Inspiration">
+    <section className="inspiration-strip" aria-labelledby="inspiration-title">
       <div className="section-heading">
-        <p className="eyebrow">Inspiration</p>
+        <h2 id="inspiration-title" className="eyebrow">Inspiration</h2>
       </div>
       <ul className="inspiration-track">
         {inspirationGallery.map((item) => (

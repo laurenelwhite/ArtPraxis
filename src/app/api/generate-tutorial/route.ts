@@ -1,7 +1,10 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+// Zod 4 ships a supported v3-compat entry point. OpenAI's structured-output
+// helper consumes v3-compatible schemas while the patched package removes the
+// vulnerable v3 runtime from the dependency tree.
+import { z } from "zod/v3";
 import { mediumSchema, tutorialSchema, normalizeTutorial } from "@/lib/tutorial-schema";
 import {
   approximateIncomingImageBytes,
@@ -9,7 +12,7 @@ import {
   resolveTutorialModel,
   tutorialUploadExceedsLimit,
 } from "@/lib/tutorial-generation-config";
-import { ApiError, apiErrorJson } from "@/lib/server/api-errors";
+import { ApiError, apiErrorJson, safeErrorDetails } from "@/lib/server/api-errors";
 import { authenticateRequest } from "@/lib/server/api-auth";
 import {
   isJsonObject,
@@ -180,12 +183,12 @@ export async function POST(request: NextRequest) {
       return apiErrorJson(error);
     }
 
-    console.error("Tutorial generation failed", error);
+    console.error("Tutorial generation failed", safeErrorDetails(error));
 
     if (error instanceof OpenAI.APIError) {
       return NextResponse.json(
         { error: error.code === "insufficient_quota"
-            ? "OpenAI API billing or quota is unavailable."
+            ? "Lesson creation is temporarily unavailable. Please try again later."
             : "The art analysis service could not complete this request." },
         { status: error.status || 500 }
       );
@@ -195,7 +198,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The tutorial request contained invalid information." }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Could not generate the tutorial. Check the server logs." }, { status: 500 });
+    return NextResponse.json({ error: "Could not create the lesson. Please try again." }, { status: 500 });
   } finally {
     await reservation?.release();
   }

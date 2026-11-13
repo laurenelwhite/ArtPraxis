@@ -23,7 +23,7 @@ export function StageCompletion({
         Review your work
       </h2>
       <p className="study-completion-lead">
-        Compare your painting with the final target. Ask what still reads weakly,
+        Compare your painting with the finished study. Ask what still reads weakly,
         what you would simplify next time, and where creative liberty served the piece.
       </p>
 
@@ -35,23 +35,11 @@ export function StageCompletion({
 
       <div className="stage-completion-actions study-completion-actions">
         <button type="button" className="primary btn-branded" onClick={onCompareFinished}>
-          Compare finished work
+          Compare with finished study
         </button>
         <button type="button" className="study-completion-secondary" onClick={onReviewPrevious}>
           Return to Plan
         </button>
-      </div>
-
-      <div
-        className="progress-final-placeholder study-completion-upload"
-        aria-labelledby="progress-final-upload-label"
-      >
-        <p id="progress-final-upload-label" className="progress-final-upload-label study-completion-upload-label">
-          Your finished work
-        </p>
-        <p className="progress-final-upload-hint study-completion-upload-hint">
-          Photo upload will live here — for now, mark your progress below.
-        </p>
       </div>
 
       {progressSlot ? (
