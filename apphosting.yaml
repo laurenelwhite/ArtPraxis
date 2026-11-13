@@ -1,44 +1,51 @@
-# deploy/v1-staging only. This file is the complete App Hosting configuration.
-# No environment overlay exists in this branch, so nothing is inherited.
-# Do not deploy this branch to the live production project or the live production backend.
-# The staging web app has no Analytics measurement ID. Do not add an OpenAI credential.
+# Production App Hosting configuration for the five-person V1 private beta.
+# The OpenAI key is a Cloud Secret Manager reference, never a plaintext value.
 runConfig:
   minInstances: 0
-  maxInstances: 1
+  maxInstances: 3
   concurrency: 40
   cpu: 1
   memoryMiB: 1024
 
 env:
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://artpraxis.art
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyBEkT9bXE2Xl9rYMKm5ACeA97l1QJcyIE8
+    value: AIzaSyDV6__bmRwibXGmF2iZMfDvWnA6bTLQkyw
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: artpraxis-staging-33840.firebaseapp.com
+    value: artpraxis-33840.firebaseapp.com
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: artpraxis-staging-33840
+    value: artpraxis-33840
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: artpraxis-staging-33840.firebasestorage.app
+    value: artpraxis-33840.firebasestorage.app
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "885971429905"
+    value: "411067288024"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:885971429905:web:609d4ee35609bb6b85dfb0"
+    value: "1:411067288024:web:7224224467163cbe374aad"
     availability:
       - BUILD
+      - RUNTIME
+  - variable: OPENAI_API_KEY
+    secret: artpraxis-openai-api-key
+    availability:
       - RUNTIME
   - variable: OPENAI_MODEL
     value: gpt-5-mini
@@ -52,8 +59,29 @@ env:
     value: gpt-4o-mini
     availability:
       - RUNTIME
+  - variable: OPENAI_TUTORIAL_IMAGE_DETAIL
+    value: high
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_STORE
+    value: firestore
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_TUTORIALS_PER_DAY
+    value: "2"
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_IMAGES_PER_DAY
+    # Two initial master paintings plus one learner-requested regeneration.
+    value: "3"
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_MAX_CONCURRENT
+    value: "1"
+    availability:
+      - RUNTIME
   - variable: ENABLE_STAGE_IMAGE_GEN
-    value: "false"
+    value: "true"
     availability:
       - BUILD
       - RUNTIME
@@ -68,22 +96,6 @@ env:
       - BUILD
       - RUNTIME
   - variable: STAGE_GEN_MAX_RETRIES
-    value: "0"
-    availability:
-      - RUNTIME
-  - variable: GEN_QUOTA_STORE
-    value: firestore
-    availability:
-      - RUNTIME
-  - variable: GEN_QUOTA_TUTORIALS_PER_DAY
-    value: "0"
-    availability:
-      - RUNTIME
-  - variable: GEN_QUOTA_IMAGES_PER_DAY
-    value: "0"
-    availability:
-      - RUNTIME
-  - variable: GEN_QUOTA_MAX_CONCURRENT
     value: "0"
     availability:
       - RUNTIME
