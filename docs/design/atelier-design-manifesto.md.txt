@@ -1,0 +1,492 @@
+# ArtPraxis Design Manifesto
+## Building the Digital Atelier
+
+## Purpose
+
+Emotional and UX north star for the digital atelier — how software should feel while teaching.
+
+## Related Documents
+
+- [START_HERE](../START_HERE.md)
+- [ArtPraxis Principles](../Product/ArtPraxis%20Principles.md)
+- [Component Principles](./component-principles.md)
+- [Lesson Standards](../Lesson%20Standards.md)
+- [Design Review Checklist](../DESIGN_REVIEW_CHECKLIST.md)
+- [Writing Style Guide](../Writing%20Style%20Guide.md)
+
+## Depends On
+
+[ArtPraxis Principles](../Product/ArtPraxis%20Principles.md)
+
+## Used By
+
+All lesson and marketing UI decisions.
+
+## Last Reviewed
+
+2026-07-23
+
+## Future Improvements
+
+Keep this document emotional; push checklists to Design Review Checklist.
+
+---
+
+**Version:** 1.0
+**Status:** Living document
+
+---
+
+# Mission
+
+ArtPraxis exists to recreate the feeling of learning beside a professional artist.
+
+The goal is **not** to build the best art learning platform.
+
+The goal is to build the world's most natural digital painting instructor.
+
+The application should disappear.
+
+The instructor should remain.
+
+Every interaction should make the user feel like they are sitting at a drafting table while an experienced painter quietly guides them through a painting.
+
+---
+
+# Core Principles
+
+## 1. Painting First
+
+The artwork is always the hero.
+
+Whenever there is competition between interface and artwork...
+
+The artwork wins.
+
+Ask:
+
+> "Is this helping the user paint?"
+
+If not, remove it.
+
+---
+
+## 2. Quiet Software
+
+Users should rarely think about the software.
+
+There should be:
+
+- fewer buttons
+- fewer borders
+- fewer labels
+- fewer status indicators
+- fewer notifications
+
+Every interface element must earn its place.
+
+---
+
+## 3. Progressive Teaching
+
+The lesson should unfold naturally.
+
+Never overwhelm the student with every stage.
+
+Reveal information exactly when it becomes useful.
+
+Think like an instructor.
+
+Not like a dashboard.
+
+---
+
+## 4. Calm > Fast
+
+Fast software is good.
+
+Calm software is unforgettable.
+
+Animations should reassure.
+
+Loading should reassure.
+
+Progress should reassure.
+
+Nothing should feel rushed.
+
+---
+
+# Emotional Goal
+
+When using ArtPraxis users should think:
+
+> "Someone is teaching me."
+
+Never:
+
+> "The AI is generating assets."
+
+The instructor is the product.
+
+AI is invisible.
+
+---
+
+# Interface Hierarchy
+
+Every lesson should prioritize content in this order.
+
+## 1
+
+Painting
+
+## 2
+
+Reference
+
+## 3
+
+Instruction
+
+## 4
+
+Navigation
+
+## 5
+
+System Status
+
+System information is always last.
+
+---
+
+# Design Language
+
+## Inspired by
+
+Apple
+
+Arc Browser
+
+Kinfolk
+
+Monocle
+
+Atelier sketchbooks
+
+Museum exhibition catalogs
+
+Luxury editorial layouts
+
+High-end coffee table art books
+
+Traditional watercolor instruction
+
+---
+
+## Avoid
+
+Learning Management Systems
+
+Project management tools
+
+Developer dashboards
+
+Enterprise software
+
+Course platforms
+
+Anything that resembles:
+
+- Jira
+- Asana
+- Trello
+- Coursera
+- Udemy
+
+---
+
+# Navigation Philosophy
+
+Users should never wonder:
+
+"Where do I click?"
+
+Instead they should feel:
+
+"I'll continue painting."
+
+Navigation should almost disappear.
+
+---
+
+# Progress Philosophy
+
+Progress exists only to reduce anxiety.
+
+It should never become the focus.
+
+Good progress:
+
+Current stage
+
+↓
+
+Preparing next demonstration
+
+↓
+
+Continue painting
+
+Bad progress:
+
+Percentages
+
+Pipelines
+
+Checklists
+
+Loading dashboards
+
+Developer terminology
+
+---
+
+# Loading Philosophy
+
+Never say:
+
+Generating...
+
+Processing...
+
+Building...
+
+Rendering...
+
+Instead use language an instructor would use.
+
+Examples
+
+Preparing your next demonstration
+
+Mixing the next wash
+
+Studying the reference
+
+Preparing the value map
+
+Building the next lesson
+
+---
+
+# Visual Density
+
+Target:
+
+30% less interface.
+
+50% more breathing room.
+
+Larger artwork.
+
+Smaller controls.
+
+More whitespace.
+
+More negative space.
+
+---
+
+# Borders
+
+Default:
+
+No border.
+
+If a border exists it must communicate grouping.
+
+Never decorate.
+
+---
+
+# Shadows
+
+Very soft.
+
+Almost invisible.
+
+Paper floating over paper.
+
+Never glassmorphism.
+
+Never heavy elevation.
+
+---
+
+# Motion
+
+Everything should emerge.
+
+Nothing should pop.
+
+Preferred motion:
+
+Fade
+
+Scale 0.98 → 1
+
+Y +8px → 0
+
+250–350ms
+
+Ease-out
+
+---
+
+# Typography
+
+Typography teaches hierarchy.
+
+Large serif:
+
+Painting titles
+
+Stage names
+
+Important educational moments
+
+Sans-serif:
+
+Navigation
+
+Metadata
+
+Status
+
+Controls
+
+Uppercase should be used sparingly.
+
+---
+
+# Color
+
+The artwork supplies most of the color.
+
+The interface stays quiet.
+
+Primary UI palette:
+
+Warm paper
+
+Deep navy
+
+Graphite
+
+Soft gray
+
+Only use accent colors when teaching.
+
+---
+
+# Stage Philosophy
+
+Each stage answers one question.
+
+Sketch
+
+"What am I drawing?"
+
+Value Map
+
+"What values matter?"
+
+First Wash
+
+"Where does paint begin?"
+
+Build Color
+
+"What relationships develop?"
+
+Refine
+
+"What deserves attention?"
+
+Finished
+
+"What have I learned?"
+
+---
+
+# Generation Philosophy
+
+Generation is never the experience.
+
+Teaching is the experience.
+
+Generation happens quietly in the background.
+
+Whenever possible:
+
+Continue teaching.
+
+Never interrupt.
+
+---
+
+# The Atelier Test
+
+Before merging any UI:
+
+Ask:
+
+Would this exist inside a printed atelier workbook?
+
+If no...
+
+Redesign it.
+
+---
+
+# The Museum Test
+
+Imagine this interface projected inside a museum exhibition.
+
+Would it feel timeless?
+
+Or would it feel like software?
+
+Choose timeless.
+
+---
+
+# The Instructor Test
+
+Every feature should answer:
+
+How would a professional instructor do this sitting beside the student?
+
+Then replicate that.
+
+Not the software.
+
+The instructor.
+
+---
+
+# Non-negotiables
+
+The painting is always the hero.
+
+One primary action per screen.
+
+Progress is subtle.
+
+Navigation is quiet.
+
+The software disappears.
+
+The instructor remains.

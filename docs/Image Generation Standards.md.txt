@@ -1,0 +1,3 @@
+# Canonical documentation moved
+
+**Use:** [Image Generation Standards.md](./Image%20Generation%20Standards.md)

@@ -1,0 +1,3 @@
+# Canonical documentation moved
+
+**Use:** [Lesson Standards.md](./Lesson%20Standards.md)

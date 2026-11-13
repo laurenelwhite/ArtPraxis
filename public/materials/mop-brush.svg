@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 240 240" role="img" aria-label="Mop brush">
+  <rect width="240" height="240" fill="#FAFAF8"/>
+  <rect x="12" y="12" width="216" height="216" rx="10" fill="#FCFCFA" stroke="#DDDAD4" stroke-width="1"/>
+  <g fill="none" stroke="#171717" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M120 38 L120 128"/>
+      <path d="M96 128 Q120 198 144 128 Z" fill="#E8E4DC"/>
+      <path d="M112 38 L128 38 L126 50 L114 50 Z" fill="#A35F38"/>
+      <path d="M104 150 Q120 168 136 150" stroke="#66635F" stroke-width="1.4"/>
+    </g>
+</svg>

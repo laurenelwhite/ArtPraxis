@@ -1,0 +1,23 @@
+□ Painting is largest object
+
+□ Only one primary CTA
+
+□ Progress is subtle
+
+□ No duplicate navigation
+
+□ Less than 3 visual emphasis levels
+
+□ Border necessary?
+
+□ Shadow necessary?
+
+□ Could whitespace solve this?
+
+□ Could typography solve this?
+
+□ Would this exist in an atelier workbook?
+
+□ Does this feel like software?
+
+□ Does this feel like a teacher?

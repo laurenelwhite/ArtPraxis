@@ -1,0 +1,101 @@
+# Production App Hosting configuration for the five-person V1 private beta.
+# The OpenAI key is a Cloud Secret Manager reference, never a plaintext value.
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+  concurrency: 40
+  cpu: 1
+  memoryMiB: 1024
+
+env:
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://artpraxis.art
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyDV6__bmRwibXGmF2iZMfDvWnA6bTLQkyw
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: artpraxis-33840.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: artpraxis-33840
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: artpraxis-33840.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "411067288024"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:411067288024:web:7224224467163cbe374aad"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: OPENAI_API_KEY
+    secret: artpraxis-openai-api-key
+    availability:
+      - RUNTIME
+  - variable: OPENAI_MODEL
+    value: gpt-5-mini
+    availability:
+      - RUNTIME
+  - variable: OPENAI_IMAGE_MODEL
+    value: gpt-image-1.5
+    availability:
+      - RUNTIME
+  - variable: OPENAI_VISION_MODEL
+    value: gpt-4o-mini
+    availability:
+      - RUNTIME
+  - variable: OPENAI_TUTORIAL_IMAGE_DETAIL
+    value: high
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_STORE
+    value: firestore
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_TUTORIALS_PER_DAY
+    value: "2"
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_IMAGES_PER_DAY
+    # Two initial master paintings plus one learner-requested regeneration.
+    value: "3"
+    availability:
+      - RUNTIME
+  - variable: GEN_QUOTA_MAX_CONCURRENT
+    value: "1"
+    availability:
+      - RUNTIME
+  - variable: ENABLE_STAGE_IMAGE_GEN
+    value: "true"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_ENABLE_AI_STAGE_REFINEMENT
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: ENABLE_AI_STAGE_REFINEMENT
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: STAGE_GEN_MAX_RETRIES
+    value: "0"
+    availability:
+      - RUNTIME

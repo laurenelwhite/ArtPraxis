@@ -1,0 +1,3 @@
+# Canonical documentation moved
+
+**Use:** [Accessibility.md](./Accessibility.md)

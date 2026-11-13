@@ -1,45 +1,120 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { mediumSchema, tutorialSchema } from "@/lib/tutorial-schema";
+// Zod 4 ships a supported v3-compat entry point. OpenAI's structured-output
+// helper consumes v3-compatible schemas while the patched package removes the
+// vulnerable v3 runtime from the dependency tree.
+import { z } from "zod/v3";
+import { mediumSchema, tutorialSchema, normalizeTutorial } from "@/lib/tutorial-schema";
+import {
+  approximateIncomingImageBytes,
+  parseTutorialImageDetail,
+  resolveTutorialModel,
+  tutorialUploadExceedsLimit,
+} from "@/lib/tutorial-generation-config";
+import { ApiError, apiErrorJson, safeErrorDetails } from "@/lib/server/api-errors";
+import { authenticateRequest } from "@/lib/server/api-auth";
+import {
+  isJsonObject,
+  readJsonWithByteLimit,
+  TUTORIAL_REQUEST_MAX_BYTES,
+} from "@/lib/server/read-json-body";
+import { tutorialModelConfigured } from "@/lib/server/generation-availability";
+import { quotaConfigFromEnv, type Reservation } from "@/lib/server/generation-quota";
+import { getSecurityDeps } from "@/lib/server/security-deps";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function jsonByteLength(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
 
 export async function POST(request: NextRequest) {
+  const requestStartedAt = Date.now();
+  let requestParseMs = 0;
+  let modelRequestMs = 0;
+  let normalizationMs = 0;
+  let incomingImageDataUrlChars = 0;
+  let approximateIncomingImageBytesEst = 0;
+  let medium: string | null = null;
+  let skillLevel: string | null = null;
+  let reservation: Reservation | null = null;
+  const model = resolveTutorialModel();
+  const imageDetail = parseTutorialImageDetail(process.env.OPENAI_TUTORIAL_IMAGE_DETAIL);
+
+  const logTiming = (extra: Record<string, unknown>) => {
+    console.warn(JSON.stringify({
+      scope: "generate-tutorial",
+      event: "tutorial_generation_timing",
+      requestParseMs,
+      incomingImageDataUrlChars,
+      approximateIncomingImageBytes: approximateIncomingImageBytesEst,
+      modelRequestMs,
+      normalizationMs,
+      totalMs: Date.now() - requestStartedAt,
+      model,
+      imageDetail,
+      medium,
+      skillLevel,
+      ...extra,
+      t: Date.now(),
+    }));
+  };
+
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+    const user = await authenticateRequest(request);
+
+    if (!tutorialModelConfigured()) {
+      return NextResponse.json(
+        { error: "Lesson writing is unavailable right now." },
+        { status: 500 },
+      );
     }
 
-    const body = await request.json();
-    const medium = mediumSchema.parse(body.medium);
-    const skillLevel = z.enum(["beginner", "intermediate", "advanced"])
+    const parseStarted = Date.now();
+    const parsed = await readJsonWithByteLimit(request, TUTORIAL_REQUEST_MAX_BYTES);
+    if (!isJsonObject(parsed)) {
+      throw new ApiError(400, "ERR_INVALID_REQUEST", "Request body must be a JSON object.");
+    }
+    const body = parsed;
+    medium = mediumSchema.parse(body.medium);
+    skillLevel = z.enum(["beginner", "intermediate", "advanced"])
       .parse(body.skillLevel || "beginner");
     const imageDataUrl = z.string().parse(body.imageDataUrl);
+    requestParseMs = Date.now() - parseStarted;
 
     if (!imageDataUrl.startsWith("data:image/")) {
+      logTiming({ success: false, reason: "invalid_image" });
       return NextResponse.json({ error: "A valid image is required." }, { status: 400 });
     }
 
-    const response = await client.responses.parse({
-      model: process.env.OPENAI_MODEL || "gpt-5-mini",
+    const imageSize = approximateIncomingImageBytes(imageDataUrl);
+    incomingImageDataUrlChars = imageSize.incomingImageDataUrlChars;
+    approximateIncomingImageBytesEst = imageSize.approximateIncomingImageBytes;
+    if (tutorialUploadExceedsLimit(imageDataUrl)) {
+      logTiming({ success: false, reason: "image_too_large" });
+      throw new ApiError(413, "ERR_IMAGE_TOO_LARGE", "Keep the reference under 10 MB.");
+    }
+
+    const deps = getSecurityDeps();
+    reservation = await deps.quotaStore.reserve(user.uid, "tutorial", quotaConfigFromEnv());
+
+    const modelStarted = Date.now();
+    const response = await deps.openai().responses.parse({
+      model,
       input: [
         {
           role: "system",
           content: [{
             type: "input_text",
             text: [
-              "You are ArtPraxis, an expert studio-art instructor and visual analyst.",
-              "Create a practical lesson grounded in visible evidence from the reference image.",
-              "Adapt materials, sequencing, cautions, and technique to the chosen medium.",
-              "Coordinates are percentages of image width and height, with 0,0 at top-left.",
-              "Use rectangles that meaningfully isolate visible regions.",
-              "Keep overlay labels short and do not invent unclear details.",
-              "Return the structured result only."
+              "You are ArtPraxis, a studio teacher.",
+              "Write concise, actionable, medium-specific instruction from visible evidence only.",
+              "Do not write essays or repeat the same observation across fields.",
+              "Overlay labels: 1–4 words. Coordinates are % of width/height, origin top-left.",
+              "Use rectangles that isolate visible regions. Do not invent unseen details.",
+              "Return the structured result only.",
             ].join(" ")
           }]
         },
@@ -50,31 +125,70 @@ export async function POST(request: NextRequest) {
               type: "input_text",
               text: [
                 `Create a ${skillLevel} ${medium} lesson with 6–10 ordered steps.`,
-                "Map the focal point, light direction, major shapes, shadows, midtones, highlights, and useful warm/cool regions.",
-                "For each step, provide a focus rectangle when a specific image region matters; otherwise use null.",
-                "Palette names in steps must exactly match names in the palette.",
-                "Tell the artist what to observe, mix, place, simplify, and check."
+                "Map focal point, light, major shapes, and value masses once — do not restate them in every field.",
+                "Each text field: one or two short sentences. Steps: what to observe, mix, place, and check.",
+                "Focus rectangle only when a specific region matters; otherwise null.",
+                "Palette step names must exactly match palette[].name.",
               ].join(" ")
             },
-            { type: "input_image", image_url: imageDataUrl, detail: "high" }
+            { type: "input_image", image_url: imageDataUrl, detail: imageDetail }
           ]
         }
       ],
       text: { format: zodTextFormat(tutorialSchema, "artpraxis_visual_tutorial") }
     });
+    modelRequestMs = Date.now() - modelStarted;
 
     if (!response.output_parsed) {
+      logTiming({ success: false, reason: "empty_parse" });
       return NextResponse.json({ error: "The model did not return a tutorial." }, { status: 502 });
     }
 
-    return NextResponse.json({ tutorial: response.output_parsed });
+    const normalizeStarted = Date.now();
+    const tutorial = normalizeTutorial(response.output_parsed);
+    normalizationMs = Date.now() - normalizeStarted;
+
+    const tutorialTiming = {
+      requestParseMs,
+      incomingImageDataUrlChars,
+      approximateIncomingImageBytes: approximateIncomingImageBytesEst,
+      modelRequestMs,
+      normalizationMs,
+      totalMs: Date.now() - requestStartedAt,
+      model,
+      imageDetail,
+      medium,
+      skillLevel,
+      stepCount: tutorial.steps.length,
+      paletteCount: tutorial.palette.length,
+      materialCount: tutorial.materials.length,
+      responseJsonBytes: jsonByteLength(tutorial),
+    };
+
+    logTiming({
+      success: true,
+      stepCount: tutorialTiming.stepCount,
+      paletteCount: tutorialTiming.paletteCount,
+      materialCount: tutorialTiming.materialCount,
+      responseJsonBytes: tutorialTiming.responseJsonBytes,
+    });
+
+    return NextResponse.json({ tutorial, tutorialTiming });
   } catch (error) {
-    console.error("Tutorial generation failed", error);
+    logTiming({
+      success: false,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    if (error instanceof ApiError) {
+      return apiErrorJson(error);
+    }
+
+    console.error("Tutorial generation failed", safeErrorDetails(error));
 
     if (error instanceof OpenAI.APIError) {
       return NextResponse.json(
         { error: error.code === "insufficient_quota"
-            ? "OpenAI API billing or quota is unavailable."
+            ? "Lesson creation is temporarily unavailable. Please try again later."
             : "The art analysis service could not complete this request." },
         { status: error.status || 500 }
       );
@@ -84,6 +198,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The tutorial request contained invalid information." }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Could not generate the tutorial. Check the server logs." }, { status: 500 });
+    return NextResponse.json({ error: "Could not create the lesson. Please try again." }, { status: 500 });
+  } finally {
+    await reservation?.release();
   }
 }

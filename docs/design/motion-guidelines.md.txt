@@ -1,0 +1,9 @@
+Fade
+
+250ms
+
+ease-out
+
+Y 8px
+
+Opacity 0→1

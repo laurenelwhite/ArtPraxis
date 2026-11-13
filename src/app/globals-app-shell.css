@@ -1,0 +1,958 @@
+/* ============================================================
+   Application shell — definitive architecture (2026)
+   Header is outside the scrollport; only .app-main scrolls.
+   Sticky offsets are relative to .app-main (not the viewport).
+   ============================================================ */
+
+/* App-shell variables now come from src/styles/artpraxis-tokens.css. */
+
+.app-shell{
+  display:flex !important;
+  flex-direction:column !important;
+  height:100dvh !important;
+  max-height:100dvh !important;
+  min-height:100dvh !important;
+  overflow:hidden !important;
+  background-color:var(--ap-shell-background) !important;
+  background-image:
+    linear-gradient(rgba(242,236,227,.56), rgba(242,236,227,.56)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.045 .62' numOctaves='4' seed='14' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .34 0 0 0 0 .27 0 0 0 0 .20 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='.38'/%3E%3C/svg%3E") !important;
+}
+
+.app-shell:has(.lesson-experience--generating) .app-header-nav,
+.app-shell:has(.lesson-experience--generating) .app-header-account{
+  opacity:0.48;
+  transition:opacity 0.45s ease;
+}
+
+.app-header{
+  position:relative !important;
+  z-index:var(--ap-shell-z-header);
+  flex:0 0 auto !important;
+  align-self:stretch;
+  width:100%;
+  box-sizing:border-box;
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  grid-template-areas:"brand nav account";
+  align-items:center;
+  column-gap:20px;
+  row-gap:0;
+  height:var(--app-topbar-h) !important;
+  min-height:var(--app-topbar-h) !important;
+  max-height:var(--app-topbar-h) !important;
+  padding:0 var(--ap-shell-page-padding-inline) !important;
+  background:var(--ap-shell-header-background);
+  border-bottom:1px solid var(--ap-shell-header-border);
+  box-shadow:var(--ap-shell-header-shadow);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.app-header-brand{
+  grid-area:brand;
+  display:flex;
+  align-items:center;
+  flex:none;
+  overflow:visible;
+  text-decoration:none;
+}
+.app-header-logo,
+.app-header-logo .ap-logo-img,
+.app-header-logo .ap-logo-adaptive-svg{
+  display:block;
+  height:var(--ap-shell-logo-height);
+  width:auto;
+  max-width:230px;
+  max-height:52px;
+  object-fit:contain;
+  object-position:left center;
+}
+.app-header-menu{
+  display:contents;
+}
+.app-header-nav{
+  grid-area:nav;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--ap-shell-nav-gap);
+  min-width:0;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.app-header-nav::-webkit-scrollbar{display:none}
+.app-header-link{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 15px;
+  min-height:42px;
+  border-radius:5px;
+  font-size:var(--text-ui);
+  font-weight:var(--weight-medium);
+  color:var(--ap-shell-nav-text);
+  transition:color .16s var(--ease), background .16s var(--ease);
+  white-space:nowrap;
+  text-underline-offset:0.2em;
+  flex:0 0 auto;
+}
+.app-header-link:hover{color:var(--ap-shell-nav-active-text); background:var(--ap-shell-nav-hover-background)}
+.app-header-link.is-active{
+  color:var(--ap-shell-nav-active-text);
+  font-weight:var(--weight-semibold);
+  box-shadow:inset 0 -3px 0 var(--ap-shell-nav-active-underline);
+  background:transparent;
+}
+.app-header-cta{
+  color:var(--ap-kit-paper);
+  font-weight:var(--weight-semibold);
+  gap:8px;
+  padding:9px 15px;
+  min-height:42px;
+}
+.app-header-cta .icon{
+  flex:none;
+  margin:0;
+}
+.app-header-cta,
+.app-header-cta:not(.is-active),
+.app-header-cta.is-active{
+  color:var(--ap-kit-paper) !important;
+  background:var(--ap-kit-ink) !important;
+  border:1px solid var(--ap-kit-ink) !important;
+  border-radius:5px;
+  box-shadow:none;
+}
+.app-header-cta:hover{
+  color:var(--ap-kit-paper) !important;
+  background:var(--action-primary-hover) !important;
+}
+.app-header-cta:focus-visible{
+  outline:2px solid var(--color-ultramarine);
+  outline-offset:2px;
+}
+.app-header-account{
+  grid-area:account;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:none;
+  min-width:0;
+  justify-self:end;
+}
+.app-header-user{
+  max-width:12rem;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:0.8125rem;
+  font-weight:var(--weight-medium);
+  color:var(--ap-shell-nav-text-muted);
+}
+.app-header-signout{
+  appearance:none;
+  border:0;
+  background:transparent;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 4px;
+  min-height:44px;
+  font:inherit;
+  font-size:0.8125rem;
+  font-weight:var(--weight-medium);
+  color:var(--ap-shell-nav-text-secondary);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.app-header-signout:hover{color:var(--ap-kit-earth)}
+.app-header-menu-toggle,
+.app-header-overlay{
+  display:none;
+}
+
+@media(max-width:900px){
+  .app-header{
+    grid-template-columns:auto minmax(0, 1fr) auto !important;
+    grid-template-areas:"brand nav account" !important;
+    height:var(--app-topbar-h) !important;
+    min-height:var(--app-topbar-h) !important;
+    max-height:var(--app-topbar-h) !important;
+    padding-block:0 !important;
+  }
+  .app-header-user{display:none}
+  .app-header-logo,
+  .app-header-logo .ap-logo-img,
+  .app-header-logo .ap-logo-adaptive-svg{
+    height:var(--ap-shell-logo-height-mobile);
+    max-height:36px;
+  }
+  .app-header{padding-inline:var(--ap-shell-page-padding-inline-tablet) !important}
+}
+
+.app-main{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  width:min(var(--ap-layout-app-max), 100%);
+  margin:0 auto;
+  padding:var(--app-main-pad-top) var(--app-main-pad-x) var(--app-main-pad-bottom) !important;
+  box-sizing:border-box;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  background:transparent !important;
+  scroll-padding-top:calc(var(--app-topbar-h) + var(--ap-shell-content-top-offset));
+}
+.lesson-shell{
+  display:grid;
+  gap:var(--space-3);
+  width:100%;
+  min-width:0;
+  background:var(--color-paper-white);
+  color:var(--text-primary);
+}
+.lesson-shell-head{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:var(--space-2) var(--space-4);
+  padding-bottom:0;
+  margin:0;
+}
+.lesson-shell-copy{
+  flex:1 1 18rem;
+  min-width:0;
+  display:grid;
+  gap:6px;
+}
+.lesson-shell-copy .lesson-breadcrumb{margin:0}
+.lesson-shell-copy .lesson-breadcrumb--secondary{
+  font-size:0.72rem;
+  opacity:0.55;
+  margin-bottom:2px;
+}
+.lesson-shell-copy .project-eyebrow{
+  margin:0;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  order:2;
+}
+.lesson-shell-title{
+  margin:0;
+  font-family:var(--serif);
+  font-size:clamp(1.2rem, 1.8vw, 1.55rem);
+  font-weight:var(--weight-medium);
+  line-height:1.2;
+  letter-spacing:-0.02em;
+  color:var(--brand-navy);
+  order:1;
+}
+.lesson-shell-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--space-2);
+  align-items:flex-start;
+  margin:0;
+  padding-top:2px;
+}
+.lesson-shell-body{
+  display:grid;
+  gap:0;
+  min-width:0;
+}
+
+/* Lesson section tabs + stage rail stay in document flow.
+   Do not re-sticky here — overlapping sticky chrome was the layout regression. */
+.lesson-shell .project-tabs,
+.lesson-view .project-tabs,
+.lesson-shell-tabs{
+  position:static !important;
+  top:auto !important;
+  z-index:var(--ap-lesson-nav-z) !important;
+  display:flex !important;
+  flex-wrap:nowrap;
+  gap:var(--ap-lesson-nav-gap);
+  margin:0 !important;
+  padding-inline:var(--ap-lesson-nav-padding-inline) !important;
+  padding-block:0 !important;
+  min-height:var(--ap-lesson-nav-height) !important;
+  height:auto;
+  align-items:stretch;
+  background:var(--ap-lesson-nav-background) !important;
+  border-bottom:1px solid var(--ap-lesson-nav-border);
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  overscroll-behavior-inline:contain;
+}
+.lesson-shell .project-tab,
+.lesson-view .project-tab{
+  font-size:0.83rem;
+  font-weight:600;
+  letter-spacing:0.015em;
+  padding:0 12px;
+  min-height:var(--ap-lesson-nav-height);
+  height:auto;
+  color:var(--ap-lesson-nav-text);
+  border:0;
+  background:var(--ap-lesson-nav-hover-background);
+  border-radius:0;
+  flex:0 1 auto;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+}
+.lesson-shell .project-tab.active,
+.lesson-view .project-tab.active{
+  color:var(--ap-lesson-nav-active-text);
+  font-weight:var(--weight-semibold);
+  box-shadow:inset 0 -3px 0 var(--ap-lesson-nav-active-rule);
+  background:transparent;
+}
+.lesson-shell .project-tab:disabled,
+.lesson-view .project-tab:disabled{
+  color:var(--ap-lesson-nav-text-muted);
+}
+
+.stage-scroll-nav,
+.study-mode--single .stage-scroll-nav,
+.study-mode--continuous .stage-scroll-nav,
+.paint-mode .stage-scroll-nav{
+  position:static !important;
+  top:auto !important;
+  z-index:var(--ap-stage-nav-z) !important;
+}
+
+.page-masthead.studio-masthead{
+  padding-bottom:var(--space-5);
+  border-bottom:1px solid var(--hairline);
+  margin-bottom:0;
+}
+.page-masthead.creator-header{
+  margin-bottom:var(--space-5);
+}
+.creator-back{display:none !important}
+
+.studio-home{
+  display:grid;
+  gap:var(--space-6);
+}
+
+@media(max-width:699px){
+  .app-main{padding-inline:var(--ap-shell-page-padding-inline-mobile) !important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .app-header-link{transition:none}
+}
+
+/* ============================================================
+   Approved brand kit 1.0 — application layout
+   Handcrafted paper, editorial hierarchy, and restrained pigment.
+   This layer intentionally changes presentation only; lesson flow,
+   tab semantics, and progression behavior remain authoritative.
+   ============================================================ */
+/* Approved brand-kit aliases now live in src/styles/artpraxis-tokens.css. */
+
+.app-header-brand{
+  min-width:clamp(168px,18vw,230px);
+}
+
+.app-main--lesson,
+.app-main:has(.lesson-view),
+.app-main:has(.lesson-shell){
+  width:min(var(--ap-layout-lesson-max),100%) !important;
+  max-width:var(--ap-layout-lesson-max) !important;
+  padding-top:clamp(16px,2.4vw,28px) !important;
+  padding-bottom:var(--space-7) !important;
+}
+
+.lesson-shell{
+  gap:0;
+  background:transparent !important;
+}
+.lesson-shell-head{
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  gap:12px 20px;
+  padding:0 0 14px;
+  border-bottom:1px solid var(--ap-kit-rule);
+}
+.lesson-shell-head::after{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-3px;
+  width:clamp(64px,10vw,120px);
+  height:6px;
+  background:url("/brand/brush-stroke-navy.svg") left center / 100% 100% no-repeat;
+  transform:rotate(-.4deg);
+  opacity:.55;
+}
+.lesson-shell-copy{
+  max-width:46rem;
+  gap:6px;
+}
+.lesson-shell .lesson-shell-title,
+.lesson-shell.lesson-view .lesson-title,
+.lesson-shell-title{
+  max-width:36ch;
+  color:var(--ap-kit-ink);
+  font-family:var(--artpraxis-font-display, var(--serif));
+  font-size:clamp(1.15rem,1.6vw,1.4rem);
+  font-weight:500;
+  line-height:1.22;
+  letter-spacing:-.02em;
+  text-wrap:balance;
+}
+.lesson-shell-copy .project-eyebrow{
+  color:var(--ap-kit-earth);
+  font-family:var(--artpraxis-font-ui, var(--sans));
+  font-size:.7rem;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:none;
+  opacity:.85;
+}
+.lesson-shell-actions{
+  align-self:start;
+  padding-top:2px;
+}
+.lesson-overflow-trigger{
+  color:var(--ap-kit-ink);
+  background:rgba(248,243,235,.68);
+  border-color:rgba(44,62,86,.22);
+  border-radius:5px;
+}
+
+.lesson-shell .project-tabs,
+.lesson-view .project-tabs,
+.lesson-shell-tabs{
+  min-height:var(--ap-lesson-nav-height) !important;
+  gap:var(--ap-lesson-nav-gap);
+  padding-inline:var(--ap-lesson-nav-padding-inline) !important;
+  border-bottom:1px solid var(--ap-lesson-nav-border);
+}
+.lesson-shell .project-tab,
+.lesson-view .project-tab{
+  min-height:var(--ap-lesson-nav-height);
+  padding-inline:4px;
+  color:var(--ap-lesson-nav-text);
+  font-size:0.83rem;
+  font-weight:600;
+  letter-spacing:0.015em;
+}
+.lesson-shell .project-tab.active,
+.lesson-view .project-tab.active{
+  color:var(--ap-lesson-nav-active-text);
+  box-shadow:inset 0 -3px 0 var(--ap-lesson-nav-active-rule);
+}
+.lesson-shell .project-tab:disabled{
+  color:var(--ap-lesson-nav-text-muted);
+}
+.lesson-shell-body{
+  padding-top:clamp(14px,2vw,24px);
+}
+/* Overview already presents the reference/final pair at full editorial scale. */
+.has-ref-dock:has(.project-overview--dashboard) .lesson-ref-dock{
+  display:none;
+}
+.has-ref-dock:has(.project-overview--dashboard) .lesson-shell-body{
+  padding-right:0;
+}
+
+.project-overview--dashboard{
+  grid-template-columns:minmax(0,1.28fr) minmax(300px,.72fr);
+  gap:var(--ap-overview-hero-gap);
+  align-items:start;
+  padding-top:0;
+}
+.overview-ref-pair{
+  min-width:0;
+}
+.overview-ref-pair .studio-ref-compare,
+.overview-ref-pair .studio-ref-panel{
+  background:var(--ap-overview-reference-surface);
+  border-color:var(--ap-overview-image-border);
+}
+.overview-ref-pair .studio-ref-img,
+.overview-ref-pair .artwork-frame,
+.overview-ref-pair .artwork-frame.cmp-frame{
+  max-height:none;
+  border-radius:var(--ap-overview-image-radius) !important;
+  border-color:var(--ap-overview-image-border) !important;
+  box-shadow:
+    0 0 0 7px rgba(248,243,235,.78),
+    0 0 0 8px rgba(44,62,86,.12),
+    var(--ap-overview-image-shadow) !important;
+}
+.overview-ref-pair .studio-ref-pair-figure--final .artwork-frame--painting{
+  border-color:var(--ap-overview-final-emphasis-border) !important;
+  background:var(--ap-overview-final-surface);
+}
+.overview-dashboard{
+  max-width:none;
+  gap:var(--ap-overview-meta-gap);
+  padding:var(--ap-overview-meta-gap);
+  border-left:1px solid var(--ap-overview-fact-border);
+  background:var(--ap-overview-dashboard-background);
+}
+.overview-entry-actions .overview-begin,
+.overview-entry-actions .ap-button-primary{
+  min-height:48px;
+  padding-inline:var(--ap-space-6);
+  border-radius:var(--ap-radius-small);
+  letter-spacing:.015em;
+}
+.overview-block{
+  gap:var(--ap-space-3);
+}
+.overview-summary{
+  color:var(--ap-kit-ink);
+  font-family:var(--serif);
+  font-size:clamp(1.18rem,1.65vw,1.5rem);
+  line-height:1.48;
+}
+.overview-meta{
+  gap:18px 24px;
+}
+.overview-meta dt,
+.overview-label,
+.overview-block .eyebrow,
+.overview-status .eyebrow{
+  color:var(--ap-overview-label);
+  letter-spacing:.04em;
+  text-transform:none;
+}
+.overview-meta dd{
+  color:var(--ap-kit-ink);
+  font-family:var(--serif);
+  font-size:1.05rem;
+  font-weight:500;
+}
+.overview-materials-list,
+.overview-skills-list,
+.overview-status-hint,
+.overview-liberty,
+.overview-orientation-lead{
+  color:var(--ap-overview-body);
+}
+.overview-status{
+  padding-block:var(--ap-space-5);
+  border-block:1px solid var(--ap-overview-fact-border);
+}
+.status-pill.not-started{
+  color:var(--ap-progress-status-not-started-text);
+  background:var(--ap-progress-status-not-started-background);
+  border-color:var(--ap-progress-status-not-started-border);
+}
+.status-pill.in-progress{
+  color:var(--ap-progress-status-in-progress-text);
+  background:var(--ap-progress-status-in-progress-background);
+  border-color:var(--ap-progress-status-in-progress-border);
+}
+.status-pill.completed{
+  color:var(--ap-progress-status-finished-text);
+  background:var(--ap-progress-status-finished-background);
+  border-color:var(--ap-progress-status-finished-border);
+}
+
+.studio-home,
+.lesson-creator,
+.studio-ref-page,
+.study-mode{
+  color:var(--ap-kit-ink);
+}
+.card,
+.lesson-card,
+.lead-project,
+.creator-panel{
+  border-color:rgba(44,62,86,.14);
+  background:rgba(248,243,235,.58);
+  box-shadow:none;
+}
+.study-mode--continuous .study-stage-section{
+  background:transparent !important;
+  border-color:transparent;
+  box-shadow:none;
+}
+.study-mode--continuous .study-stage-section{
+  border-bottom:1px solid var(--ap-study-stage-divider);
+}
+.study-mode--continuous .study-stage-section + .study-stage-section{
+  border-top:1px solid var(--ap-study-stage-divider);
+}
+.paint-mode .paint-stage-section{
+  background:transparent !important;
+  border-color:transparent;
+  box-shadow:none;
+}
+
+/* Approved three-pigment loading experience. */
+.lesson-experience--generating .atelier-wait-panel,
+.creator--generating .atelier-wait-panel{
+  position:relative;
+  padding:var(--ap-loading-panel-padding);
+  max-width:none;
+  border:1px solid var(--ap-loading-panel-border);
+  border-radius:var(--ap-radius-control);
+  background:var(--ap-loading-panel-background);
+  box-shadow:var(--ap-loading-panel-shadow);
+  overflow:hidden;
+}
+.lesson-experience--generating .atelier-wait-panel::before,
+.creator--generating .atelier-wait-panel::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.18;
+  background:
+    radial-gradient(ellipse at 12% 16%, rgba(218,163,90,.34), transparent 32%),
+    radial-gradient(ellipse at 92% 78%, rgba(162,74,58,.22), transparent 34%);
+}
+.atelier-wait-panel > *{position:relative;z-index:1}
+.lesson-experience--generating .atelier-wait-heading,
+.creator--generating .atelier-wait-heading{
+  color:var(--ap-kit-ink) !important;
+  font-size:clamp(1.75rem, 3.2vw, 2.75rem) !important;
+  font-weight:500 !important;
+  line-height:1.08 !important;
+  letter-spacing:-.02em;
+}
+.lesson-experience--generating .atelier-wait-body,
+.creator--generating .atelier-wait-body{
+  color:rgba(44,62,86,.78) !important;
+}
+.atelier-pigment-loader{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:clamp(14px,2vw,22px);
+  width:min(100%,330px);
+  min-height:82px;
+  margin:var(--ap-space-2) 0 0;
+  padding:var(--ap-space-3) var(--ap-space-5) var(--ap-space-5);
+}
+.atelier-pigment-drop{
+  position:relative;
+  z-index:2;
+  display:block;
+  width:46px;
+  aspect-ratio:1;
+  border-radius:46% 54% 48% 52% / 52% 43% 57% 48%;
+  box-shadow:
+    inset 7px 8px 10px rgba(255,255,255,.24),
+    inset -7px -8px 12px rgba(18,24,28,.24),
+    0 8px 12px rgba(44,62,86,.15);
+  transform:rotate(-8deg);
+}
+.atelier-pigment-drop::after{
+  content:"";
+  position:absolute;
+  inset:9px 10px auto auto;
+  width:11px;
+  height:7px;
+  border-radius:50%;
+  background:rgba(255,255,255,.28);
+  transform:rotate(18deg);
+}
+.atelier-pigment-drop.is-ochre{background:var(--color-yellow-ochre)}
+.atelier-pigment-drop.is-earth{background:var(--color-red-earth);transform:rotate(7deg)}
+.atelier-pigment-drop.is-indigo{background:var(--color-atelier-navy);transform:rotate(-2deg)}
+.atelier-pigment-spread{
+  position:absolute;
+  z-index:1;
+  left:12px;
+  right:0;
+  bottom:12px;
+  height:14px;
+  border-radius:60% 42% 64% 38%;
+  background:linear-gradient(90deg,var(--color-yellow-ochre) 0 30%,var(--color-red-earth) 35% 63%,var(--color-atelier-navy) 68% 100%);
+  opacity:.82;
+  transform:skewX(-12deg) rotate(-1deg);
+  filter:saturate(.92);
+}
+.atelier-pigment-caption{
+  margin:-4px 0 var(--ap-space-1) 18px;
+  color:var(--ap-kit-earth);
+  font-family:var(--serif);
+  font-size:1rem;
+  font-style:italic;
+  letter-spacing:.01em;
+}
+.atelier-pigment-caption span{color:var(--color-brush-brown)}
+.atelier-wait-track{
+  background:var(--ap-loading-progress-track) !important;
+}
+.atelier-wait-track-fill{
+  background:var(--ap-loading-progress-fill) !important;
+}
+.atelier-pipeline{
+  border-radius:var(--ap-radius-control) !important;
+  border-color:var(--ap-loading-step-border) !important;
+  background:rgba(242,236,227,.62) !important;
+}
+.atelier-studio-tip{
+  border-radius:var(--ap-radius-control) !important;
+  color:var(--ap-kit-ink);
+  background:var(--ap-loading-tip-background) !important;
+}
+
+@media(prefers-reduced-motion:no-preference){
+  .atelier-pigment-drop{
+    animation:ap-pigment-breathe 2.8s ease-in-out infinite;
+  }
+  .atelier-pigment-drop.is-earth{animation-delay:.18s}
+  .atelier-pigment-drop.is-indigo{animation-delay:.36s}
+}
+@keyframes ap-pigment-breathe{
+  0%,100%{transform:translateY(0) rotate(-5deg)}
+  50%{transform:translateY(-2px) rotate(1deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  .atelier-pigment-drop{animation:none !important}
+}
+@media(max-width:640px){
+  .lesson-experience--generating .atelier-wait-panel,
+  .creator--generating .atelier-wait-panel{
+    padding:var(--ap-loading-panel-padding-mobile);
+  }
+}
+
+@media(max-width:980px){
+  .project-overview--dashboard{
+    grid-template-columns:1fr;
+    gap:var(--ap-overview-hero-gap-mobile);
+  }
+  .overview-dashboard{
+    width:min(760px,100%);
+    padding:var(--ap-space-7) 0 0;
+    border-left:0;
+    border-top:1px solid var(--ap-overview-fact-border);
+    background:transparent;
+  }
+  .overview-ref-pair{
+    grid-template-columns:1fr;
+  }
+}
+
+@media(max-width:760px){
+  :root{--app-topbar-h:var(--ap-shell-header-height-mobile)}
+  .app-shell:has(.app-header.is-menu-open) .app-main{
+    overflow:hidden !important;
+  }
+  /* Overlay is a header sibling at z=55. Raise the whole header stacking
+     context while the menu is open so Sign out / nav links receive clicks. */
+  .app-header.is-menu-open{
+    z-index:var(--ap-shell-z-menu);
+  }
+  .app-header{
+    grid-template-columns:minmax(0,1fr) auto !important;
+    grid-template-areas:"brand menu" !important;
+    align-items:center;
+    padding-inline:var(--ap-shell-page-padding-inline-mobile) !important;
+    column-gap:10px;
+  }
+  .app-header-menu{
+    display:none;
+  }
+  .app-header.is-menu-open .app-header-menu{
+    position:fixed;
+    top:calc(var(--app-topbar-h) + 8px);
+    right:var(--ap-shell-page-padding-inline-mobile);
+    left:var(--ap-shell-page-padding-inline-mobile);
+    z-index:var(--ap-shell-z-menu);
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:none;
+    gap:12px;
+    width:auto;
+    max-width:var(--ap-shell-menu-width);
+    margin-left:auto;
+    padding:16px;
+    border:1px solid var(--ap-shell-header-border);
+    border-radius:14px;
+    background:var(--ap-shell-menu-background);
+    box-shadow:var(--ap-shell-menu-shadow);
+    max-height:calc(100dvh - var(--app-topbar-h) - 24px);
+    overflow:auto;
+  }
+  /* Desktop named areas (nav/account) must not apply inside the mobile panel,
+     or Sign out stacks under Create a lesson and becomes untappable. */
+  .app-header.is-menu-open .app-header-nav,
+  .app-header.is-menu-open .app-header-account{
+    grid-area:auto;
+    justify-self:stretch;
+    width:100%;
+  }
+  .app-header-overlay{
+    display:block;
+    position:fixed;
+    inset:var(--app-topbar-h) 0 0;
+    z-index:var(--ap-shell-z-overlay);
+    border:0;
+    background:var(--ap-shell-overlay-background);
+    cursor:pointer;
+  }
+  .app-header-menu-toggle{
+    grid-area:menu;
+    appearance:none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:44px;
+    padding:0 12px;
+    border:1px solid var(--ap-shell-header-border);
+    border-radius:5px;
+    background:rgba(248,243,235,.68);
+    color:var(--ap-shell-nav-active-text);
+    font:inherit;
+    font-size:0.875rem;
+    font-weight:var(--weight-semibold);
+    line-height:1;
+  }
+  .app-header-menu-label{display:inline}
+  .app-header-nav{
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:8px;
+    overflow:visible;
+  }
+  .app-header-link,
+  .app-header-cta{
+    width:100%;
+    justify-content:flex-start;
+    min-height:44px;
+    padding-inline:14px;
+  }
+  .app-header-link span{display:inline}
+  .app-header-account{
+    display:grid;
+    gap:8px;
+    padding-top:12px;
+    border-top:1px solid var(--ap-shell-divider);
+    justify-self:stretch;
+  }
+  .app-header-user{
+    display:block;
+    max-width:none;
+    font-size:0.875rem;
+  }
+  .app-header-signout{
+    min-height:44px;
+    padding:0 14px;
+    border:1px solid transparent;
+    border-radius:5px;
+    justify-content:flex-start;
+  }
+  .lesson-shell .project-tabs.lesson-shell-tabs{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:10px !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    scrollbar-width:none !important;
+    -ms-overflow-style:none;
+    overscroll-behavior-inline:contain;
+    touch-action:pan-x;
+  }
+  .lesson-shell .project-tabs.lesson-shell-tabs::-webkit-scrollbar{
+    display:none !important;
+    width:0 !important;
+    height:0 !important;
+  }
+  .lesson-shell .project-tabs.lesson-shell-tabs .project-tab{
+    flex:0 0 auto !important;
+    padding-inline:12px !important;
+    white-space:nowrap;
+  }
+  .app-header-brand{min-width:0}
+  .app-header-logo,
+  .app-header-logo .ap-logo-img,
+  .app-header-logo .ap-logo-adaptive-svg{
+    height:var(--ap-shell-logo-height-mobile);
+    max-height:38px;
+    max-width:128px;
+  }
+  .app-main--lesson,
+  .app-main:has(.lesson-view),
+  .app-main:has(.lesson-shell){
+    padding-top:16px !important;
+  }
+  .lesson-shell-head{
+    align-items:start;
+    gap:10px;
+    padding-bottom:12px;
+  }
+  .lesson-shell-title{
+    max-width:100%;
+    text-wrap:balance;
+    font-size:clamp(1.1rem,5.5vw,1.35rem);
+    line-height:1.2;
+  }
+  .lesson-shell .project-tabs,
+  .lesson-shell-tabs{
+    min-height:var(--ap-lesson-nav-height) !important;
+  }
+  .lesson-shell .project-tab{
+    min-height:var(--ap-lesson-nav-height);
+    padding-inline:8px;
+  }
+  .lesson-shell-body{padding-top:12px}
+  .overview-dashboard{padding-top:24px}
+  .overview-meta--dash{grid-template-columns:1fr 1fr}
+}
+
+@media(min-width:481px) and (max-width:760px){
+  .app-header-menu{
+    width:min(28rem, calc(100vw - 2 * var(--ap-shell-page-padding-inline-mobile)));
+  }
+}
+
+@media(max-width:480px){
+  .app-header-menu-toggle{padding-inline:10px}
+  .app-header-menu-label{display:none}
+}
+
+/* ============================================================
+   Mobile and tablet polish — shell gutters and menu (2026)
+   ============================================================ */
+
+@media(max-width:980px){
+  :root{
+    --app-main-pad-x:var(--ap-shell-page-padding-inline-tablet);
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-tablet);
+  }
+}
+
+@media(max-width:760px){
+  :root{
+    --app-main-pad-x:var(--ap-shell-page-padding-inline-mobile);
+    --ap-page-gutter-current:var(--ap-shell-page-padding-inline-mobile);
+    --ap-mobile-fab-clearance:96px;
+  }
+  .app-header.is-menu-open .app-header-menu{
+    top:max(
+      calc(var(--app-topbar-h) + 8px),
+      calc(var(--ap-safe-area-top) + var(--app-topbar-h) + 4px)
+    );
+    max-height:calc(
+      100dvh - var(--app-topbar-h) - max(16px, var(--ap-safe-area-bottom)) - 8px
+    );
+    padding-bottom:max(16px, var(--ap-safe-area-bottom));
+  }
+  .app-header-menu-toggle{
+    min-width:var(--ap-mobile-control-min-height);
+  }
+}

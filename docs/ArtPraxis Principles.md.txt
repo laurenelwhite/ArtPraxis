@@ -1,0 +1,5 @@
+# Canonical documentation moved
+
+**Use:** [Product/ArtPraxis Principles.md](./Product/ArtPraxis%20Principles.md)
+
+This `.md.txt` outline is preserved historically. New philosophy work goes in the Product path.

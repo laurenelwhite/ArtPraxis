@@ -1,0 +1,5 @@
+# Canonical documentation moved
+
+**Use:** [START_HERE.md](./START_HERE.md)
+
+This `.md.txt` file is retained so old links do not break. Do not edit this stub for new content.

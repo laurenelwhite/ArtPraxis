@@ -1,0 +1,36 @@
+"use client";
+
+import { type ProjectStatus } from "@/lib/lessons";
+
+function statusLabel(status: ProjectStatus): string {
+  if (status === "not-started") return "Not started";
+  if (status === "in-progress") return "In progress";
+  return "Finished";
+}
+
+/**
+ * Compact end-of-lesson progress hint.
+ * Authoritative status + upload live on the Progress tab — no duplicate controls.
+ */
+export function AtelierRibbon({
+  status,
+}: {
+  status: ProjectStatus;
+  onStatusChange?: (next: ProjectStatus) => void;
+  saving?: boolean;
+}) {
+  return (
+    <aside
+      className="progress-ribbon progress-ribbon--hint atelier-ribbon atelier-ribbon--hint"
+      aria-label="Progress"
+    >
+      <p className="progress-ribbon-summary atelier-ribbon-summary">
+        <span className="progress-ribbon-kicker atelier-ribbon-kicker">Progress</span>
+        <span className="progress-ribbon-status atelier-ribbon-status">{statusLabel(status)}</span>
+      </p>
+      <p className="progress-ribbon-hint atelier-ribbon-hint">
+        Use the Progress tab to keep this lesson’s status current.
+      </p>
+    </aside>
+  );
+}

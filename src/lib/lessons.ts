@@ -1,0 +1,314 @@
+"use client";
+
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Medium, Tutorial } from "@/lib/tutorial-schema";
+import { withNormalizedMaterials } from "@/lib/tutorial-schema";
+import type { BrandThemeStored } from "@/lib/branding/brand-theme";
+import { buildLessonShellFields, normalizedTutorialWithTitle } from "@/lib/lesson-creation";
+
+// Generation/image lifecycle of the reference asset.
+export type LessonStatus = "generating" | "ready" | "error";
+
+// The creative workflow status the artist moves a project through.
+export type ProjectStatus = "not-started" | "in-progress" | "completed";
+
+export const projectStatusLabels: Record<ProjectStatus, string> = {
+  "not-started": "Not started",
+  "in-progress": "In progress",
+  completed: "Finished",
+};
+
+/** Adaptive logo fields — computed once from the accepted/usable master. */
+export type LessonBrandFields = {
+  brandAccent: string | null;
+  brandTheme: BrandThemeStored | null;
+};
+
+// Lightweight card model the dashboard lists. The heavy `tutorial` object is
+// stored separately at `users/{uid}/projects/{id}/detail/tutorial` so listing
+// never has to download it (the web SDK cannot field-mask reads).
+export interface LessonSummary {
+  id: string;
+  userId: string;
+  title: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  medium: Medium;
+  skillLevel: string;
+  status: LessonStatus;
+  projectStatus: ProjectStatus;
+  favorite: boolean;
+  collectionIds: string[];
+  tags: string[];
+  titleLower: string;
+  createdAt: number | null;
+  updatedAt: number | null;
+  lastOpenedAt: number | null;
+  // Visual Progression: per-stage AI images, indexed 0..5 to match the six
+  // fixed stages. Empty in v1 (placeholders render); a later milestone writes
+  // generated URLs here and the UI swaps automatically.
+  progressionImages: string[];
+  // --- Reserved for future milestones (persisted now, not yet surfaced in UI) ---
+  notes: string;
+  finishedImageUrl: string | null;
+  aiCoachConversation: unknown[];
+  completionPercentage: number;
+  /** Hex accent from master painting; null until lesson branding is computed. */
+  brandAccent: string | null;
+  /** Full brush-mark theme snapshot (medium + texture + accent). */
+  brandTheme: BrandThemeStored | null;
+}
+
+export interface LessonDetail {
+  summary: LessonSummary;
+  tutorial: Tutorial | null;
+}
+
+function projectsCol(uid: string) {
+  return collection(db, "users", uid, "projects");
+}
+
+function summaryRef(uid: string, id: string) {
+  return doc(db, "users", uid, "projects", id);
+}
+
+function tutorialRef(uid: string, id: string) {
+  return doc(db, "users", uid, "projects", id, "detail", "tutorial");
+}
+
+function toMillis(value: unknown): number | null {
+  if (value && typeof (value as { toMillis?: () => number }).toMillis === "function") {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return null;
+}
+
+// Tolerant of legacy documents that stored the tutorial inline and lacked the
+// denormalized card fields.
+function toSummary(snap: QueryDocumentSnapshot<DocumentData> | { id: string; data: () => DocumentData }): LessonSummary {
+  const data = snap.data();
+  const inlineTutorial = data.tutorial as Tutorial | undefined;
+  return {
+    id: snap.id,
+    userId: data.userId ?? "",
+    title: data.title ?? inlineTutorial?.title ?? "Untitled lesson",
+    thumbnailUrl: data.thumbnailUrl ?? data.imageUrl ?? "",
+    imageUrl: data.imageUrl ?? "",
+    medium: (data.medium ?? "watercolor") as Medium,
+    skillLevel: data.skillLevel ?? "beginner",
+    status: (data.status ?? data.imageStatus ?? "ready") as LessonStatus,
+    projectStatus: (data.projectStatus ?? "not-started") as ProjectStatus,
+    favorite: Boolean(data.favorite),
+    collectionIds: data.collectionIds ?? [],
+    tags: data.tags ?? [],
+    titleLower: data.titleLower ?? "",
+    createdAt: toMillis(data.createdAt),
+    updatedAt: toMillis(data.updatedAt),
+    lastOpenedAt: toMillis(data.lastOpenedAt),
+    progressionImages: Array.isArray(data.progressionImages) ? data.progressionImages : [],
+    notes: data.notes ?? "",
+    finishedImageUrl: data.finishedImageUrl ?? null,
+    aiCoachConversation: data.aiCoachConversation ?? [],
+    completionPercentage: data.completionPercentage ?? 0,
+    brandAccent: typeof data.brandAccent === "string" ? data.brandAccent : null,
+    brandTheme:
+      data.brandTheme &&
+      typeof data.brandTheme === "object" &&
+      typeof (data.brandTheme as BrandThemeStored).accentColor === "string"
+        ? (data.brandTheme as BrandThemeStored)
+        : null,
+  };
+}
+
+export async function getRecentLessons(uid: string, max = 12): Promise<LessonSummary[]> {
+  // The `userId` equality filter is required, not optional: the security rule
+  // gates reads on `resource.data.userId == request.auth.uid`, and Firestore
+  // rejects any list query that isn't provably constrained to match that rule.
+  const snap = await getDocs(
+    query(projectsCol(uid), where("userId", "==", uid), orderBy("updatedAt", "desc"), limit(max))
+  );
+  return snap.docs.map(toSummary);
+}
+
+export async function getLesson(uid: string, id: string): Promise<LessonDetail | null> {
+  const summarySnap = await getDoc(summaryRef(uid, id));
+  if (!summarySnap.exists()) return null;
+
+  const data = summarySnap.data();
+  let tutorial = (data.tutorial as Tutorial | undefined) ?? null;
+  if (!tutorial) {
+    const detailSnap = await getDoc(tutorialRef(uid, id));
+    tutorial = detailSnap.exists() ? ((detailSnap.data().tutorial as Tutorial) ?? null) : null;
+  }
+  if (tutorial) {
+    tutorial = withNormalizedMaterials(tutorial);
+  }
+
+  return { summary: toSummary(summarySnap), tutorial };
+}
+
+/** Lightweight project row so upload and tutorial generation can overlap. */
+export async function createLessonShell(
+  uid: string,
+  input: { medium: Medium; skillLevel: string },
+): Promise<string> {
+  const created = await addDoc(projectsCol(uid), {
+    ...buildLessonShellFields(uid, input),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    lastOpenedAt: serverTimestamp(),
+  });
+  return created.id;
+}
+
+/** Persist the generated tutorial without marking the lesson ready. */
+export async function attachLessonTutorial(
+  uid: string,
+  id: string,
+  tutorial: Tutorial,
+): Promise<void> {
+  const { tutorial: normalized, title, titleLower } = normalizedTutorialWithTitle(tutorial);
+  await Promise.all([
+    setDoc(tutorialRef(uid, id), { tutorial: normalized }),
+    updateDoc(summaryRef(uid, id), {
+      title,
+      titleLower,
+      updatedAt: serverTimestamp(),
+    }),
+  ]);
+}
+
+/**
+ * Write tutorial + reference URL in one summary update so the lesson is never
+ * marked ready without both prerequisites.
+ */
+export async function persistLessonCreationAssets(
+  uid: string,
+  id: string,
+  input: { tutorial: Tutorial; imageUrl: string },
+): Promise<{ tutorialPersistMs: number; referenceAttachMs: number }> {
+  const { tutorial: normalized, title, titleLower } = normalizedTutorialWithTitle(input.tutorial);
+  const tutorialStarted = Date.now();
+  await setDoc(tutorialRef(uid, id), { tutorial: normalized });
+  const tutorialPersistMs = Date.now() - tutorialStarted;
+  const attachStarted = Date.now();
+  await updateDoc(summaryRef(uid, id), {
+    title,
+    titleLower,
+    imageUrl: input.imageUrl,
+    thumbnailUrl: input.imageUrl,
+    status: "ready" as LessonStatus,
+    updatedAt: serverTimestamp(),
+  });
+  const referenceAttachMs = Date.now() - attachStarted;
+  return { tutorialPersistMs, referenceAttachMs };
+}
+
+export async function markLessonGenerationError(uid: string, id: string): Promise<void> {
+  await updateDoc(summaryRef(uid, id), {
+    status: "error" as LessonStatus,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function createLesson(
+  uid: string,
+  input: { medium: Medium; skillLevel: string; tutorial: Tutorial }
+): Promise<string> {
+  const id = await createLessonShell(uid, { medium: input.medium, skillLevel: input.skillLevel });
+  await attachLessonTutorial(uid, id, input.tutorial);
+  return id;
+}
+
+/** Read only adaptive branding fields (cheap when summary is not already loaded). */
+export async function getLessonBrand(
+  uid: string,
+  id: string,
+): Promise<LessonBrandFields | null> {
+  const snap = await getDoc(summaryRef(uid, id));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return {
+    brandAccent: typeof data.brandAccent === "string" ? data.brandAccent : null,
+    brandTheme:
+      data.brandTheme &&
+      typeof data.brandTheme === "object" &&
+      typeof (data.brandTheme as BrandThemeStored).accentColor === "string"
+        ? (data.brandTheme as BrandThemeStored)
+        : null,
+  };
+}
+
+/**
+ * Persist adaptive branding once the master painting is usable.
+ * Callers should avoid rewriting when sourceMasterUrl is unchanged.
+ */
+export async function persistLessonBrand(
+  uid: string,
+  id: string,
+  fields: LessonBrandFields,
+): Promise<void> {
+  await updateDoc(summaryRef(uid, id), {
+    brandAccent: fields.brandAccent,
+    brandTheme: fields.brandTheme,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function attachLessonImage(
+  uid: string,
+  id: string,
+  imageUrl: string,
+  status: LessonStatus = "ready",
+): Promise<void> {
+  await updateDoc(summaryRef(uid, id), {
+    imageUrl,
+    thumbnailUrl: imageUrl,
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function markLessonOpened(uid: string, id: string): Promise<void> {
+  await updateDoc(summaryRef(uid, id), { lastOpenedAt: serverTimestamp() });
+}
+
+export async function setProjectStatus(uid: string, id: string, projectStatus: ProjectStatus): Promise<void> {
+  await updateDoc(summaryRef(uid, id), { projectStatus, updatedAt: serverTimestamp() });
+}
+
+// Reserved for the upcoming Favorites feature.
+export async function toggleFavorite(uid: string, id: string, favorite: boolean): Promise<void> {
+  await updateDoc(summaryRef(uid, id), { favorite, updatedAt: serverTimestamp() });
+}
+
+export function formatLessonDate(ms: number | null): string {
+  if (!ms) return "Just now";
+  const diff = Date.now() - ms;
+  const day = 86_400_000;
+  if (diff < day) return "Today";
+  if (diff < 2 * day) return "Yesterday";
+  if (diff < 7 * day) return `${Math.floor(diff / day)} days ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function formatFullDate(ms: number | null): string {
+  if (!ms) return "—";
+  return new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}

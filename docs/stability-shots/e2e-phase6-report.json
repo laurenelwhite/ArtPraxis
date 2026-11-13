@@ -1,0 +1,386 @@
+{
+  "okExisting": true,
+  "okNew": true,
+  "existing": {
+    "lessonId": "z18kzOR6So0eV1xCQQRc",
+    "probe": {
+      "href": "http://localhost:3000/studio/lessons/z18kzOR6So0eV1xCQQRc",
+      "notFound": false,
+      "preparing": false,
+      "studyMode": true,
+      "stageSections": 6,
+      "stageScrollNav": true,
+      "lessonLoading": false,
+      "finalPaintingPlaceholder": false,
+      "hasMasterImg": true,
+      "tabs": [
+        {
+          "id": "lesson-tab-overview",
+          "text": "Overview",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-lesson",
+          "text": "Lesson",
+          "disabled": false,
+          "selected": true
+        },
+        {
+          "id": "lesson-tab-reference",
+          "text": "Studio Reference",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-materials",
+          "text": "Materials",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-progress",
+          "text": "Progress",
+          "disabled": false,
+          "selected": false
+        }
+      ],
+      "lockedTabCount": 0,
+      "bodySnippet": "ArtPraxis\nStudio\nCreate a lesson\nLauren White\nSign out\nBeginner Pastel: Shovel and Wood Panel — simplified, tonal study\nPastel\n·\nBeginner\n·\n~120 MIN\nNOT STARTED\n⋯\nMore lesson actions\nOverview\nLesson\nStudio Reference\nMaterials\nProgress\nMore options\n1\nDrawing\n2\nValues\n3\nBlock-in\n4\nForm\n5\nEdges\n6\nFinal\n\nSTAGE 1 OF 6\n\nDrawing\n\nTransfer the composition accurately without over-drawing\n\nFINAL PAINTING\nCompare while you work\nReference Photo\nDestination for Drawing. Open to compare with this stage.\n\nTHIS STAGE\n\nREFERENCE\nshovel blade\nhandles\nshovel blade\nPick a color\nDRAWING\nTOOLS\n\nTODAY’S FOCUS\n\nPlace the large shapes lightly. Keep marks soft enough to adjust.\n\nTECHNIQUE\n\nTransfer the construction d"
+    },
+    "afterRefresh": {
+      "href": "http://localhost:3000/studio/lessons/z18kzOR6So0eV1xCQQRc",
+      "notFound": false,
+      "preparing": false,
+      "studyMode": true,
+      "stageSections": 6,
+      "stageScrollNav": true,
+      "lessonLoading": false,
+      "finalPaintingPlaceholder": false,
+      "hasMasterImg": true,
+      "tabs": [
+        {
+          "id": "lesson-tab-overview",
+          "text": "Overview",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-lesson",
+          "text": "Lesson",
+          "disabled": false,
+          "selected": true
+        },
+        {
+          "id": "lesson-tab-reference",
+          "text": "Studio Reference",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-materials",
+          "text": "Materials",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-progress",
+          "text": "Progress",
+          "disabled": false,
+          "selected": false
+        }
+      ],
+      "lockedTabCount": 0,
+      "bodySnippet": "ArtPraxis\nStudio\nCreate a lesson\nLauren White\nSign out\nBeginner Pastel: Shovel and Wood Panel — simplified, tonal study\nPastel\n·\nBeginner\n·\n~120 MIN\nNOT STARTED\n⋯\nMore lesson actions\nOverview\nLesson\nStudio Reference\nMaterials\nProgress\nMore options\n1\nDrawing\n2\nValues\n3\nBlock-in\n4\nForm\n5\nEdges\n6\nFinal\n\nSTAGE 1 OF 6\n\nDrawing\n\nTransfer the composition accurately without over-drawing\n\nFINAL PAINTING\nCompare while you work\nReference Photo\nDestination for Drawing. Open to compare with this stage.\n\nTHIS STAGE\n\nREFERENCE\nshovel blade\nhandles\nshovel blade\nPick a color\nDRAWING\nTOOLS\n\nTODAY’S FOCUS\n\nPlace the large shapes lightly. Keep marks soft enough to adjust.\n\nTECHNIQUE\n\nTransfer the construction d"
+    },
+    "screenshot": "C:\\Users\\Laure\\My Drive\\ArtPraxis\\01_Product\\ArtPraxis-GitHub\\docs\\stability-shots\\e2e-existing-z18.png",
+    "refreshShot": "C:\\Users\\Laure\\My Drive\\ArtPraxis\\01_Product\\ArtPraxis-GitHub\\docs\\stability-shots\\e2e-existing-z18-refresh.png"
+  },
+  "created": {
+    "lessonId": "HNGyPwrZyGpFdDAVyRBc",
+    "probe": {
+      "href": "http://localhost:3000/studio/lessons/HNGyPwrZyGpFdDAVyRBc",
+      "notFound": false,
+      "preparing": false,
+      "studyMode": true,
+      "stageSections": 6,
+      "stageScrollNav": true,
+      "lessonLoading": false,
+      "finalPaintingPlaceholder": false,
+      "hasMasterImg": true,
+      "tabs": [
+        {
+          "id": "lesson-tab-overview",
+          "text": "Overview",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-lesson",
+          "text": "Lesson",
+          "disabled": false,
+          "selected": true
+        },
+        {
+          "id": "lesson-tab-reference",
+          "text": "Studio Reference",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-materials",
+          "text": "Materials",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-progress",
+          "text": "Progress",
+          "disabled": false,
+          "selected": false
+        }
+      ],
+      "lockedTabCount": 0,
+      "bodySnippet": "ArtPraxis\nStudio\nCreate a lesson\nLauren White\nSign out\nSimple Still-Life Study in a Limited Watercolor Palette\nWatercolor\n·\nBeginner\n·\n~90 MIN\nNOT STARTED\n⋯\nMore lesson actions\nOverview\nLesson\nStudio Reference\nMaterials\nProgress\nMore options\n\nPreparing Drawing\n\n0 of 6 readyYour lesson stays open while plates arrive.\n\n1\nDrawing\n2\nValues\n3\n1st wash\n4\nDevelop\n5\nRefine\n6\nFinal\n\nSTAGE 1 OF 6\n\nDrawing\n\nTransfer the composition accurately without over-drawing\n\nFINAL PAINTING\nCompare while you work\nReference Photo\nDestination for Drawing. Open to compare with this stage.\n\nTHIS STAGE\n\nREFERENCE\nstudy paper\nbrush jar\npalette & knife\npaper & small…\nPick a color\nDRAWING\n\nSketch arriving…\n\nTOOLS\n\nTODAY’S"
+    },
+    "afterRefresh": {
+      "href": "http://localhost:3000/studio/lessons/HNGyPwrZyGpFdDAVyRBc",
+      "notFound": false,
+      "preparing": false,
+      "studyMode": true,
+      "stageSections": 6,
+      "stageScrollNav": true,
+      "lessonLoading": false,
+      "finalPaintingPlaceholder": false,
+      "hasMasterImg": true,
+      "tabs": [
+        {
+          "id": "lesson-tab-overview",
+          "text": "Overview",
+          "disabled": false,
+          "selected": true
+        },
+        {
+          "id": "lesson-tab-lesson",
+          "text": "Lesson",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-reference",
+          "text": "Studio Reference",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-materials",
+          "text": "Materials",
+          "disabled": false,
+          "selected": false
+        },
+        {
+          "id": "lesson-tab-progress",
+          "text": "Progress",
+          "disabled": false,
+          "selected": false
+        }
+      ],
+      "lockedTabCount": 0,
+      "bodySnippet": "ArtPraxis\nStudio\nCreate a lesson\nLauren White\nSign out\nSimple Still-Life Study in a Limited Watercolor Palette\nWatercolor\n·\nBeginner\n·\n~90 MIN\nNOT STARTED\n⋯\nMore lesson actions\nOverview\nLesson\nStudio Reference\nMaterials\nProgress\nREFERENCE PHOTO\nFINAL PAINTING\nBegin lesson\n\nLESSON SUMMARY\n\nA beginner watercolor lesson using the reference image as a guide. Work from big shapes and light to small details. Limit yourself to Indigo, Yellow Ochre and Red Earth on warm paper; reserve 'white' as the paper’s tone. Build washes, establish midtones and shadows, then add glazes and drybrush accents.\n\nESTIMATED TIME\nAbout 90 min\nDIFFICULTY\nBeginner\nMEDIUM\nWatercolor\n\nMATERIALS\n\n300gsm cold-pressed waterc"
+    },
+    "screenshot": "C:\\Users\\Laure\\My Drive\\ArtPraxis\\01_Product\\ArtPraxis-GitHub\\docs\\stability-shots\\e2e-new-lesson.png",
+    "refreshShot": "C:\\Users\\Laure\\My Drive\\ArtPraxis\\01_Product\\ArtPraxis-GitHub\\docs\\stability-shots\\e2e-new-lesson-refresh.png",
+    "orchestration": {
+      "leaseLoops": 1,
+      "invokeCount": 7,
+      "sample": [
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonCreator\",\"event\":\"progression_seeded\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\"}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\"}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\"}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"pending\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: pending, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, event: invoke_orchestrateProgression, masterStatus: pending, hasValidGeneratedMaster: false, staleGenerating: false}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"generation_request_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"staleGenerating\":false,\"inMemoryMasterUrl\":false}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"trigger_evaluated\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasTutorial\":true,\"hasMedium\":true,\"hasReferenceUrl\":true,\"forceRegenerate\":false,\"t\":1785051517134}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"progression_hydration_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"t\":1785051517137}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"pending\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"masterStatus\":\"pending\",\"hasMasterImageUrl\":false,\"t\":1785051517200}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: pending, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"pending\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"master_generation_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"size\":\"1536x1024\",\"t\":1785051517421}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"generating\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: pending, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: generating, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"generation_request_started\",\"mode\":\"master\",\"stageId\":null,\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasMaster\":false,\"t\":1785051517605}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"generating\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: generating, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"master_response_received\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"generated\":true,\"masterNeedsReview\":true,\"masterValidated\":false,\"t\":1785051621756}"
+        },
+        {
+          "type": "warning",
+          "text": "[progression] master validation {\"verdict\":\"needs_review\",\"severity\":\"hard_fail\",\"reasons\":[\"A major subject was DELETED; the flowers in the candidate are not present in the anchor.\"],\"checks\":{\"crop\":\"pass\",\"aspectRatio\":\"pass\",\"subjectCount\":\"hard_fail\",\"subjectPlacement\":\"pass\",\"perspective\":\"pass\",\"horizon\":\"pass\",\"embeddedText\":\"pass\"},\"horizonApplicability\":\"not_applicable\"}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: ready, hasReference: true, hasValidGeneratedMaster: true, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"generating\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: generating, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"generating\",\"hasMasterImageUrl\":false,\"regenerationState\":\"idle\",\"hydratedValid\":false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: generating, hasReference: true, hasValidGeneratedMaster: false, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"ready\",\"hasMasterImageUrl\":true,\"regenerationState\":\"idle\",\"hydratedValid\":true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"master_persisted\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"masterStatus\":\"ready\",\"hasMasterImageUrl\":true,\"t\":1785051624575}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"master_generation_timing\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"apiMs\":104151,\"uploadMs\":1489,\"totalMs\":107155,\"serverTiming\":{\"referenceFetchMs\":1891,\"editMs\":86446,\"validationMs\":12478,\"totalMs\":100824,\"attempts\":2},\"model\":\"gpt-image-1\",\"input_fidelity\":\"high\",\"retry_count\":1,\"validation_result\":\"hard_fail\",\"t\":1785051624576}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"initial_or_orchestrated\",\"event\":\"regeneration.timing_snapshot\",\"regeneration.total_ms\":107155,\"regeneration.master_generation_ms\":86446,\"regeneration.validation_ms\":12478,\"regeneration.storage_ms\":1489,\"regeneration.reference_fetch_ms\":1891,\"regeneration.retry_count\":1,\"regeneration.validation_result\":\"hard_fail\",\"regeneration.model\":\"gpt-image-1\",\"regeneration.input_fidelity\":\"high\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"t\":1785051624576}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"progression\",\"event\":\"master_preview_derivation_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"stageCount\":6,\"t\":1785051624583}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: ready, hasReference: true, hasValidGeneratedMaster: true, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"ready\",\"hasMasterImageUrl\":true,\"regenerationState\":\"idle\",\"hydratedValid\":true}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: ready, hasReference: true, hasValidGeneratedMaster: true, masterRequestInFlight: true}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\"}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_started\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\"}"
+        },
+        {
+          "type": "warning",
+          "text": "{\"scope\":\"LessonView\",\"event\":\"progression_hydration_resolved\",\"projectId\":\"HNGyPwrZyGpFdDAVyRBc\",\"hasDoc\":true,\"masterStatus\":\"ready\",\"hasMasterImageUrl\":true,\"regenerationState\":\"idle\",\"hydratedValid\":true}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, masterStatus: ready, hasReference: true, hasValidGeneratedMaster: true, masterRequestInFlight: false}"
+        },
+        {
+          "type": "info",
+          "text": "[lesson-generation] {projectId: HNGyPwrZyGpFdDAVyRBc, event: invoke_orchestrateProgression, masterStatus: ready, hasValidGeneratedMaster: true, staleGenerating: false}"
+        }
+      ]
+    }
+  },
+  "existingGenNoise": [],
+  "errors": {
+    "consoleErrors": [
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2Fz18kzOR6So0eV1xCQQRc%2FPXL_20260520_220230880.LONG_EXPOSURE-01.COVER.jpg?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2Fz18kzOR6So0eV1xCQQRc%2FPXL_20260520_220230880.LONG_EXPOSURE-01.COVER.jpg?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fartpraxis-brand-kit-final.png?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fartpraxis-brand-kit-final.png?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fartpraxis-brand-kit-final.png?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fstages%2Fmaster.webp?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fstages%2Fmaster.webp?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fstages%2Fmaster.webp?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to image at 'https://firebasestorage.googleapis.com/v0/b/artpraxis-33840.firebasestorage.app/o/users%2F57bl0kcKzzg428X9G5aeEh2dFwY2%2Fprojects%2FHNGyPwrZyGpFdDAVyRBc%2Fartpraxis-brand-kit-final.png?alt=media&token=[REDACTED]' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED"
+    ],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  "okNewCriterion": "studyMode+6stages+refresh+leaseLoops<=2"
+}

@@ -1,0 +1,7 @@
+# Notes / changelog
+
+Canonical production guide:
+
+→ [Image Generation Standards.md](../Image%20Generation%20Standards.md)
+
+Keep brief pipeline learnings here if needed; do not fork conflicting rules.

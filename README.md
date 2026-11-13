@@ -1,6 +1,6 @@
-# ArtPraxis Complete Visual V1
+# ArtPraxis V1
 
-This is the complete ArtPraxis project with the original MVP and Visual Tutorial V1 already merged.
+ArtPraxis turns a reference image into a personalized, stage-by-stage painting lesson.
 
 ## Start fresh
 
@@ -10,7 +10,7 @@ This is the complete ArtPraxis project with the original MVP and Visual Tutorial
 
 2. Open that extracted folder in Cursor or VS Code. Open the folder that directly contains `package.json`.
 
-3. Create `.env.local` beside `package.json` using `.env.example` as the template. Add your Firebase web configuration and your new OpenAI API key. Never paste the key into chat.
+3. Create `.env.local` beside `package.json` using `.env.example` as the template. Add your Firebase web configuration and an OpenAI API key for local server-side use. Never commit the populated file or expose the key through a `NEXT_PUBLIC_` variable.
 
 4. Open **Command Prompt** in the project folder and run:
 
@@ -31,6 +31,24 @@ This is the complete ArtPraxis project with the original MVP and Visual Tutorial
 - Visual shape, value, and warm/cool overlays
 - Palette and mixing cards
 - Step timeline and image-region highlights
+
+## Validate
+
+```cmd
+npm run lint
+npm run typecheck
+npm test
+npm run test:firestore-rules
+npm run test:storage-rules
+npm run build
+```
+
+The Firebase rules checks use local emulators and require a supported Java
+runtime on `PATH`. They do not connect to or change production data.
+
+## Production
+
+The checked-in `apphosting.yaml` is staging-only and intentionally disables paid generation. See `docs/V1_PRODUCTION_HANDOFF.md` and `apphosting.production.example.yaml` before creating a production rollout. Validate the completed environment-specific file with `npm run validate:production -- path/to/apphosting.production.yaml`.
 
 ## Important
 
