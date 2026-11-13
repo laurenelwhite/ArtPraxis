@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "ArtPraxis",
     short_name: "ArtPraxis",
     description:
-      "Personalized painting lessons built around deliberate practice.",
+      "Personalized, stage-by-stage art lessons for seven painting and drawing media.",
     start_url: "/",
     display: "standalone",
     background_color: "#F2ECE3",

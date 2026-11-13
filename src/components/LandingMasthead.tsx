@@ -60,7 +60,8 @@ export function LandingMasthead() {
       <nav className="masthead-nav" aria-label="Primary">
         <div id={linksId} className="masthead-nav-links">
           <a href="#how" onClick={() => setOpen(false)}>How it works</a>
-          <a href="#inspiration" onClick={() => setOpen(false)}>Inspiration</a>
+          <a href="#what-you-get" onClick={() => setOpen(false)}>What you get</a>
+          <a href="#media" onClick={() => setOpen(false)}>Mediums</a>
         </div>
         <Link href="/studio" className="masthead-signin">Sign in</Link>
         <Link href="/studio/new" className="btn-solid btn-branded">Create a lesson</Link>

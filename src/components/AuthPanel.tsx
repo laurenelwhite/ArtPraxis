@@ -60,7 +60,7 @@ export function AuthPanel({ initialError = null }: { initialError?: string | nul
         <p className="ap-auth-lead">
           {isSignIn
             ? "Sign in to open your studio and continue your lessons."
-            : "Create an account to save lessons and track your progress."}
+            : "Create an account to turn your own references into guided painting and drawing lessons, save them, and track your progress."}
         </p>
       </header>
 
